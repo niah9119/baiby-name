@@ -78,8 +78,12 @@ for i in $(seq 1 "$MAX"); do
 
   # Fresh Claude Code instance via local Qwen. stream-json captures EVERY tool call, so we
   # get an audit trail and can verify the agent actually ran the build (not just claimed to).
+  # Cap per-response output so input + max_tokens can never exceed the model's 131K context
+  # (uncapped, Claude Code asks for 64K output and vLLM hard-rejects once input passes ~67K).
+  # Hard time budget so a non-converging agent can't hold the GPU indefinitely.
   sed "s/{{ISSUE}}/$N/g" "$PROMPT_TMPL" \
-    | claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
+    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384 timeout 45m \
+        claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
     | tee "$log" >/dev/null || true
 
   # --- post-run audit (only lines starting with '{' are JSON) ---

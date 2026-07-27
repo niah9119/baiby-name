@@ -17,9 +17,15 @@ gh issue view {{ISSUE}}
 - Read `CONTEXT.md` (the domain glossary — its terminology is binding) and every ADR under
   `docs/adr/`. The ADRs contain hard rules; do not violate them.
 - Start from a clean, current main and work on a dedicated branch:
-  `git checkout main && git pull --ff-only && git checkout -b issue-{{ISSUE}}`
+  `git checkout main && git pull --ff-only && git checkout -B issue-{{ISSUE}}`
+  (`-B` also works when the branch already exists, e.g. after a crashed earlier attempt.
+  Untracked files from an earlier attempt may be present — inspect and build on them.)
 
 ## Hard rules
+
+- CONSERVE YOUR CONTEXT: your context window is limited and long command output can crash
+  your session. ALWAYS pipe potentially long output through tail, e.g.
+  `./mvnw verify -B 2>&1 | tail -100` — never dump a full build log into the conversation.
 
 - Implement exactly what the issue asks — its **Requirements** and **Acceptance criteria**
   define done. Keep changes minimal and follow existing conventions.
