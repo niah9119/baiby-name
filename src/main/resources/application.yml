@@ -14,6 +14,9 @@ spring:
     username: baibyname
     password: baibyname
     driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
   flyway:
     enabled: true
     baseline-on-migrate: true
