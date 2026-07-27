@@ -1,0 +1,3 @@
+# Server-rendered Java monolith instead of a separate JavaScript frontend
+
+The web app is one Spring Boot (Java 21) application serving Thymeleaf pages with HTMX for interactivity and Tailwind for styling, backed by PostgreSQL; the offline import pipeline is Python. We rejected a Spring API + Next.js split because the product is a solo-maintained, SEO-dependent service: server rendering makes the thousands of per-name landing pages native and fast, and a second Node/TypeScript codebase would double the ops and maintenance burden for a maintainer whose language is Java. If a future feature genuinely outgrows HTMX, extract that page — not the whole product.

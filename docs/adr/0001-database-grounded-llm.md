@@ -1,0 +1,3 @@
+# The LLM is database-grounded: it never invents candidates and never writes data at runtime
+
+Every name shown to a user comes from the name database; the LLM narrows filters, re-ranks small candidate sets, and explains — it never generates candidate names. Likewise, LLM-generated data (Style Attributes, Famous Bearer seeds) enters the database only through an offline, human-reviewable import step; the runtime LLM has a strictly read-only relationship with the database. We chose this over a chat-generates-names design because a local mid-size model confidently hallucinates names and statistics, and grounding turns hallucination from a correctness bug into a non-issue.
