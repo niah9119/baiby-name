@@ -1,7 +1,5 @@
 # Build artifacts
 target/
-.mvn/
-!.mvn/wrapper/maven-wrapper.jar
 
 # IDE
 .idea/
