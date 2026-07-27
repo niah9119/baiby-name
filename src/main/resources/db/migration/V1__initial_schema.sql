@@ -1,0 +1,2 @@
+-- Initial schema for BaibyName application
+-- This file will be expanded as the application grows

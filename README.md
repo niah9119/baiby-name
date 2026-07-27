@@ -19,7 +19,7 @@ I'm planning to use LLM Gemma-4 (google/gemma-4-26B-A4B-it)
 Boy or Girl
 ### Country (Multi select) Think we start with Sweden, Norway, Denmark, England and USA.
 If selecting Sweden, names common in Sweden should be input to LLM
-### Celebrity (has sub sategories)
+### Celebrity (has sub categories)
 If a famous person has the name (Ex Leo Messi)
 #### Royalty
 If a royal person has the name (Ex King Charles)
