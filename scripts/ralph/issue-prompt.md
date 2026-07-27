@@ -39,6 +39,10 @@ gh issue view {{ISSUE}}
 - Do NOT touch issues, branches, or files belonging to other work. Do NOT force-push.
   Do NOT change git remotes or repo settings.
 
+- NEVER make a test conditional, skipped, or disabled to get a green build
+  (no @Disabled, no @EnabledIf..., no pytest.skip). A test that does not run is a
+  failure, not a success — if you cannot make it pass, report BLOCKED instead.
+
 ## When the work is done and the build/tests pass
 
 1. Make sure build artifacts and local state (`target/`, `node_modules/`, `.venv/`, logs)
