@@ -31,13 +31,15 @@ gh issue view {{ISSUE}}
   define done. Keep changes minimal and follow existing conventions.
 - Write the tests the acceptance criteria describe. You MUST actually RUN them and see them
   pass before committing — never claim success without running them:
-  - Java work: `./mvnw verify` (the Maven Wrapper is committed once issue #1 is merged;
-    issue #1 itself creates it).
+  - Java work: `./mvnw verify` (the committed Maven Wrapper — never install system Maven).
   - Pipeline work under `pipeline/`: use that directory's venv and pytest as its README says.
 - ALL Python implementation work runs inside the owning directory's virtual environment
   (e.g. `pipeline/.venv`) — never install packages into system Python.
 - Do NOT touch issues, branches, or files belonging to other work. Do NOT force-push.
   Do NOT change git remotes or repo settings.
+- CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
+  containers (`docker compose up`) to check something, stop them again before you finish —
+  never leave a server holding port 8080 or a database container running.
 
 - NEVER make a test conditional, skipped, or disabled to get a green build
   (no @Disabled, no @EnabledIf..., no pytest.skip). A test that does not run is a
