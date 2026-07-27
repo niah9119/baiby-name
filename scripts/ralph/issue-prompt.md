@@ -41,7 +41,9 @@ gh issue view {{ISSUE}}
 
 ## When the work is done and the build/tests pass
 
-1. Commit on your branch with a message referencing the issue:
+1. Make sure build artifacts and local state (`target/`, `node_modules/`, `.venv/`, logs)
+   are covered by `.gitignore` — create/extend it if needed. Then check `git status` and
+   commit on your branch with a message referencing the issue:
    `git add -A && git commit -m "Implement #{{ISSUE}}: <short summary>"`
 2. Push the branch and open a pull request:
    `git push -u origin issue-{{ISSUE}}`
