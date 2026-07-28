@@ -71,6 +71,8 @@ for i in $(seq 1 "$MAX"); do
   # Claim it: drop from the queue so a crash/failure can't get it re-picked forever.
   gh issue edit "$N" --remove-label "$QUEUE_LABEL" --add-label in-progress >/dev/null
   echo "claimed #$N  (removed '$QUEUE_LABEL', added 'in-progress')"
+  # Labels and the project board's Status field are independent; keep them in sync.
+  "$SCRIPT_DIR/set-status.sh" "$N" "In progress"
 
   ts=$(date +%Y%m%d-%H%M%S)
   log="$LOG_DIR/issue-$N-$ts.jsonl"
@@ -98,6 +100,11 @@ for i in $(seq 1 "$MAX"); do
     echo "-- VERIFIED: agent ran the build/test runner:"; echo "$verify_cmds" | sed 's/^/     $ /'
   else
     echo "-- NOTE: no mvnw/pytest tool call seen for #$N (fine for docs-only tasks; suspicious for code tasks)"
+  fi
+
+  # Board status follows the label the agent left behind: handed over for review, or still ours.
+  if gh issue view "$N" --json labels --jq '.labels[].name' | grep -qx "ready-for-human"; then
+    "$SCRIPT_DIR/set-status.sh" "$N" "In review"
   fi
 
   # Completion signal is advisory only — GitHub labels are the source of truth.
