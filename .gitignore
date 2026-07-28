@@ -45,3 +45,13 @@ coverage/
 
 # Claude Code local settings (per-machine, not shared)
 .claude/settings.local.json
+
+# Python pipeline
+pipeline/.venv/
+pipeline/data/
+pipeline/pipeline/__pycache__/
+pipeline/tests/__pycache__/
+
+# Coverage
+coverage/
+.jacoco/
