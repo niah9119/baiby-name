@@ -102,7 +102,7 @@ When processing the complete SSA archive, here are the actual row counts:
 | Year | Names in yob{year}.txt | Rows after normalize | Notes |
 |------|-----------------------|---------------------|-------|
 | 1880 | 2,000 | 2,000 | First year in dataset |
-| 1920 | 27,456 | 27,456 | |
+| 1920 | 10,756 | 10,756 | |
 | 2023 | 31,830 | 31,830 | |
 
 After loading all 146 years into the database:
