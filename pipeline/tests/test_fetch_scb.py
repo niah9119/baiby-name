@@ -1,123 +1,98 @@
-"""Tests for the SCB fetch module."""
+"""Tests for the Sweden (SCB) workbook fetch.
+
+The fetch is local-first: a workbook already on disk is reused, and the network is
+only touched when there is nothing local. These tests cover both paths plus the
+guards that stop an HTML error page being written out as if it were data.
+"""
 
 from unittest import mock
 
 import pytest
+from requests.exceptions import RequestException
 
 from pipeline.fetch_scb import (
-    fetch_scb_categories,
-    fetch_scb_data,
-    fetch_scb_tables,
-    fetch_swedish_tables,
-    query_scb_table,
-    verify_api_access,
+    MIN_PLAUSIBLE_SIZE,
+    SCB_WORKBOOK_FILENAME,
+    SCB_WORKBOOK_URL,
+    XLSX_CONTENT_TYPE,
+    download_scb_archive,
+    local_workbook,
 )
 
 
-class TestSCBAPI:
-    """Tests for the SCB API functionality."""
-
-    @mock.patch("pipeline.fetch_scb.requests.get")
-    def test_fetch_scb_categories(self, mock_get):
-        """Test fetching SCB categories."""
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = [
-            {"id": "BE0001", "text": "Name statistics"},
-            {"id": "BE0101", "text": "Population statistics"},
-        ]
-        mock_response.raise_for_status = mock.MagicMock()
-        mock_get.return_value = mock_response
-
-        categories = fetch_scb_categories()
-        assert "BE0001" in categories
-        assert categories["BE0001"] == "Name statistics"
-
-    @mock.patch("pipeline.fetch_scb.requests.get")
-    def test_fetch_scb_tables(self, mock_get):
-        """Test fetching SCB tables under BE0001."""
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = [
-            {"id": "BE0001D", "text": "Newborn - Old tables not updated"},
-            {"id": "BE0001G", "text": "All registered persons - Old tables not updated"},
-        ]
-        mock_response.raise_for_status = mock.MagicMock()
-        mock_get.return_value = mock_response
-
-        tables = fetch_scb_tables()
-        assert len(tables) > 0
-        assert "BE0001D" in tables
-
-    @mock.patch("pipeline.fetch_scb.requests.get")
-    def test_fetch_swedish_tables(self, mock_get):
-        """Test fetching tables from Swedish endpoint."""
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = [
-            {"id": "BE0001D", "text": "Nyfödda - Äldre tabeller"},
-        ]
-        mock_response.raise_for_status = mock.MagicMock()
-        mock_get.return_value = mock_response
-
-        tables = fetch_swedish_tables()
-        assert len(tables) > 0
-        assert "BE0001D" in tables
-
-    @mock.patch("pipeline.fetch_scb.requests.get")
-    def test_verify_api_access(self, mock_get):
-        """Test API access verification."""
-        # Mock multiple responses
-        mock_responses = [
-            mock.MagicMock(  # English root
-                status_code=200,
-                json=lambda: [{"dbid": "ssd", "text": "Statistics Sweden"}],
-                raise_for_status=mock.MagicMock(),
-            ),
-            mock.MagicMock(  # Name statistics
-                status_code=200,
-                json=lambda: [{"id": "BE0001D", "text": "Old tables"}],
-                raise_for_status=mock.MagicMock(),
-            ),
-        ]
-        mock_get.side_effect = mock_responses
-
-        results = verify_api_access()
-        assert "api_available" in results
-        assert "findings" in results
-        assert len(results["findings"]) > 0
-
-    @mock.patch("pipeline.fetch_scb.requests.post")
-    def test_query_scb_table(self, mock_post):
-        """Test querying SCB table with POST request."""
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = {
-            "columns": [{"code": "Tid", "text": "year"}],
-            "data": [],
-        }
-        mock_response.raise_for_status = mock.MagicMock()
-        mock_post.return_value = mock_response
-
-        query = {"query": [], "response": {"format": "json"}}
-        result = query_scb_table("BE0101H", query)
-
-        assert "columns" in result
+def _response(content=b"x" * MIN_PLAUSIBLE_SIZE, content_type=XLSX_CONTENT_TYPE):
+    r = mock.Mock()
+    r.content = content
+    r.headers = {"Content-Type": content_type}
+    r.raise_for_status = mock.Mock()
+    return r
 
 
-class TestSCBConfiguration:
-    """Tests for SCB configuration values."""
+class TestLocalWorkbook:
+    def test_absent_when_not_downloaded(self, tmp_path):
+        assert local_workbook(tmp_path) is None
 
-    def test_scb_config_values(self):
-        """Test that SCB configuration values are set correctly."""
-        from pipeline import config
+    def test_found_when_present(self, tmp_path):
+        (tmp_path / SCB_WORKBOOK_FILENAME).write_bytes(b"data")
+        assert local_workbook(tmp_path) == tmp_path / SCB_WORKBOOK_FILENAME
 
-        assert config.SCB_API_BASE == "https://api.scb.se/OV0104/v1/doris"
-        assert config.SCB_DBID == "ssd"
-        assert config.SCB_BE_CATEGORY == "BE"
-        assert config.SCB_NAME_STATISTICS == "BE0001"
-        assert config.SWEDEN_COUNTRY_CODE == "SE"
+    def test_empty_file_does_not_count(self, tmp_path):
+        (tmp_path / SCB_WORKBOOK_FILENAME).write_bytes(b"")
+        assert local_workbook(tmp_path) is None
 
-    def test_scb_tables_defined(self):
-        """Test that SCB tables are defined."""
-        from pipeline import fetch_scb
 
-        tables = fetch_scb.SCB_TABLES
-        assert "BE0001D" in tables
-        assert "BE0001G" in tables
+class TestDownload:
+    def test_reuses_local_copy_without_network(self, tmp_path):
+        existing = tmp_path / SCB_WORKBOOK_FILENAME
+        existing.write_bytes(b"already here")
+
+        with mock.patch("pipeline.fetch_scb.requests.get") as get:
+            result = download_scb_archive(output_dir=tmp_path)
+
+        get.assert_not_called()
+        assert result == existing
+        assert existing.read_bytes() == b"already here"
+
+    def test_downloads_when_nothing_local(self, tmp_path):
+        with mock.patch("pipeline.fetch_scb.requests.get", return_value=_response()) as get:
+            result = download_scb_archive(output_dir=tmp_path)
+
+        get.assert_called_once()
+        assert get.call_args[0][0] == SCB_WORKBOOK_URL
+        assert result.exists()
+        assert result.stat().st_size == MIN_PLAUSIBLE_SIZE
+
+    def test_force_redownloads_over_local_copy(self, tmp_path):
+        (tmp_path / SCB_WORKBOOK_FILENAME).write_bytes(b"stale")
+
+        with mock.patch("pipeline.fetch_scb.requests.get", return_value=_response()) as get:
+            result = download_scb_archive(output_dir=tmp_path, force=True)
+
+        get.assert_called_once()
+        assert result.read_bytes() != b"stale"
+
+    def test_html_error_page_is_rejected(self, tmp_path):
+        """SCB moving the file would serve HTML; that must not be saved as a workbook."""
+        html = _response(content=b"<html>not found</html>" * 9000, content_type="text/html")
+
+        with mock.patch("pipeline.fetch_scb.requests.get", return_value=html):
+            with pytest.raises(RequestException, match="Content-Type"):
+                download_scb_archive(output_dir=tmp_path)
+
+        assert not (tmp_path / SCB_WORKBOOK_FILENAME).exists()
+
+    def test_truncated_body_is_rejected(self, tmp_path):
+        tiny = _response(content=b"too small")
+
+        with mock.patch("pipeline.fetch_scb.requests.get", return_value=tiny):
+            with pytest.raises(RequestException, match="too small"):
+                download_scb_archive(output_dir=tmp_path)
+
+        assert not (tmp_path / SCB_WORKBOOK_FILENAME).exists()
+
+    def test_network_failure_is_surfaced(self, tmp_path):
+        with mock.patch(
+            "pipeline.fetch_scb.requests.get", side_effect=RequestException("boom")
+        ):
+            with pytest.raises(RequestException, match="Could not download"):
+                download_scb_archive(output_dir=tmp_path)

@@ -27,22 +27,10 @@ SWEDEN_COUNTRY_CODE = "SE"
 # Canonical CSV output path
 CANONICAL_CSV_PATH = OUTPUT_DIR / "names_canonical.csv"
 
-# SCB API base URL
-SCB_API_BASE = "https://api.scb.se/OV0104/v1/doris"
-
-# SCB database and table paths
-SCB_DBID = "ssd"
-SCB_BE_CATEGORY = "BE"
-SCB_NAME_STATISTICS = "BE0001"
-
-# SCB table IDs (under BE0001 - Name statistics)
-SCB_TABLES = {
-    "BE0001D": "Newborn - Old tables not updated",
-    "BE0001G": "All registered persons in Sweden - Old tables not updated",
-}
-
-# Swedish language code for SCB API
-SCB_SWEDISH_LANG = "sv"
+# NOTE: there is deliberately no SCB PxWeb API configuration here. Every path to the
+# newborn-names table returns 400 (both language endpoints, GET and POST) while sibling
+# levels return 200, so the fault is on SCB's side. Sweden is imported from the published
+# .xlsx workbook instead -- see pipeline/fetch_scb.py and the README.
 
 
 def get_database_url() -> str:

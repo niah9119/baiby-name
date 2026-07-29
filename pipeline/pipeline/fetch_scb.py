@@ -1,230 +1,107 @@
-"""Fetch SCB (Statistics Sweden) baby names data from the PxWeb API.
+"""Fetch Sweden (SCB) newborn-name statistics.
 
-This module provides functionality to fetch name statistics from Statistics Sweden's
-official data API. Note that the API has limitations:
+SCB publishes the newborn-name data as a single Excel workbook covering 1998-2021,
+top 100 per year and sex. It is served over plain HTTP with no bot-blocking, so the
+fetch is a straightforward download.
 
-- The English endpoint (en/ssd) only lists old tables
-- The Swedish endpoint (sv/ssd) may have more current tables
-- Direct GET requests to name tables return "Bad Request"
-- POST requests with JSON query format are required for table data
+The PxWeb statistical-database API is NOT used. Every path to the names table returns
+400 (both language endpoints, GET and POST alike) while sibling levels return 200, so
+the fault is on SCB's side rather than in the request. See pipeline/README.md.
 """
 
-import json
 from pathlib import Path
 from typing import Optional
 
 import requests
 from requests.exceptions import RequestException
 
-from .config import SCB_API_BASE, SCB_BE_CATEGORY, SCB_DBID, SCB_NAME_STATISTICS, SCB_SWEDISH_LANG, SCB_TABLES
+from .config import SCB_DATA_DIR
+
+# The URL serves the .xlsx directly -- it is not an HTML landing page.
+SCB_WORKBOOK_URL = (
+    "https://www.scb.se/hitta-statistik/statistik-efter-amne/"
+    "befolkning-och-levnadsforhallanden/ovrigt/namnstatistik/pong/tabell-och-diagram/"
+    "nyfodda--efter-namngivningsar-och-tilltalsnamn-topp-100-uppdateras-ej/"
+    "namn--nyfodda-flickor-och-pojkar-19982021/"
+)
+
+SCB_WORKBOOK_FILENAME = "scb-nyfodda-1998-2021.xlsx"
+
+XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+# A real workbook is ~570 KB; anything tiny is an error page rather than data.
+MIN_PLAUSIBLE_SIZE = 100_000
 
 
-def fetch_scb_categories() -> dict:
-    """
-    Fetch the available categories under the BE (Population) section.
-
-    Returns:
-        Dictionary of category IDs and descriptions
-    """
-    url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}"
-    response = requests.get(url)
-    response.raise_for_status()
-    return {item["id"]: item["text"] for item in response.json()}
+def local_workbook(output_dir: Optional[Path] = None) -> Optional[Path]:
+    """Return the already-downloaded workbook, or None if it is not present."""
+    path = (output_dir or SCB_DATA_DIR) / SCB_WORKBOOK_FILENAME
+    return path if path.exists() and path.stat().st_size > 0 else None
 
 
-def fetch_scb_tables() -> dict:
-    """
-    Fetch the available tables under BE0001 (Name statistics).
-
-    Returns:
-        Dictionary of table IDs and descriptions
-    """
-    url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}"
-    response = requests.get(url)
-    response.raise_for_status()
-    return {item["id"]: item["text"] for item in response.json()}
-
-
-def fetch_scb_table_metadata(table_id: str) -> dict:
-    """
-    Fetch metadata about a specific SCB table.
+def download_scb_archive(
+    output_dir: Optional[Path] = None, force: bool = False
+) -> Path:
+    """Download the SCB workbook, reusing a local copy when one exists.
 
     Args:
-        table_id: The table ID (e.g., "BE0001D")
+        output_dir: Where to write the workbook. Defaults to SCB_DATA_DIR.
+        force: Download even when a local copy is present.
 
     Returns:
-        Dictionary containing table metadata
+        Path to the workbook on disk.
+
+    Raises:
+        RequestException: the download failed, or returned something that is not a
+            workbook (an HTML error page, or a suspiciously small body).
     """
-    url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}/{table_id}"
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
+    target_dir = output_dir or SCB_DATA_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / SCB_WORKBOOK_FILENAME
 
+    if not force:
+        existing = local_workbook(target_dir)
+        if existing is not None:
+            print(f"Using local workbook: {existing}")
+            return existing
 
-def query_scb_table(table_id: str, query: dict) -> dict:
-    """
-    Query a specific SCB table with JSON format.
-
-    Args:
-        table_id: The table ID
-        query: The query dictionary in SCB API format
-
-    Returns:
-        Dictionary containing the query results
-    """
-    url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}/{table_id}"
-    headers = {"Content-Type": "application/json"}
-    response = requests.post(url, json=query, headers=headers)
-    response.raise_for_status()
-    return response.json()
-
-
-def fetch_swedish_tables() -> dict:
-    """
-    Fetch tables from the Swedish language endpoint.
-
-    Returns:
-        Dictionary of table IDs and descriptions from Swedish endpoint
-    """
-    url = f"{SCB_API_BASE}/{SCB_SWEDISH_LANG}/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}"
-    response = requests.get(url)
-    response.raise_for_status()
-    return {item["id"]: item["text"] for item in response.json()}
-
-
-def fetch_scb_data() -> dict:
-    """
-    Fetch all available SCB data sources.
-
-    Returns:
-        Dictionary containing:
-        - categories: BE categories
-        - tables: Tables under BE0001
-        - swedish_tables: Tables from Swedish endpoint
-        - table_metadata: Metadata for each table
-    """
-    results = {
-        "categories": {},
-        "tables": {},
-        "swedish_tables": {},
-        "table_metadata": {},
-        "api_base": SCB_API_BASE,
-    }
-
+    print(f"Downloading SCB workbook from {SCB_WORKBOOK_URL}")
     try:
-        results["categories"] = fetch_scb_categories()
-    except Exception as e:
-        results["categories_error"] = str(e)
+        response = requests.get(SCB_WORKBOOK_URL, timeout=120)
+        response.raise_for_status()
+    except RequestException as exc:
+        raise RequestException(f"Could not download the SCB workbook: {exc}") from exc
 
-    try:
-        results["tables"] = fetch_scb_tables()
-    except Exception as e:
-        results["tables_error"] = str(e)
+    content_type = response.headers.get("Content-Type", "")
+    if XLSX_CONTENT_TYPE not in content_type:
+        raise RequestException(
+            f"Expected an .xlsx workbook but got Content-Type '{content_type}'. "
+            "SCB may have moved the file; check the URL in pipeline/README.md."
+        )
+    if len(response.content) < MIN_PLAUSIBLE_SIZE:
+        raise RequestException(
+            f"Downloaded only {len(response.content)} bytes, which is too small to be "
+            "the workbook. Treating it as an error page rather than data."
+        )
 
-    try:
-        results["swedish_tables"] = fetch_swedish_tables()
-    except Exception as e:
-        results["swedish_tables_error"] = str(e)
-
-    # Try to get metadata for known tables
-    for table_id in SCB_TABLES.keys():
-        try:
-            results["table_metadata"][table_id] = fetch_scb_table_metadata(table_id)
-        except Exception as e:
-            results["table_metadata"][table_id] = {"error": str(e)}
-
-    return results
+    target.write_bytes(response.content)
+    print(f"Wrote {len(response.content)} bytes to {target}")
+    return target
 
 
-def verify_api_access() -> dict:
-    """
-    Verify the SCB API accessibility and document findings.
+if __name__ == "__main__":
+    import argparse
 
-    Returns:
-        Dictionary with verification results
-    """
-    results = {
-        "api_available": False,
-        "english_endpoint_works": False,
-        "swedish_endpoint_works": False,
-        "name_tables_accessible": False,
-        "findings": [],
-    }
+    parser = argparse.ArgumentParser(description="Fetch the SCB newborn-name workbook")
+    parser.add_argument(
+        "--output-dir", type=str, help="Directory to write the workbook into"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Re-download even if a local copy exists"
+    )
+    args = parser.parse_args()
 
-    # Test English root
-    try:
-        url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            results["english_endpoint_works"] = True
-            results["findings"].append("English endpoint (en/ssd) returns 200/JSON")
-    except Exception as e:
-        results["findings"].append(f"English endpoint failed: {e}")
-
-    # Test Swedish root
-    try:
-        url = f"{SCB_API_BASE}/{SCB_SWEDISH_LANG}/ssd/{SCB_DBID}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            results["swedish_endpoint_works"] = True
-            results["findings"].append("Swedish endpoint (sv/ssd) returns 200/JSON")
-    except Exception as e:
-        results["findings"].append(f"Swedish endpoint failed: {e}")
-
-    # Test name statistics
-    try:
-        url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            results["findings"].append(f"Name statistics listed: {len(data)} tables")
-            results["tables"] = [t["id"] for t in data]
-            results["api_available"] = True
-    except Exception as e:
-        results["findings"].append(f"Name statistics failed: {e}")
-
-    # Test table access
-    for table_id in SCB_TABLES.keys():
-        try:
-            url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}/{table_id}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                results["findings"].append(f"GET {table_id}: 200 OK")
-            elif response.status_code == 400:
-                results["findings"].append(f"GET {table_id}: 400 Bad Request")
-            else:
-                results["findings"].append(f"GET {table_id}: {response.status_code}")
-        except Exception as e:
-            results["findings"].append(f"GET {table_id}: {e}")
-
-    # Test POST query
-    try:
-        url = f"{SCB_API_BASE}/en/ssd/{SCB_DBID}/{SCB_BE_CATEGORY}/{SCB_NAME_STATISTICS}/BE0001D"
-        headers = {"Content-Type": "application/json"}
-        query = {"query": [], "response": {"format": "json"}}
-        response = requests.post(url, json=query, headers=headers)
-        if response.status_code == 200:
-            results["findings"].append("POST query to BE0001D: 200 OK")
-            results["name_tables_accessible"] = True
-        else:
-            results["findings"].append(f"POST query to BE0001D: {response.status_code}")
-    except Exception as e:
-        results["findings"].append(f"POST query failed: {e}")
-
-    return results
-
-
-def download_scb_archive() -> Path:
-    """
-    Download SCB data archive.
-
-    Returns:
-        Path to downloaded archive
-
-    Note: This method may not work if the API doesn't support direct downloads.
-    Manual download from Statistics Sweden website may be required.
-    """
-    raise NotImplementedError(
-        "SCB data archive download is not implemented. "
-        "Please download data manually from https://www.scb.se/en/understand-more/population/name-statistics/"
+    download_scb_archive(
+        output_dir=Path(args.output_dir) if args.output_dir else None,
+        force=args.force,
     )
