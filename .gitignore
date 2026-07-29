@@ -46,12 +46,13 @@ coverage/
 # Claude Code local settings (per-machine, not shared)
 .claude/settings.local.json
 
-# Python pipeline
-pipeline/.venv/
-pipeline/data/
-pipeline/pipeline/__pycache__/
-pipeline/tests/__pycache__/
+# Python virtualenvs anywhere (agents have created stray ones at the repo root)
+.venv/
 
-# Coverage
-coverage/
-.jacoco/
+# Python bytecode
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Pipeline working data: downloaded SSA archives and generated canonical CSVs
+pipeline/data/
