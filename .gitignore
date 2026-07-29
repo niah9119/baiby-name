@@ -48,3 +48,8 @@ coverage/
 
 # Python virtualenvs anywhere (agents have created stray ones at the repo root)
 .venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+.pytest_cache/
