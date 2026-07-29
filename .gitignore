@@ -45,3 +45,6 @@ coverage/
 
 # Claude Code local settings (per-machine, not shared)
 .claude/settings.local.json
+
+# Python virtualenvs anywhere (agents have created stray ones at the repo root)
+.venv/

@@ -20,10 +20,14 @@ may already exist from that attempt — build on them rather than starting over.
 
 - Read `CONTEXT.md` (the domain glossary — its terminology is binding) and every ADR under
   `docs/adr/`. The ADRs contain hard rules; do not violate them.
-- Start from a clean, current main and work on a dedicated branch:
-  `git checkout main && git pull --ff-only && git checkout -B issue-{{ISSUE}}`
-  (`-B` also works when the branch already exists, e.g. after a crashed earlier attempt.
-  Untracked files from an earlier attempt may be present — inspect and build on them.)
+- Get a clean, current main first: `git checkout main && git pull --ff-only`
+- Then pick your branch based on whether an earlier attempt already pushed one:
+  `git ls-remote --exit-code --heads origin issue-{{ISSUE}}`
+  - Exists (correction run) -> continue that work, do NOT throw it away:
+    `git checkout -B issue-{{ISSUE}} origin/issue-{{ISSUE}}`
+  - Does not exist (first attempt) -> branch from main:
+    `git checkout -B issue-{{ISSUE}}`
+  Untracked files from an earlier attempt may be present — inspect and build on them.
 
 ## Hard rules
 
