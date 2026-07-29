@@ -17,6 +17,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+    # Keep the persistence context out of view rendering: with OSIV on, a lazy
+    # association touched by a template silently issues a query and holds a
+    # connection for the whole request. Decided explicitly while there are no
+    # views yet -- it is far cheaper to set now than to unpick later.
+    open-in-view: false
   flyway:
     enabled: true
     baseline-on-migrate: true
