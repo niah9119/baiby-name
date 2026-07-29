@@ -20,14 +20,21 @@ may already exist from that attempt — build on them rather than starting over.
 
 - Read `CONTEXT.md` (the domain glossary — its terminology is binding) and every ADR under
   `docs/adr/`. The ADRs contain hard rules; do not violate them.
-- Get a clean, current main first: `git checkout main && git pull --ff-only`
-- Then pick your branch based on whether an earlier attempt already pushed one:
-  `git ls-remote --exit-code --heads origin issue-{{ISSUE}}`
-  - Exists (correction run) -> continue that work, do NOT throw it away:
-    `git checkout -B issue-{{ISSUE}} origin/issue-{{ISSUE}}`
-  - Does not exist (first attempt) -> branch from main:
-    `git checkout -B issue-{{ISSUE}}`
-  Untracked files from an earlier attempt may be present — inspect and build on them.
+- Get on your branch BEFORE you change any file. Run all three commands, in order:
+
+  ```
+  git checkout main && git pull --ff-only
+  git fetch origin issue-{{ISSUE}} 2>/dev/null && git checkout -B issue-{{ISSUE}} origin/issue-{{ISSUE}} || git checkout -B issue-{{ISSUE}}
+  git branch --show-current      # MUST print issue-{{ISSUE}}
+  ```
+
+  The second line continues an earlier attempt when one was pushed (do NOT throw that
+  work away) and branches from main otherwise. Untracked files from an earlier attempt
+  may be present — inspect and build on them.
+
+- If `git branch --show-current` does not print `issue-{{ISSUE}}`, STOP and fix it before
+  doing anything else. Committing to `main` is a serious error: it puts unreviewed work on
+  the shared branch and leaves your PR empty.
 
 ## Hard rules
 
@@ -45,6 +52,11 @@ may already exist from that attempt — build on them rather than starting over.
   (e.g. `pipeline/.venv`) — never install packages into system Python.
 - Do NOT touch issues, branches, or files belonging to other work. Do NOT force-push.
   Do NOT change git remotes or repo settings.
+- NEVER commit to `main`. Run `git branch --show-current` immediately before every commit
+  and confirm it prints `issue-{{ISSUE}}`.
+- You have a 45-minute budget. Spend it on the acceptance criteria, not on exploration:
+  get something that satisfies them committed and pushed EARLY, then improve it. A timeout
+  with nothing pushed loses the whole run.
 - CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
   containers (`docker compose up`) to check something, stop them again before you finish —
   never leave a server holding port 8080 or a database container running.
