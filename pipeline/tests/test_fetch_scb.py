@@ -121,19 +121,3 @@ class TestSCBConfiguration:
         tables = fetch_scb.SCB_TABLES
         assert "BE0001D" in tables
         assert "BE0001G" in tables
-
-
-class TestNetworkIntegration:
-    """Integration tests for SCB API (skipped if network unavailable)."""
-
-    @pytest.mark.skip(reason="Network-dependent test - run manually to verify API")
-    def test_real_api_categories(self):
-        """Test real API categories endpoint."""
-        categories = fetch_scb_categories()
-        assert "BE0001" in categories
-
-    @pytest.mark.skip(reason="Network-dependent test - run manually to verify API")
-    def test_real_api_tables(self):
-        """Test real API tables endpoint."""
-        tables = fetch_scb_tables()
-        assert len(tables) > 0
