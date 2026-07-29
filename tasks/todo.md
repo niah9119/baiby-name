@@ -33,21 +33,40 @@ The pipeline job probes for `pipeline/` and no-ops until issue #3 lands.
 - [x] PR #27 (CI warning fixes: action pins, `spring.jpa.open-in-view: false`) — merged
 - [x] Agent prompt hardened — see `scripts/ralph/issue-prompt.md`
 
-## Standing instruction: work the importer queue
+## Where things stand (2026-07-29 00:26)
 
-Run these to completion, in order, without pausing for confirmation. The user has asked
-for this repeatedly — it does not need re-confirming:
+Merged: #1 skeleton, #2 schema, #3 USA (SSA), #4 Sweden (SCB), #5 Norway (SSB), plus CI.
 
-- [ ] **#4 Sweden (SCB)** — in flight, round 4
-- [ ] **#5 Norway (SSB)**
-- [ ] **#6 Denmark (DST)**
-- [ ] **#7 England & Wales (ONS)**
+**Running unattended right now**: a detached loop (`--max 2`) working #6 Denmark then
+#7 England & Wales. It survives the terminal closing -- started with `setsid nohup`,
+logging to `/tmp/ralph-overnight.log`. #6 and #7 are independent (both depend only on #3),
+so no merge is needed between them.
 
-Per issue: agent implements -> CI verifies -> check against the acceptance criteria ->
-merge if it holds, specific feedback on the issue and re-trigger if not.
+In the morning:
 
-Interrupt the user only for (a) a hard environmental blocker, or (b) an issue that burns
-three rounds without converging — at that point change the approach rather than retry.
+    tail -40 /tmp/ralph-overnight.log          # what the loop did
+    gh pr list --state open                    # PRs waiting for review
+    gh issue list --label ready-for-human      # agent says done
+    gh issue list --label in-progress          # stuck mid-flight -> relabel ready-for-agent
+
+**Nothing merges without review.** Any PR the loop opens is unreviewed; CI grades the build
+but not whether the work meets the acceptance criteria.
+
+## Cost model -- important
+
+The agent loop runs on the LOCAL Qwen model: it costs no Anthropic usage. What costs usage
+is Claude reviewing, verifying (worktree builds, CI polls, database loads) and especially
+implementing. #4 and #5 were finished by Claude directly, which is why the session budget
+went. Prefer: agent implements, Claude reviews. Reserve Claude implementing for issues the
+agent has genuinely failed twice, as a deliberate choice.
+
+## Known agent failure pattern
+
+Across #4 (4 rounds) and #5 (2 rounds) the local model did not converge on data-shape
+problems: it spent whole 45-minute budgets exploring and committed nothing, even when given
+a verified source, a working query and the decode. It handled well-specified mechanical work
+fine (#3's corrections were good). Consider reserving it for mechanical issues, or changing
+the model behind the loop.
 
 ## Agent isolation (set up 2026-07-28)
 
