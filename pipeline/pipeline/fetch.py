@@ -1,20 +1,85 @@
 """Fetch SSA baby names data from the web."""
 
-import os
+import io
 import re
 import time
+import zipfile
 from pathlib import Path
 from typing import Optional
 
 import requests
 from requests.exceptions import RequestException
 
-from .config import SSA_BASE_URL, SSA_DATA_DIR, get_ssa_file_path
+from .config import SSA_DATA_DIR
+
+
+def _fetch_ssa_bulk_archive(output_dir: Optional[Path] = None) -> list[Path]:
+    """
+    Download and extract the complete SSA baby names archive.
+
+    Downloads the bulk archive from SSA and extracts all year files.
+    This is the most efficient way to get all names (not just top 1000).
+
+    Args:
+        output_dir: Optional directory to save files, defaults to config.SSA_DATA_DIR
+
+    Returns:
+        List of paths to extracted files
+
+    Raises:
+        RequestException: If the download fails (e.g., rate limiting or access denied)
+    """
+    output_path = output_dir or SSA_DATA_DIR
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Bulk archive URL - contains all names from 1880 to present
+    archive_url = "https://www.ssa.gov/oact/babynames/names.zip"
+
+    headers = {
+        "User-Agent": "BaibyName-Pipeline/1.0 (+https://github.com/baiby-name)",
+    }
+
+    print(f"Downloading SSA archive from {archive_url}...")
+    try:
+        response = requests.get(archive_url, headers=headers, timeout=120)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 403:
+            raise RequestException(
+                f"Access denied when trying to download SSA data. "
+                f"Please download the archive manually from {archive_url} "
+                f"and extract it to {output_path}."
+            ) from e
+        raise
+
+    # Read the zip file
+    zip_content = io.BytesIO(response.content)
+    zip_file = zipfile.ZipFile(zip_content)
+
+    # Extract all year files
+    extracted_files = []
+    for name in zip_file.namelist():
+        # Only extract yob{year}.txt files
+        if re.match(r"^yob\d{4}\.txt$", name):
+            year = _extract_year_from_filename(name)
+            output_file = output_path / name
+            if not output_file.exists():
+                with open(output_file, "wb") as f:
+                    f.write(zip_file.read(name))
+                print(f"Extracted: {output_file}")
+            extracted_files.append(output_file)
+
+    zip_file.close()
+    print(f"Downloaded and extracted {len(extracted_files)} files from SSA archive")
+    return sorted(extracted_files)
 
 
 def fetch_ssa_year(year: int, output_dir: Optional[Path] = None) -> Path:
     """
     Fetch SSA baby names data for a specific year.
+
+    This function downloads the complete SSA archive (which is faster than
+    fetching individual years) and returns the specific year file.
 
     Args:
         year: The year to fetch data for (1880+)
@@ -35,38 +100,14 @@ def fetch_ssa_year(year: int, output_dir: Optional[Path] = None) -> Path:
         print(f"File already exists: {file_path}")
         return file_path
 
-    # SSA provides data via direct download with year parameter
-    # We'll try multiple URL patterns
-    urls = [
-        f"https://www.ssa.gov/cgi-bin/babyname.cgi?year={year}&top=1000&num=1000",
-        f"https://www.ssa.gov/cgi-bin/babyname.cgi?year={year}",
-    ]
+    # Download the bulk archive to get all years at once
+    _fetch_ssa_bulk_archive(output_dir)
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (BaibyName Pipeline; +https://github.com/baiby-name)",
-    }
+    # Verify the file was extracted
+    if not file_path.exists():
+        raise FileNotFoundError(f"Could not extract file for year {year}")
 
-    for url in urls:
-        try:
-            response = requests.get(url, headers=headers, timeout=60)
-            response.raise_for_status()
-
-            # Check if response looks like valid data
-            content = response.text
-            if _is_valid_ssa_content(content, year):
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                print(f"Downloaded: {file_path}")
-                return file_path
-
-            # Rate limiting - be polite to SSA servers
-            time.sleep(1)
-
-        except RequestException as e:
-            print(f"Failed to fetch {year}: {e}")
-            continue
-
-    raise RequestException(f"Could not fetch data for year {year}")
+    return file_path
 
 
 def _is_valid_ssa_content(content: str, year: int) -> bool:

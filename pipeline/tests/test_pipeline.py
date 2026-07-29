@@ -2,6 +2,7 @@
 
 import csv
 import os
+import subprocess
 import tempfile
 import uuid
 from pathlib import Path
@@ -137,15 +138,87 @@ class TestFetch:
 class TestLoad:
     """Tests for the load module."""
 
-    def test_name_stat_exists_check(self):
-        """Test the idempotency check for existing name_stat records."""
-        # This is a unit test that would require a real database.
-        # In production, we'd mock the database connection.
-        # For now, we just verify the logic exists in the load module.
-        import pipeline.load as load_module
+    def test_name_stat_exists_check(self, tmp_path):
+        """Test the idempotency check for existing name_stat records.
 
-        # Verify the function exists and has the expected signature
-        assert hasattr(load_module, "_name_stat_exists")
+        This test verifies that loading the same CSV twice does not duplicate rows.
+        We use a temporary SQLite database for this test.
+        """
+        import sqlalchemy
+        from sqlalchemy import text
+
+        # Create a temporary CSV file
+        csv_path = tmp_path / "names_canonical.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "country", "sex", "year", "count", "rank"])
+            writer.writerow(["TestName", "US", "F", "2023", "100", "1"])
+
+        # Create a temporary database file
+        db_file = tmp_path / "test.db"
+        db_url = f"sqlite:///{db_file}"
+
+        # Create the database schema
+        engine = sqlalchemy.create_engine(db_url)
+        with engine.connect() as conn:
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS given_name (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            '''))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS country (
+                    id INTEGER PRIMARY KEY,
+                    code TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL
+                )
+            '''))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS name_stat (
+                    id INTEGER PRIMARY KEY,
+                    given_name_id INTEGER NOT NULL,
+                    country_id INTEGER NOT NULL,
+                    sex TEXT NOT NULL,
+                    year INTEGER NOT NULL,
+                    count INTEGER NOT NULL,
+                    rank INTEGER NOT NULL,
+                    UNIQUE(given_name_id, country_id, sex, year),
+                    FOREIGN KEY (given_name_id) REFERENCES given_name(id),
+                    FOREIGN KEY (country_id) REFERENCES country(id)
+                )
+            '''))
+            conn.commit()
+
+        # First load
+        stats1 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+        assert stats1["inserted_rows"] == 1
+        assert stats1["total_rows"] == 1
+
+        # Second load (should skip since already exists)
+        stats2 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+        assert stats2["inserted_rows"] == 0
+        assert stats2["skipped_rows"] == 1
+        assert stats2["total_rows"] == 1
+
+        # Verify data in database
+        engine = sqlalchemy.create_engine(db_url)
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM name_stat"))
+            count = result.scalar()
+            assert count == 1
+
+
+@pytest.fixture
+def sample_csv_file(tmp_path):
+    """Create a sample canonical CSV file."""
+    csv_path = tmp_path / "names_canonical.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["name", "country", "sex", "year", "count", "rank"])
+        writer.writerow(["TestName", "US", "F", "2023", "100", "1"])
+    return csv_path
 
 
 class TestIntegration:
@@ -173,44 +246,70 @@ class TestIntegration:
         assert df["year"].iloc[0] == 2023
         assert set(df["sex"].unique()) == {"F", "M"}
 
-    @pytest.fixture
-    def sample_csv_file(self, tmp_path):
-        """Create a sample canonical CSV file."""
-        csv_path = tmp_path / "names_canonical.csv"
-        with open(csv_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["name", "country", "sex", "year", "count", "rank"])
-            writer.writerow(["TestName", "US", "F", "2023", "100", "1"])
-        return csv_path
-
     @pytest.mark.integration
     def test_load_integration(self, sample_csv_file, tmp_path):
-        """Test the full load flow with a real database (requires DATABASE_URL)."""
-        # Skip if no DATABASE_URL is set
-        db_url = os.environ.get("DATABASE_URL")
-        if not db_url:
-            pytest.skip("DATABASE_URL not set - skipping database integration test")
-
-        # First load
-        stats1 = load_canonical_csv(csv_path=sample_csv_file, db_url=db_url)
-        assert stats1["inserted_rows"] == 1
-        assert stats1["total_rows"] == 1
-
-        # Second load (should skip since already exists)
-        stats2 = load_canonical_csv(csv_path=sample_csv_file, db_url=db_url)
-        assert stats2["inserted_rows"] == 0
-        assert stats2["skipped_rows"] == 1
-        assert stats2["total_rows"] == 1
-
-        # Verify data in database
+        """Test the full load flow with a real database using Testcontainers."""
         import sqlalchemy
-        engine = sqlalchemy.create_engine(db_url)
-        with engine.connect() as conn:
-            result = conn.execute(
-                sqlalchemy.text("SELECT COUNT(*) FROM name_stat WHERE rank = 1")
-            )
-            count = result.scalar()
-            assert count == 1
+        from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Create the database schema (load.py expects tables to exist)
+            engine = sqlalchemy.create_engine(db_url)
+            with engine.connect() as conn:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS given_name (
+                        id SERIAL PRIMARY KEY,
+                        name TEXT UNIQUE NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS country (
+                        id SERIAL PRIMARY KEY,
+                        code TEXT UNIQUE NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS name_stat (
+                        id SERIAL PRIMARY KEY,
+                        given_name_id INTEGER NOT NULL,
+                        country_id INTEGER NOT NULL,
+                        sex TEXT NOT NULL,
+                        year INTEGER NOT NULL,
+                        count INTEGER NOT NULL,
+                        rank INTEGER NOT NULL,
+                        UNIQUE(given_name_id, country_id, sex, year),
+                        FOREIGN KEY (given_name_id) REFERENCES given_name(id),
+                        FOREIGN KEY (country_id) REFERENCES country(id)
+                    )
+                '''))
+                conn.commit()
+
+            # First load
+            stats1 = load_canonical_csv(csv_path=sample_csv_file, db_url=db_url)
+            assert stats1["inserted_rows"] == 1
+            assert stats1["total_rows"] == 1
+
+            # Second load (should skip since already exists)
+            stats2 = load_canonical_csv(csv_path=sample_csv_file, db_url=db_url)
+            assert stats2["inserted_rows"] == 0
+            assert stats2["skipped_rows"] == 1
+            assert stats2["total_rows"] == 1
+
+            # Verify data in database
+            engine = sqlalchemy.create_engine(db_url)
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text("SELECT COUNT(*) FROM name_stat WHERE rank = 1")
+                )
+                count = result.scalar()
+                assert count == 1
 
     def test_full_pipeline_flow(self, tmp_path):
         """Test the full pipeline flow end-to-end with sample data."""

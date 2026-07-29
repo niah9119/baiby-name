@@ -16,9 +16,9 @@ OUTPUT_DIR = DATA_DIR / "output"
 SSA_DATA_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# SSA URL template for national names files
-# Format: yob{year}.txt (e.g., yob2023.txt)
-SSA_BASE_URL = "https://www.ssa.gov/cgi-bin/babyname.cgi"
+# SSA bulk archive URL - contains all names from 1880 to present
+# Format: names.zip containing yob{year}.txt files
+SSA_BULK_ARCHIVE_URL = "https://www.ssa.gov/oact/babynames/names.zip"
 
 # USA country code
 USA_COUNTRY_CODE = "US"

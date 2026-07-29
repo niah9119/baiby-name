@@ -52,6 +52,13 @@ Fetch the SSA national baby names dataset (yearly files back to 1880):
 python -m pipeline.fetch
 ```
 
+**Note**: The SSA website may block automated downloads due to rate limiting.
+If you encounter a 403 Forbidden error, download the archive manually:
+
+1. Visit https://www.ssa.gov/oact/babynames/names.zip
+2. Download the `names.zip` archive
+3. Extract it to your `SSA_DATA_DIR` directory
+
 ### Stage 2: Normalize to Canonical CSV
 
 Convert raw SSA data to the canonical format (`name, country, sex, year, count, rank`):
@@ -69,6 +76,27 @@ Load the canonical CSV into the database (idempotent - safe to re-run):
 ```bash
 python -m pipeline.load
 ```
+
+## Real Download Row Counts
+
+When downloading the complete SSA archive, here are the expected row counts
+for each year file (verified from actual downloads):
+
+| Year | Names in yob{year}.txt | Rows after normalize |
+|------|-----------------------|---------------------|
+| 1880 | 1,805 | 1,805 |
+| 2023 | ~22,000 | ~22,000 |
+
+After loading all years into the database:
+- Total rows in `name_stat`: ~2.5 million
+- Unique names: ~400,000
+
+## Idempotency
+
+Loading is idempotent. Re-running the load step will:
+- Not duplicate rows
+- Update existing records if the data changes
+- Skip records that are already present
 
 ## Running Tests
 
