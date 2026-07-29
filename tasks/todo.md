@@ -33,26 +33,51 @@ The pipeline job probes for `pipeline/` and no-ops until issue #3 lands.
 - [x] PR #27 (CI warning fixes: action pins, `spring.jpa.open-in-view: false`) — merged
 - [x] Agent prompt hardened — see `scripts/ralph/issue-prompt.md`
 
-## In flight — issue #3 / PR #26
+## Standing instruction: work the importer queue
 
-Blocked on a decision, not on the agent. Full detail is in the **issue #3 comments**
-(authoritative — read those first).
+Run these to completion, in order, without pausing for confirmation. The user has asked
+for this repeatedly — it does not need re-confirming:
 
-Short version: SSA blocks all scripted downloads via Akamai TLS fingerprinting (403 from
-this box, from GitHub runners, IPv4 and IPv6). A browser works. So `names.zip` must be
-acquired manually; everything downstream stays automated.
+- [ ] **#4 Sweden (SCB)** — in flight, round 4
+- [ ] **#5 Norway (SSB)**
+- [ ] **#6 Denmark (DST)**
+- [ ] **#7 England & Wales (ONS)**
 
-- [x] Agent fixed the real defects in `fbde7f5` (removed `pytest.skip` → real
-      `PostgresContainer`; removed `hasattr` placeholder test; switched to bulk archive)
-- [ ] **Unverified**: `requirements.txt` pins `pytest-testcontainers`, but the test imports
-      `testcontainers.community.postgres` — different packages, likely ImportError
-- [ ] Make `fetch` prefer a local archive and only hit the network if absent
-- [ ] Run normalize + load against the real archive; put row counts in the PR
-- [ ] Amend issue #3's acceptance criteria to match the manual-download reality
-- [ ] Resolve PR #26 conflict — `.gitignore` only, plain union
+Per issue: agent implements -> CI verifies -> check against the acceptance criteria ->
+merge if it holds, specific feedback on the issue and re-trigger if not.
 
-Archive currently at `~/Downloads/names.zip` (7,860,026 bytes, 147 files). Extract
-`yob*.txt` into `pipeline/data/ssa/raw` (= `SSA_DATA_DIR`, gitignored).
+Interrupt the user only for (a) a hard environmental blocker, or (b) an issue that burns
+three rounds without converging — at that point change the approach rather than retry.
+
+## Agent isolation (set up 2026-07-28)
+
+The agent runs from a **separate clone** so it never shares a working tree with the IDE:
+
+    /work/git/baiby-name         <- yours: IDE, verification worktrees, stays on main
+    /work/git/baiby-name-agent   <- agent only; pushes to GitHub
+
+Run the loop with `cd /work/git/baiby-name-agent && ./scripts/ralph/agent-loop.sh ...`, and
+`git pull` there first — it no longer shares your `.git`, so harness changes need fetching.
+A worktree does NOT work here: git forbids the same branch in two trees, and both the loop
+and the prompt begin with `git checkout main`.
+
+Downloaded data is shared into the clone by symlink (`pipeline/data/{ssa,scb}/raw`), so a
+one-time download serves both. Symlink the `raw` dirs, not `pipeline/data` itself — a
+symlink at that level is not matched by the `pipeline/data/` ignore rule and would get
+committed.
+
+## Data sources — reachability (checked 2026-07-28)
+
+| source | scripted download | notes |
+|---|---|---|
+| US SSA | **BLOCKED** (Akamai, 403 everywhere) | `names.zip` must be fetched by browser; now at `pipeline/data/ssa/raw` |
+| SE SCB | works via plain `curl` | .xlsx direct download; **PxWeb API is broken (400) — do not chase it** |
+| NO SSB | API responds 200/JSON | |
+| DK DST | API responds 200/JSON | a `navn` table search returned 0 — find the real ids |
+| GB ONS | page responds 200 | file-download source like SSA — verify a real .xlsx early |
+
+SCB specifics: the .xlsx is 49 sheets (`Flickor`/`Pojkar` 1998–2021, top 100 per year/sex),
+already at `pipeline/data/scb/raw/scb-nyfodda-1998-2021.xlsx`. Full URL is in the #4 comments.
 
 ## Running the loop
 
