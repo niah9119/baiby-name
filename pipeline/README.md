@@ -12,15 +12,19 @@ pipeline/
 │   ├── __init__.py
 │   ├── fetch.py            # Fetch USA (SSA) source data
 │   ├── fetch_scb.py        # Fetch Sweden (SCB) workbook
+│   ├── fetch_ssb.py        # Fetch Norway (SSB) series
 │   ├── normalize.py        # SSA text files  -> canonical CSV
 │   ├── normalize_scb.py    # SCB xlsx        -> canonical CSV
+│   ├── normalize_ssb.py    # SSB json-stat2  -> canonical CSV
 │   ├── load.py             # Load into PostgreSQL (idempotent)
 │   └── config.py           # Configuration
 └── tests/                  # Tests
     ├── __init__.py
     ├── test_pipeline.py
     ├── test_fetch_scb.py
-    └── test_normalize_scb.py
+    ├── test_normalize_scb.py
+    ├── test_fetch_ssb.py
+    └── test_normalize_ssb.py
 ```
 
 ## Requirements
@@ -45,6 +49,7 @@ Set the following environment variables:
 export DATABASE_URL="postgresql://user:password@localhost:5432/baibyname"
 export SSA_DATA_DIR="/path/to/cache/ssa/data"  # Optional, defaults to pipeline/data/ssa
 export SCB_DATA_DIR="/path/to/cache/scb/data"  # Optional, defaults to pipeline/data/scb
+export SSB_DATA_DIR="/path/to/cache/ssb/data"  # Optional, defaults to pipeline/data/ssb
 ```
 
 ## Usage
@@ -128,6 +133,38 @@ varies by year range (9, 10, 11, 12 or 13+). Ranks repeat where names tie, and S
 all names tied at the cutoff — so twelve year/sex groups contain 101 or 102 rows rather
 than exactly 100.
 
+### Norway (SSB) Importer
+
+Source: Statistics Norway table **10467**, *"Born persons, by girls' name and boys' name"*,
+over the public PxWeb API. No bot-blocking, no manual step.
+
+```bash
+python -m pipeline.fetch_ssb          # downloads unless a local copy exists
+```
+
+The whole series arrives in **one POST** (~3.9 MB). Selecting only `ContentsCode` leaves
+`Fornavn` and `Tid` unfiltered, which returns every name for every year — there is no need
+to page over years or batch by name:
+
+```json
+{"query":[{"code":"ContentsCode","selection":{"filter":"item","values":["Personer"]}}],
+ "response":{"format":"json-stat2"}}
+```
+
+**Two encoding details that fail silently if mishandled:**
+
+1. **There is no sex dimension.** Sex is the first character of the `Fornavn` code —
+   `1` girls, `2` boys (`1EMMA`, `2JAKOB`). Ignore it and the sexes merge into one series.
+2. **Codes are ASCII-only.** `Z2` stands for `Ø` and `Z3` for `Å`, so `1BJZ2RG` is *Bjørg*.
+   Always take the display name from `dimension.Fornavn.category.label[code]`; deriving it
+   from the code stores `BJZ2RG`. At least 72 names are affected.
+
+Both are covered by tests that fail if the behaviour regresses.
+
+**Coverage:** the `Tid` dimension advertises 1880–2025, but every cell before **1945** is
+null — the data genuinely starts in 1945. Ranks are not published, so they are computed per
+year and sex from the counts, with ties sharing a rank.
+
 ### Stage 2: Normalize to Canonical CSV
 
 Convert raw data to the canonical format (`name, country, sex, year, count, rank`):
@@ -140,6 +177,11 @@ python -m pipeline.normalize --input-dir data/ssa/raw --output data/output/names
 python -m pipeline.normalize_scb \
     --input-file data/scb/raw/scb-nyfodda-1998-2021.xlsx \
     --output data/output/scb_canonical.csv
+
+# Norway (SSB) — json-stat2 payload
+python -m pipeline.normalize_ssb \
+    --input-file data/ssb/raw/ssb-10467-all.json \
+    --output data/output/ssb_canonical.csv
 ```
 
 Both emit the same canonical columns, so `pipeline.load` handles either.
@@ -202,8 +244,35 @@ Running each load twice with the same data produces:
 | USA (SSA) | Second | 0 | 2,181,032 | 2,181,032 |
 | Sweden (SCB) | First | 4,814 | 0 | 4,814 |
 | Sweden (SCB) | Second | 0 | 4,814 | 4,814 |
+| Norway (SSB) | First | 91,581 | 0 | 91,581 |
+| Norway (SSB) | Second | 0 | 91,581 | 91,581 |
 
 Re-running does not duplicate rows.
+
+### Norway (SSB) row counts
+
+From the full table 10467 payload (3,911,217 bytes):
+
+| | |
+|---|---|
+| Rows in canonical CSV | **91,581** |
+| Distinct names | **1,969** |
+| Year range | 1945 – 2025 |
+| Split | Girl 46,803 / Boy 44,778 |
+
+The payload holds 288,204 cells (1,974 codes x 146 years); the rest are null because a name
+has no entry for years it was not registered, and every cell before 1945 is null.
+
+Spot check read back from the database:
+
+| name | sex | year | count | rank |
+|---|---|---|---|---|
+| Emma | Girl | 2024 | 379 | 1 |
+| Nora | Girl | 2024 | 366 | 2 |
+| Jakob | Boy | 2024 | 261 | 14 |
+
+Diacritics survive the round trip — `Bjørg` (678, 1945), `Åse` (304), `Annbjørg` (35) are
+stored accented, not as their `Z2`/`Z3` codes.
 
 ## Idempotency
 
@@ -238,6 +307,6 @@ name,country,sex,year,count,rank
 |------|---------|-------------|
 | US | USA | SSA (Social Security Administration) |
 | SE | Sweden | SCB (Statistics Sweden), 1998-2021, top 100/year/sex |
-| NO | Norway | - |
+| NO | Norway | SSB (Statistics Norway), 1945-2025, 1,969 names |
 | DK | Denmark | - |
 | GB | England | - |

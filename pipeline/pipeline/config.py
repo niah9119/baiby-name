@@ -11,11 +11,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 SSA_DATA_DIR = Path(os.environ.get("SSA_DATA_DIR", DATA_DIR / "ssa" / "raw"))
 SCB_DATA_DIR = Path(os.environ.get("SCB_DATA_DIR", DATA_DIR / "scb" / "raw"))
+SSB_DATA_DIR = Path(os.environ.get("SSB_DATA_DIR", DATA_DIR / "ssb" / "raw"))
 OUTPUT_DIR = DATA_DIR / "output"
 
 # Ensure directories exist
 SSA_DATA_DIR.mkdir(parents=True, exist_ok=True)
 SCB_DATA_DIR.mkdir(parents=True, exist_ok=True)
+SSB_DATA_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # USA country code
@@ -23,6 +25,9 @@ USA_COUNTRY_CODE = "US"
 
 # Sweden country code
 SWEDEN_COUNTRY_CODE = "SE"
+
+# Norway country code
+NORWAY_COUNTRY_CODE = "NO"
 
 # Canonical CSV output path
 CANONICAL_CSV_PATH = OUTPUT_DIR / "names_canonical.csv"
