@@ -314,6 +314,11 @@ class TestIntegration:
     def test_full_pipeline_flow(self, tmp_path):
         """Test the full pipeline flow end-to-end with sample data."""
         import subprocess
+        import sys
+        from pathlib import Path
+
+        # Get the pipeline directory dynamically
+        pipeline_dir = Path(__file__).resolve().parent.parent
 
         # Create a sample SSA file
         ssa_dir = tmp_path / "ssa"
@@ -328,7 +333,7 @@ class TestIntegration:
         # Normalize
         result = subprocess.run(
             [
-                ".venv/bin/python3",
+                sys.executable,
                 "-m",
                 "pipeline.normalize",
                 "--input-dir",
@@ -338,7 +343,7 @@ class TestIntegration:
             ],
             capture_output=True,
             text=True,
-            cwd="/work/git/baiby-name/pipeline",
+            cwd=str(pipeline_dir),
         )
         assert result.returncode == 0, f"normalize failed: {result.stderr}"
 

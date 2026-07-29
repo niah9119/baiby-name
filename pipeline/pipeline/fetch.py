@@ -74,31 +74,88 @@ def _fetch_ssa_bulk_archive(output_dir: Optional[Path] = None) -> list[Path]:
     return sorted(extracted_files)
 
 
+def _get_ssa_file_path(year: int, output_dir: Optional[Path] = None) -> Path:
+    """Get the path for a specific SSA data file."""
+    output_path = output_dir or SSA_DATA_DIR
+    return output_path / f"yob{year}.txt"
+
+
+def _check_local_ssa_archive(output_dir: Optional[Path] = None) -> Optional[Path]:
+    """
+    Check if a local names.zip archive exists and return its path.
+
+    Args:
+        output_dir: Optional directory to check, defaults to config.SSA_DATA_DIR
+
+    Returns:
+        Path to the archive if it exists, None otherwise
+    """
+    output_path = output_dir or SSA_DATA_DIR
+    archive_path = output_path / "names.zip"
+    if archive_path.exists():
+        return archive_path
+    return None
+
+
+def _check_local_ssa_files(year: int, output_dir: Optional[Path] = None) -> Optional[Path]:
+    """
+    Check if a specific SSA year file exists locally.
+
+    Args:
+        year: The year to check
+        output_dir: Optional directory to check, defaults to config.SSA_DATA_DIR
+
+    Returns:
+        Path to the file if it exists, None otherwise
+    """
+    file_path = _get_ssa_file_path(year, output_dir)
+    if file_path.exists():
+        return file_path
+    return None
+
+
 def fetch_ssa_year(year: int, output_dir: Optional[Path] = None) -> Path:
     """
     Fetch SSA baby names data for a specific year.
 
-    This function downloads the complete SSA archive (which is faster than
-    fetching individual years) and returns the specific year file.
+    This function first checks if the file exists locally. If not, it downloads
+    the complete SSA archive (which is faster than fetching individual years)
+    and returns the specific year file.
 
     Args:
         year: The year to fetch data for (1880+)
         output_dir: Optional directory to save the file, defaults to config.SSA_DATA_DIR
 
     Returns:
-        Path to the downloaded file
+        Path to the downloaded or existing file
 
     Raises:
         RequestException: If the request fails
     """
     output_path = output_dir or SSA_DATA_DIR
     output_path.mkdir(parents=True, exist_ok=True)
-    file_path = output_path / f"yob{year}.txt"
+    file_path = _get_ssa_file_path(year, output_path)
 
-    # Check if file already exists
+    # Check if file already exists - return early if so
     if file_path.exists():
         print(f"File already exists: {file_path}")
         return file_path
+
+    # Check if local archive exists and extract from it
+    archive_path = _check_local_ssa_archive(output_path)
+    if archive_path:
+        print(f"Extracting from local archive: {archive_path}")
+        with zipfile.ZipFile(archive_path) as zip_file:
+            for name in zip_file.namelist():
+                if re.match(r"^yob\d{4}\.txt$", name):
+                    extracted_year = _extract_year_from_filename(name)
+                    if extracted_year == year:
+                        output_file = output_path / name
+                        with open(output_file, "wb") as f:
+                            f.write(zip_file.read(name))
+                        print(f"Extracted: {output_file}")
+                        return output_file
+        raise FileNotFoundError(f"Could not find year {year} in local archive")
 
     # Download the bulk archive to get all years at once
     _fetch_ssa_bulk_archive(output_dir)

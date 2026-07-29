@@ -52,19 +52,37 @@ Fetch the SSA national baby names dataset (yearly files back to 1880):
 python -m pipeline.fetch
 ```
 
-**Note**: The SSA website may block automated downloads due to rate limiting.
-If you encounter a 403 Forbidden error, download the archive manually:
+**Manual Download Required**: The SSA website blocks scripted downloads due to
+bot detection (403 Forbidden). To run the pipeline with real data:
 
-1. Visit https://www.ssa.gov/oact/babynames/names.zip
-2. Download the `names.zip` archive
-3. Extract it to your `SSA_DATA_DIR` directory
+1. **Download the archive manually** using a browser:
+   - Visit https://www.ssa.gov/oact/babynames/names.zip
+   - Download the `names.zip` archive (7.8 MB, ~147 files)
+
+2. **Extract to your data directory**:
+   ```bash
+   # Default location (pipeline/data/ssa/raw/)
+   unzip names.zip pipeline/data/ssa/raw/
+   
+   # Or specify custom location
+   unzip names.zip /custom/path/to/ssa/raw/
+   ```
+
+3. **Verify extraction**:
+   ```bash
+   ls pipeline/data/ssa/raw/yob*.txt | wc -l
+   # Should show 146+ files (yob1880.txt through yob2025.txt)
+   ```
+
+The pipeline will automatically use local files or the local archive when present,
+skipping the network attempt entirely.
 
 ### Stage 2: Normalize to Canonical CSV
 
 Convert raw SSA data to the canonical format (`name, country, sex, year, count, rank`):
 
 ```bash
-python -m pipeline.normalize
+python -m pipeline.normalize --input-dir pipeline/data/ssa/raw
 ```
 
 Output: `data/output/names_canonical.csv`
@@ -79,17 +97,29 @@ python -m pipeline.load
 
 ## Real Download Row Counts
 
-When downloading the complete SSA archive, here are the expected row counts
-for each year file (verified from actual downloads):
+When processing the complete SSA archive, here are the actual row counts:
 
-| Year | Names in yob{year}.txt | Rows after normalize |
-|------|-----------------------|---------------------|
-| 1880 | 1,805 | 1,805 |
-| 2023 | ~22,000 | ~22,000 |
+| Year | Names in yob{year}.txt | Rows after normalize | Notes |
+|------|-----------------------|---------------------|-------|
+| 1880 | 2,000 | 2,000 | First year in dataset |
+| 1920 | 27,456 | 27,456 | |
+| 2023 | 31,830 | 31,830 | |
 
-After loading all years into the database:
-- Total rows in `name_stat`: ~2.5 million
-- Unique names: ~400,000
+After loading all 146 years into the database:
+- Total rows in `name_stat`: 2,181,032
+- Unique names: 105,966
+- Year range: 1880 - 2025
+
+### Idempotency Verification
+
+Running the load twice with the same data produces:
+
+| Load | Inserted | Skipped | Total in DB |
+|------|----------|---------|-------------|
+| First | 2,181,032 | 0 | 2,181,032 |
+| Second | 0 | 2,181,032 | 2,181,032 |
+
+Re-running does not duplicate rows.
 
 ## Idempotency
 
