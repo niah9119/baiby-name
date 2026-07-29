@@ -40,11 +40,12 @@ Set the following environment variables:
 ```bash
 export DATABASE_URL="postgresql://user:password@localhost:5432/baibyname"
 export SSA_DATA_DIR="/path/to/cache/ssa/data"  # Optional, defaults to pipeline/data/ssa
+export SCB_DATA_DIR="/path/to/cache/scb/data"  # Optional, defaults to pipeline/data/scb
 ```
 
 ## Usage
 
-### Stage 1: Fetch Source Data
+### USA (SSA) Importer
 
 Fetch the SSA national baby names dataset (yearly files back to 1880):
 
@@ -63,7 +64,7 @@ bot detection (403 Forbidden). To run the pipeline with real data:
    ```bash
    # Default location (pipeline/data/ssa/raw/)
    unzip names.zip pipeline/data/ssa/raw/
-   
+
    # Or specify custom location
    unzip names.zip /custom/path/to/ssa/raw/
    ```
@@ -77,12 +78,43 @@ bot detection (403 Forbidden). To run the pipeline with real data:
 The pipeline will automatically use local files or the local archive when present,
 skipping the network attempt entirely.
 
+### Sweden (SCB) Importer
+
+Fetch the Statistics Sweden (SCB) baby names dataset via the PxWeb API.
+
+**API Access Notes**:
+- Base URL: `https://api.scb.se/OV0104/v1/doris/en/ssd/BE/BE0001/`
+- The English endpoint (`/en/`) only lists old tables (BE0001D, BE0001G)
+- The Swedish endpoint (`/sv/`) may have more current tables
+- The names data tables require a POST request with JSON query format
+
+**Table Structure**:
+- BE0001: Name statistics (parent)
+  - BE0001D: Newborn - Old tables not updated
+  - BE0001G: All registered persons - Old tables not updated
+
+**Known Limitations**:
+- The names-by-birth tables (e.g., FoddaNamn) are not accessible via the current
+  English API endpoint. They may require the Swedish endpoint or a different
+  table structure.
+- The API returns "Bad Request" for direct access to name tables via GET requests.
+- Use POST requests with proper JSON query format for table data.
+
+**Manual Download**:
+If the API is not accessible, download the data manually from Statistics Sweden:
+- Visit https://www.scb.se/en/understand-more/population/name-statistics/
+- Download the data files in your preferred format
+
 ### Stage 2: Normalize to Canonical CSV
 
-Convert raw SSA data to the canonical format (`name, country, sex, year, count, rank`):
+Convert raw data to the canonical format (`name, country, sex, year, count, rank`):
 
 ```bash
+# For SSA data
 python -m pipeline.normalize --input-dir pipeline/data/ssa/raw
+
+# For SCB data (after manual download and conversion)
+python -m pipeline.normalize --input-dir pipeline/data/scb/raw
 ```
 
 Output: `data/output/names_canonical.csv`
@@ -142,15 +174,51 @@ name,country,sex,year,count,rank
 ```
 
 - `name`: The given name (string)
-- `country`: ISO 3166-1 alpha-2 country code (e.g., "US" for USA)
+- `country`: ISO 3166-1 alpha-2 country code (e.g., "US" for USA, "SE" for Sweden)
 - `sex`: "Boy" or "Girl"
 - `year`: The year (integer)
 - `count`: Number of babies with this name (integer)
 - `rank`: Ranking within that year and sex (integer)
 
-## Idempotency
+## Country Code Reference
 
-Loading is idempotent. Re-running the load step will:
-- Not duplicate rows
-- Update existing records if the data changes
-- Skip records that are already present
+| Code | Country | Data Source |
+|------|---------|-------------|
+| US | USA | SSA (Social Security Administration) |
+| SE | Sweden | SCB (Statistics Sweden) - TBD |
+| NO | Norway | - |
+| DK | Denmark | - |
+| GB | England | - |
+
+## Sweden (SCB) API Verification
+
+**Date Verified**: 2026-07-28
+
+### API Endpoint Tests
+
+| Endpoint | Response | Notes |
+|----------|----------|-------|
+| `https://api.scb.se/OV0104/v1/doris/en/ssd/` | 200/JSON | Root endpoint works |
+| `https://api.scb.se/OV0104/v1/doris/en/ssd/BE/` | 200/JSON | "Name statistics" listed |
+| `https://api.scb.se/OV0104/v1/doris/en/ssd/BE/BE0001/` | 200/JSON | Lists only old tables |
+| `https://api.scb.se/OV0104/v1/doris/en/ssd/BE/BE0001/BE0001D` | 400 | Returns "Bad Request" |
+| `https://api.scb.se/OV0104/v1/doris/sv/ssd/BE/BE0001/` | 200/JSON | Swedish endpoint |
+
+### Current Status
+
+The English endpoint (`/en/`) only lists two tables under BE0001:
+1. **BE0001D**: "Newborn - Old tables not updated"
+2. **BE0001G**: "All registered persons in Sweden - Old tables not updated"
+
+Neither table is accessible via direct API calls. The names-by-birth data may be:
+- Only available through the Swedish endpoint (`/sv/`)
+- Only accessible via POST request with query parameters
+- Located under a different parent table (e.g., BE0101H for live births)
+
+### Next Steps
+
+To implement the SCB importer, the exact table ID and query format need to be
+determined. The following approaches may work:
+1. Access the Swedish endpoint (`/sv/`) instead of English (`/en/`)
+2. Use POST requests with JSON query bodies
+3. Check if names data is under a different parent table like BE0101H (Live births)
