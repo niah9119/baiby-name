@@ -16,9 +16,9 @@ jobs:
     name: Java build and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -48,7 +48,7 @@ jobs:
     name: Python pipeline tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # pipeline/ arrives with issue #3; until that merges this job is a no-op rather
       # than a failure, so CI is useful on main immediately.
@@ -62,7 +62,7 @@ jobs:
             echo "pipeline/ not present on this ref -- nothing to test"
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.probe.outputs.exists == 'true'
         with:
           python-version: '3.12'
