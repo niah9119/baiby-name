@@ -6,11 +6,15 @@ exactly ONE GitHub issue, then stop.
 
 Issue number: #{{ISSUE}}
 
-Read it now:
+Read it now — `--comments` matters, review feedback arrives as comments:
 
 ```
-gh issue view {{ISSUE}}
+gh issue view {{ISSUE}} --comments
 ```
+
+If the issue carries review feedback from an earlier attempt, that feedback is part of
+your task: address every point in it. The branch `issue-{{ISSUE}}` and its pull request
+may already exist from that attempt — build on them rather than starting over.
 
 ## Before writing any code
 
@@ -42,8 +46,15 @@ gh issue view {{ISSUE}}
   never leave a server holding port 8080 or a database container running.
 
 - NEVER make a test conditional, skipped, or disabled to get a green build
-  (no @Disabled, no @EnabledIf..., no pytest.skip). A test that does not run is a
-  failure, not a success — if you cannot make it pass, report BLOCKED instead.
+  (no @Disabled, no @EnabledIf..., no pytest.skip, no skipif on a missing env var).
+  A test that does not run is a failure, not a success — if you cannot make it pass,
+  report BLOCKED instead.
+- A test must exercise real behaviour and be able to FAIL. Asserting only that a name
+  exists (`hasattr(mod, "f")`, a bare import, `assert True`) is not a test — it is a
+  placeholder, and it does not satisfy an acceptance criterion.
+- If a criterion needs a database, START one and test against it (Testcontainers for
+  Java, a docker postgres for Python) — do not skip the test because no server is
+  configured. Clean the container up when you are done.
 
 ## When the work is done and the build/tests pass
 
@@ -51,9 +62,15 @@ gh issue view {{ISSUE}}
    are covered by `.gitignore` — create/extend it if needed. Then check `git status` and
    commit on your branch with a message referencing the issue:
    `git add -A && git commit -m "Implement #{{ISSUE}}: <short summary>"`
-2. Push the branch and open a pull request:
+2. Push the branch:
    `git push -u origin issue-{{ISSUE}}`
-   `gh pr create --title "Implement #{{ISSUE}}: <short summary>" --body "Closes #{{ISSUE}}. <one-paragraph summary>"`
+   Then check whether a pull request already exists for it:
+   `gh pr list --head issue-{{ISSUE}} --state open`
+   - No PR yet -> open one:
+     `gh pr create --title "Implement #{{ISSUE}}: <short summary>" --body "Closes #{{ISSUE}}. <one-paragraph summary>"`
+   - PR already exists (a correction run) -> the push already updated it. Do NOT open a
+     second PR. Comment on it instead, saying what you changed in response to the review:
+     `gh pr comment <number> --body "..."`
 3. Comment on the issue with a one-paragraph summary of what you did:
    `gh issue comment {{ISSUE}} --body "..."`
 4. Move the issue to human review:
