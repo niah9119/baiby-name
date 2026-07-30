@@ -13,9 +13,11 @@ pipeline/
 │   ├── fetch.py            # Fetch USA (SSA) source data
 │   ├── fetch_scb.py        # Fetch Sweden (SCB) workbook
 │   ├── fetch_ssb.py        # Fetch Norway (SSB) series
+│   ├── fetch_dst.py        # Fetch Denmark (DST) HTML files
 │   ├── normalize.py        # SSA text files  -> canonical CSV
 │   ├── normalize_scb.py    # SCB xlsx        -> canonical CSV
 │   ├── normalize_ssb.py    # SSB json-stat2  -> canonical CSV
+│   ├── normalize_dst.py    # DST HTML        -> canonical CSV
 │   ├── load.py             # Load into PostgreSQL (idempotent)
 │   └── config.py           # Configuration
 └── tests/                  # Tests
@@ -24,7 +26,9 @@ pipeline/
     ├── test_fetch_scb.py
     ├── test_normalize_scb.py
     ├── test_fetch_ssb.py
-    └── test_normalize_ssb.py
+    ├── test_normalize_ssb.py
+    ├── test_fetch_dst.py
+    └── test_normalize_dst.py
 ```
 
 ## Requirements
@@ -165,6 +169,44 @@ Both are covered by tests that fail if the behaviour regresses.
 null — the data genuinely starts in 1945. Ranks are not published, so they are computed per
 year and sex from the counts, with ties sharing a rank.
 
+### Denmark (DST) Importer
+
+Source: Statistics Denmark (DST) AJAX endpoint, which returns HTML tables of top-50
+(first 25 for 1985-1992) newborn names per sex, from 1985 to the present.
+
+```bash
+python -m pipeline.fetch_dst          # fetches all years, uses local copies when available
+python -m pipeline.normalize_dst    # convert HTML to canonical CSV
+```
+
+**The endpoint:** DST's name statistics are available via an AJAX call:
+
+    https://www.dst.dk/DstDk-Global/sider/ajax.aspx?controlid=%7BE53ECEF3-D45A-4245-9544-1DE42E43A5D6%7D
+
+The POST parameter `p1` uses a year-dependent suffix:
+- 1985–1999: suffix `_1` (e.g., `p1=1985_1`)
+- 2000–2025: suffix `_2` (e.g., `p1=2024_2`)
+
+Using the wrong suffix returns an empty page.
+
+**Coverage and limits** — narrowest of the four countries:
+
+| | |
+|---|---|
+| Years | **1985–2025** only |
+| Depth | **Top 25** per year/sex (1985-1992), **top 50** per year/sex (1993-2025) |
+| Total rows | **3,700** (41 years × 90.2 avg/year) |
+
+For comparison: USA all names from 1880, Norway 1,969 names from 1945, Sweden top-100 from
+1998. DST's top-50 limitation is the source's design, not an importer constraint.
+
+**Parsing notes:**
+- Two tables per year: `<caption>Pigenavne</caption>` (girls) and
+  `<caption>Drengenavne</caption>` (boys)
+- Ranks are provided (`Nr` column) — do not compute them
+- Ignore the `Pr. 1 000` column; the canonical CSV has no field for it
+- Danish names contain æ, ø, å — they are preserved in parsing
+
 ### Stage 2: Normalize to Canonical CSV
 
 Convert raw data to the canonical format (`name, country, sex, year, count, rank`):
@@ -182,9 +224,12 @@ python -m pipeline.normalize_scb \
 python -m pipeline.normalize_ssb \
     --input-file data/ssb/raw/ssb-10467-all.json \
     --output data/output/ssb_canonical.csv
+
+# Denmark (DST) — HTML files
+python -m pipeline.normalize_dst --output data/output/dst_canonical.csv
 ```
 
-Both emit the same canonical columns, so `pipeline.load` handles either.
+All four importers emit the same canonical columns, so `pipeline.load` handles them all.
 
 ### Stage 3: Load into PostgreSQL
 
@@ -305,8 +350,8 @@ name,country,sex,year,count,rank
 
 | Code | Country | Data Source |
 |------|---------|-------------|
-| US | USA | SSA (Social Security Administration) |
+| US | USA | SSA (Social Security Administration), 1880-2025, all names |
 | SE | Sweden | SCB (Statistics Sweden), 1998-2021, top 100/year/sex |
 | NO | Norway | SSB (Statistics Norway), 1945-2025, 1,969 names |
-| DK | Denmark | - |
+| DK | Denmark | DST (Statistics Denmark), 1985-2025, top 25/50/year/sex |
 | GB | England | - |
