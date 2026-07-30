@@ -13,7 +13,7 @@ import pytest
 
 from pipeline.config import CANONICAL_CSV_PATH, SSA_DATA_DIR, USA_COUNTRY_CODE
 from pipeline.fetch import _is_valid_ssa_content, fetch_ssa_year
-from pipeline.load import _name_stat_exists, load_canonical_csv
+from pipeline.load import load_canonical_csv
 from pipeline.normalize import _extract_year_from_filename, normalize_ssa_file
 
 
