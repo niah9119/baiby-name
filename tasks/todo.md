@@ -33,40 +33,54 @@ The pipeline job probes for `pipeline/` and no-ops until issue #3 lands.
 - [x] PR #27 (CI warning fixes: action pins, `spring.jpa.open-in-view: false`) — merged
 - [x] Agent prompt hardened — see `scripts/ralph/issue-prompt.md`
 
-## Where things stand (2026-07-29 00:26)
+## Where things stand (2026-07-30 00:00)
 
-Merged: #1 skeleton, #2 schema, #3 USA (SSA), #4 Sweden (SCB), #5 Norway (SSB), plus CI.
+**Merged:** #1 skeleton, #2 schema, #3 USA, #4 Sweden, #5 Norway, #6 Denmark, #7 England &
+Wales, plus CI. Loader follow-ups all merged too: #32 (honest rowcounts), #35 (tests moved
+off SQLite onto Testcontainers + real Flyway schema), #33 (bulk loading -- the 363,707-row
+ONS load went from ~3 hours to **16 seconds**).
 
-**Running unattended right now**: a detached loop (`--max 2`) working #6 Denmark then
-#7 England & Wales. It survives the terminal closing -- started with `setsid nohup`,
-logging to `/tmp/ralph-overnight.log`. #6 and #7 are independent (both depend only on #3),
-so no merge is needed between them.
+**Running unattended:** detached loop, `--max 3`, working #8 -> #9 -> #14. Log at
+`/tmp/ralph-night2.log`. These three are the only issues with no unmerged dependencies;
+#10/#13 wait on #8, #11 on #9, #12 on #10, #15 on #14.
+
+**Nothing merges without review.** CI grades the build, not whether the work meets the
+acceptance criteria.
 
 In the morning:
 
-    tail -40 /tmp/ralph-overnight.log          # what the loop did
-    gh pr list --state open                    # PRs waiting for review
-    gh issue list --label ready-for-human      # agent says done
-    gh issue list --label in-progress          # stuck mid-flight -> relabel ready-for-agent
+    tail -40 /tmp/ralph-night2.log
+    gh pr list --state open
+    gh issue list --label in-progress      # stuck mid-flight -> relabel ready-for-agent
 
-**Nothing merges without review.** Any PR the loop opens is unreviewed; CI grades the build
-but not whether the work meets the acceptance criteria.
+## Agent time budget: 90 minutes (raised from 45)
 
-## Cost model -- important
+Three runs were killed by the old 45m cap with the work finished but uncommitted -- #4
+round 4 mid-normalizer, #7 with tests passing, and #33 whose last action was `git status`,
+the first command of the commit step. Each cost a rescue-commit or a full re-run. An
+over-long run only wastes local GPU time; a short one destroys completed work.
 
-The agent loop runs on the LOCAL Qwen model: it costs no Anthropic usage. What costs usage
-is Claude reviewing, verifying (worktree builds, CI polls, database loads) and especially
-implementing. #4 and #5 were finished by Claude directly, which is why the session budget
-went. Prefer: agent implements, Claude reviews. Reserve Claude implementing for issues the
-agent has genuinely failed twice, as a deliberate choice.
+Set in BOTH `agent-loop.sh` (the real `timeout`) and `issue-prompt.md` (what the agent is
+told), or they drift.
 
-## Known agent failure pattern
+## What the local model can and cannot do
 
-Across #4 (4 rounds) and #5 (2 rounds) the local model did not converge on data-shape
-problems: it spent whole 45-minute budgets exploring and committed nothing, even when given
-a verified source, a working query and the decode. It handled well-specified mechanical work
-fine (#3's corrections were good). Consider reserving it for mechanical issues, or changing
-the model behind the loop.
+It fails on **source discovery**: #4 took four rounds and #5 two, both burning whole budgets
+exploring, even when handed a verified endpoint.
+
+It succeeds on **self-contained, specified work**: #6, #32, #35 all went to a passing PR
+unaided, and #7/#33 were complete but uncommitted at the wall.
+
+So the split that works is: **solve the data source yourself, let the agent write the code.**
+Pre-solving #6 and #7 (endpoint, suffix rule, files on disk) is what turned them around.
+
+## Do not let SQLite back in
+
+The database is PostgreSQL. A SQLite test merged in #32 caused the first #33 attempt to
+reshape production SQL around SQLite's parameter handling -- which would have defeated the
+optimisation, since SQLite is in-process and has no round-trips to save. #35 removed it;
+the suite must stay at zero SQLite mentions. Tests use `PostgresContainer` and apply the
+real `V2__core_schema.sql`.
 
 ## Agent isolation (set up 2026-07-28)
 
