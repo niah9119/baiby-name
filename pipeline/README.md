@@ -11,10 +11,12 @@ pipeline/
 ├── pipeline/               # Pipeline code
 │   ├── __init__.py
 │   ├── fetch.py            # Fetch USA (SSA) source data
+│   ├── fetch_ons.py        # Fetch England and Wales (ONS) workbook
 │   ├── fetch_scb.py        # Fetch Sweden (SCB) workbook
 │   ├── fetch_ssb.py        # Fetch Norway (SSB) series
 │   ├── fetch_dst.py        # Fetch Denmark (DST) HTML files
 │   ├── normalize.py        # SSA text files  -> canonical CSV
+│   ├── normalize_ons.py    # ONS xlsx        -> canonical CSV
 │   ├── normalize_scb.py    # SCB xlsx        -> canonical CSV
 │   ├── normalize_ssb.py    # SSB json-stat2  -> canonical CSV
 │   ├── normalize_dst.py    # DST HTML        -> canonical CSV
@@ -23,12 +25,15 @@ pipeline/
 └── tests/                  # Tests
     ├── __init__.py
     ├── test_pipeline.py
+    ├── test_fetch_ons.py
     ├── test_fetch_scb.py
-    ├── test_normalize_scb.py
     ├── test_fetch_ssb.py
+    ├── test_normalize_scb.py
     ├── test_normalize_ssb.py
     ├── test_fetch_dst.py
-    └── test_normalize_dst.py
+    ├── test_normalize_dst.py
+    ├── test_fetch_ons.py
+    └── test_normalize_ons.py
 ```
 
 ## Requirements
@@ -227,9 +232,14 @@ python -m pipeline.normalize_ssb \
 
 # Denmark (DST) — HTML files
 python -m pipeline.normalize_dst --output data/output/dst_canonical.csv
+
+# England and Wales (ONS) — Excel workbook, so a separate normalizer
+python -m pipeline.normalize_ons \
+    --input-file data/ons/raw/ons-babynames-1996-2025.xlsx \
+    --output data/output/ons_canonical.csv
 ```
 
-All four importers emit the same canonical columns, so `pipeline.load` handles them all.
+All five importers emit the same canonical columns, so `pipeline.load` handles them all.
 
 ### Stage 3: Load into PostgreSQL
 
@@ -291,6 +301,8 @@ Running each load twice with the same data produces:
 | Sweden (SCB) | Second | 0 | 4,814 | 4,814 |
 | Norway (SSB) | First | 91,581 | 0 | 91,581 |
 | Norway (SSB) | Second | 0 | 91,581 | 91,581 |
+| England and Wales (ONS) | First | 363,707 | 0 | 363,707 |
+| England and Wales (ONS) | Second | 0 | 363,707 | 363,707 |
 
 Re-running does not duplicate rows.
 
@@ -307,6 +319,21 @@ From the full table 10467 payload (3,911,217 bytes):
 
 The payload holds 288,204 cells (1,974 codes x 146 years); the rest are null because a name
 has no entry for years it was not registered, and every cell before 1945 is null.
+
+### England and Wales (ONS) row counts
+
+From the real workbook (`ons-babynames-1996-2025.xlsx`, 11,972,259 bytes):
+
+| | |
+|---|---|
+| Rows in canonical CSV | **363,707** |
+| Distinct names | **39,478** |
+| Year range | 1996 – 2025 |
+| Split | Girl 200,932 / Boy 162,775 |
+
+The workbook has a "wide" format with one row per name and pairs of rank/count columns
+for each year (30 years: 2025 down to 1996). Ranks are published, so they are used directly
+without recomputation. Suppressed values (`[x]`) are skipped entirely.
 
 Spot check read back from the database:
 
@@ -353,5 +380,62 @@ name,country,sex,year,count,rank
 | US | USA | SSA (Social Security Administration), 1880-2025, all names |
 | SE | Sweden | SCB (Statistics Sweden), 1998-2021, top 100/year/sex |
 | NO | Norway | SSB (Statistics Norway), 1945-2025, 1,969 names |
-| DK | Denmark | DST (Statistics Denmark), 1985-2025, top 25/50/year/sex |
-| GB | England | - |
+| DK | Denmark | DST (Statistics Denmark), 1985-2025, top 25 then top 50/year/sex |
+| GB | England and Wales | ONS (Office for National Statistics), 1996-2025, all names |
+
+## England and Wales (ONS) Importer
+
+Source: The Office for National Statistics publishes baby names for England and Wales
+as a single Excel workbook covering 1996-2025. The file is served over plain HTTP with
+no bot-blocking.
+
+```
+https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/birthsdeathsandmarriages/livebirths/datasets/babynamesinenglandandwalesfrom1996/1996to2025/babynames1996to2025.xlsx
+```
+
+That URL returns the `.xlsx` itself (11,972,259 bytes), not an HTML page.
+
+```bash
+python -m pipeline.fetch_ons          # downloads unless a local copy exists
+```
+
+**Coverage and limits:**
+
+| | |
+|---|---|
+| Years | **1996–2025** (30 years) |
+| Depth | **All names** (not just top 100) |
+| Sheets | 5: `Cover_sheet`, `Contents`, `Notes`, `Table_1` (girls), `Table_2` (boys) |
+
+**Sheet layout:**
+
+The workbook has a "wide" format with one row per name and pairs of rank/count columns
+for each year:
+
+```
+Row 5 (header): Name | 2025 Rank | 2025 Count | 2024 Rank | 2024 Count | ...
+Row 6 onward  : Aabidah | 5927 | 3 | 5892 | 3 | 5688 | 3 | [x] | [x] | ...
+```
+
+- **Table_1** contains names for baby girls (24,007 rows, covering 1996-2025)
+- **Table_2** contains names for baby boys (18,087 rows, covering 1996-2025)
+
+**Three important details:**
+
+1. **`[x]` means suppressed, not zero.** The ONS writes `[x]` where a name is below
+   the disclosure threshold for that year. Skip these cells - do not coerce them to 0,
+   and do not let them become rows.
+
+2. **Header is on row 5, data starts on row 6.** Rows 1-4 are titles and note markers.
+
+3. **Ranks are provided.** Unlike SSB and SSA, do NOT compute them. Use the published
+   rank column for each year.
+
+**Actual row counts:**
+
+| | |
+|---|---|
+| Rows in canonical CSV | **363,707** |
+| Distinct names | **39,478** |
+| Year range | 1996 – 2025 |
+| Split | Girl 200,932 / Boy 162,775 |

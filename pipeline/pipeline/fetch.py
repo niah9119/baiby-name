@@ -1,4 +1,4 @@
-"""Fetch SSA baby names data from the web."""
+"""Fetch SSA, SCB, and SSB baby names data from the web."""
 
 import io
 import re
@@ -10,7 +10,7 @@ from typing import Optional
 import requests
 from requests.exceptions import RequestException
 
-from .config import SSA_DATA_DIR
+from .config import SSA_DATA_DIR, SCB_DATA_DIR, SSB_DATA_DIR, ONS_DATA_DIR
 
 
 def _fetch_ssa_bulk_archive(output_dir: Optional[Path] = None) -> list[Path]:
@@ -217,6 +217,18 @@ def fetch_usa_data() -> list[Path]:
         List of paths to downloaded files
     """
     return fetch_all_years()
+
+
+def fetch_gb_data() -> list[Path]:
+    """
+    Fetch all Great Britain (ONS) data (backward compatibility wrapper).
+
+    Returns:
+        List of paths to downloaded files (currently just the single workbook)
+    """
+    from . import fetch_ons
+
+    return [fetch_ons.download_ons_archive()]
 
 
 if __name__ == "__main__":

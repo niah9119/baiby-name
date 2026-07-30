@@ -1,4 +1,4 @@
-"""Normalize SSA and SCB data to canonical CSV format."""
+"""Normalize SSA, SCB, SSB, and ONS data to canonical CSV format."""
 
 import re
 from pathlib import Path
@@ -6,7 +6,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .config import CANONICAL_CSV_PATH, SCB_DATA_DIR, SSA_DATA_DIR, SWEDEN_COUNTRY_CODE, USA_COUNTRY_CODE
+from .config import CANONICAL_CSV_PATH, ONS_DATA_DIR, SCB_DATA_DIR, SSA_DATA_DIR, SWEDEN_COUNTRY_CODE, USA_COUNTRY_CODE, GB_ENGLAND_WALES_COUNTRY_CODE
 
 
 def normalize_ssa_file(file_path: Path) -> pd.DataFrame:
@@ -125,6 +125,39 @@ if __name__ == "__main__":
     print(f"  Country coverage: {df['country'].unique()}")
     print(f"  Sex categories: {df['sex'].unique()}")
     print(f"  Year range: {df['year'].min()} - {df['year'].max()}")
+
+
+def normalize_ons_all_files(
+    input_dir: Optional[Path] = None, output_path: Optional[Path] = None
+) -> pd.DataFrame:
+    """
+    Normalize all ONS Excel files and append to the canonical CSV.
+
+    Args:
+        input_dir: Directory containing ONS Excel files
+        output_path: Path to the canonical CSV (appends if exists)
+
+    Returns:
+        DataFrame with all normalized data
+    """
+    from . import normalize_ons
+
+    input_dir = input_dir or ONS_DATA_DIR
+    output_path = output_path or CANONICAL_CSV_PATH
+
+    df = normalize_ons.normalize_all_files(input_dir, output_path)
+
+    # Append to canonical CSV if it exists
+    if output_path.exists() and output_path != CANONICAL_CSV_PATH:
+        existing_df = pd.read_csv(output_path)
+        combined_df = pd.concat([existing_df, df], ignore_index=True)
+        combined_df.to_csv(output_path, index=False)
+    elif output_path == CANONICAL_CSV_PATH:
+        # If using default path, we're overwriting/creating the canonical CSV
+        # The normalize_ons module already wrote to the file
+        pass
+
+    return df
 
 
 def normalize_scb_all_files(

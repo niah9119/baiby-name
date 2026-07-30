@@ -34,6 +34,13 @@ NORWAY_COUNTRY_CODE = "NO"
 # Denmark country code
 DENMARK_COUNTRY_CODE = "DK"
 
+# Great Britain (England and Wales) country code
+GB_ENGLAND_WALES_COUNTRY_CODE = "GB"
+
+# ONS data directory
+ONS_DATA_DIR = Path(os.environ.get("ONS_DATA_DIR", DATA_DIR / "ons" / "raw"))
+ONS_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 # Canonical CSV output path
 CANONICAL_CSV_PATH = OUTPUT_DIR / "names_canonical.csv"
 
