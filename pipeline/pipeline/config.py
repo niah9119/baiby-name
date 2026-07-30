@@ -12,12 +12,14 @@ DATA_DIR = BASE_DIR / "data"
 SSA_DATA_DIR = Path(os.environ.get("SSA_DATA_DIR", DATA_DIR / "ssa" / "raw"))
 SCB_DATA_DIR = Path(os.environ.get("SCB_DATA_DIR", DATA_DIR / "scb" / "raw"))
 SSB_DATA_DIR = Path(os.environ.get("SSB_DATA_DIR", DATA_DIR / "ssb" / "raw"))
+DST_DATA_DIR = Path(os.environ.get("DST_DATA_DIR", DATA_DIR / "dst" / "raw"))
 OUTPUT_DIR = DATA_DIR / "output"
 
 # Ensure directories exist
 SSA_DATA_DIR.mkdir(parents=True, exist_ok=True)
 SCB_DATA_DIR.mkdir(parents=True, exist_ok=True)
 SSB_DATA_DIR.mkdir(parents=True, exist_ok=True)
+DST_DATA_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # USA country code
@@ -29,13 +31,14 @@ SWEDEN_COUNTRY_CODE = "SE"
 # Norway country code
 NORWAY_COUNTRY_CODE = "NO"
 
+# Denmark country code
+DENMARK_COUNTRY_CODE = "DK"
+
 # Great Britain (England and Wales) country code
 GB_ENGLAND_WALES_COUNTRY_CODE = "GB"
 
 # ONS data directory
 ONS_DATA_DIR = Path(os.environ.get("ONS_DATA_DIR", DATA_DIR / "ons" / "raw"))
-
-# Ensure ONS directory exists
 ONS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Canonical CSV output path
