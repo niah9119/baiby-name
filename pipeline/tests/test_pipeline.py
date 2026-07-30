@@ -17,6 +17,18 @@ from pipeline.load import _name_stat_exists, load_canonical_csv
 from pipeline.normalize import _extract_year_from_filename, normalize_ssa_file
 
 
+def _load_flyway_schema(engine):
+    """Load the Flyway V2__core_schema.sql into the database."""
+    from sqlalchemy import text
+
+    schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "main" / "resources" / "db" / "migration" / "V2__core_schema.sql"
+    schema_sql = schema_path.read_text()
+
+    with engine.connect() as conn:
+        conn.execute(text(schema_sql))
+        conn.commit()
+
+
 class TestNormalize:
     """Tests for the normalize module."""
 
@@ -142,10 +154,12 @@ class TestLoad:
         """Test the idempotency check for existing name_stat records.
 
         This test verifies that loading the same CSV twice does not duplicate rows.
-        We use a temporary SQLite database for this test.
+        Uses PostgresContainer for consistency with other integration tests.
         """
         import sqlalchemy
         from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
 
         # Create a temporary CSV file
         csv_path = tmp_path / "names_canonical.csv"
@@ -154,60 +168,31 @@ class TestLoad:
             writer.writerow(["name", "country", "sex", "year", "count", "rank"])
             writer.writerow(["TestName", "US", "F", "2023", "100", "1"])
 
-        # Create a temporary database file
-        db_file = tmp_path / "test.db"
-        db_url = f"sqlite:///{db_file}"
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
 
-        # Create the database schema
-        engine = sqlalchemy.create_engine(db_url)
-        with engine.connect() as conn:
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS given_name (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            '''))
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS country (
-                    id INTEGER PRIMARY KEY,
-                    code TEXT UNIQUE NOT NULL,
-                    name TEXT NOT NULL
-                )
-            '''))
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS name_stat (
-                    id INTEGER PRIMARY KEY,
-                    given_name_id INTEGER NOT NULL,
-                    country_id INTEGER NOT NULL,
-                    sex TEXT NOT NULL,
-                    year INTEGER NOT NULL,
-                    count INTEGER NOT NULL,
-                    rank INTEGER NOT NULL,
-                    UNIQUE(given_name_id, country_id, sex, year),
-                    FOREIGN KEY (given_name_id) REFERENCES given_name(id),
-                    FOREIGN KEY (country_id) REFERENCES country(id)
-                )
-            '''))
-            conn.commit()
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
 
-        # First load
-        stats1 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
-        assert stats1["inserted_rows"] == 1
-        assert stats1["total_rows"] == 1
+            # First load
+            stats1 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+            assert stats1["inserted_rows"] == 1
+            assert stats1["total_rows"] == 1
 
-        # Second load (should skip since already exists)
-        stats2 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
-        assert stats2["inserted_rows"] == 0
-        assert stats2["skipped_rows"] == 1
-        assert stats2["total_rows"] == 1
+            # Second load (should skip since already exists)
+            stats2 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+            assert stats2["inserted_rows"] == 0
+            assert stats2["skipped_rows"] == 1
+            assert stats2["total_rows"] == 1
 
-        # Verify data in database
-        engine = sqlalchemy.create_engine(db_url)
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT COUNT(*) FROM name_stat"))
-            count = result.scalar()
-            assert count == 1
+            # Verify data in database
+            engine = sqlalchemy.create_engine(db_url)
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM name_stat"))
+                count = result.scalar()
+                assert count == 1
 
     def test_source_duplicate_rows(self, tmp_path):
         """Test that duplicate rows in the CSV are reported separately.
@@ -219,9 +204,12 @@ class TestLoad:
         - skipped_rows: rows that already existed before the load
 
         Totals should reconcile: inserted + dropped + skipped == total_rows
+        Uses PostgresContainer with the Flyway schema for consistency with production.
         """
         import sqlalchemy
         from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
 
         # Create a temporary CSV file with a duplicate row
         csv_path = tmp_path / "names_canonical.csv"
@@ -233,58 +221,29 @@ class TestLoad:
             writer.writerow(["Alice", "US", "F", "2023", "100", "1"])  # Duplicate of row 1
             writer.writerow(["Charlie", "US", "F", "2023", "75", "3"])
 
-        # Create a temporary database file
-        db_file = tmp_path / "test.db"
-        db_url = f"sqlite:///{db_file}"
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
 
-        # Create the database schema
-        engine = sqlalchemy.create_engine(db_url)
-        with engine.connect() as conn:
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS given_name (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            '''))
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS country (
-                    id INTEGER PRIMARY KEY,
-                    code TEXT UNIQUE NOT NULL,
-                    name TEXT NOT NULL
-                )
-            '''))
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS name_stat (
-                    id INTEGER PRIMARY KEY,
-                    given_name_id INTEGER NOT NULL,
-                    country_id INTEGER NOT NULL,
-                    sex TEXT NOT NULL,
-                    year INTEGER NOT NULL,
-                    count INTEGER NOT NULL,
-                    rank INTEGER NOT NULL,
-                    UNIQUE(given_name_id, country_id, sex, year),
-                    FOREIGN KEY (given_name_id) REFERENCES given_name(id),
-                    FOREIGN KEY (country_id) REFERENCES country(id)
-                )
-            '''))
-            conn.commit()
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
 
-        # Load the CSV
-        stats = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+            # Load the CSV
+            stats = load_canonical_csv(csv_path=csv_path, db_url=db_url)
 
-        # Verify totals reconcile: inserted + dropped + skipped == total_rows
-        assert stats["total_rows"] == 4
-        assert stats["inserted_rows"] == 3  # Alice, Bob, Charlie (Alice duplicate dropped)
-        assert stats["dropped_on_conflict"] == 1  # Second Alice row
-        assert stats["skipped_rows"] == 0  # No pre-existing rows
+            # Verify totals reconcile: inserted + dropped + skipped == total_rows
+            assert stats["total_rows"] == 4
+            assert stats["inserted_rows"] == 3  # Alice, Bob, Charlie (Alice duplicate dropped)
+            assert stats["dropped_on_conflict"] == 1  # Second Alice row
+            assert stats["skipped_rows"] == 0  # No pre-existing rows
 
-        # Verify the DB has exactly 3 rows (duplicates not inserted)
-        engine = sqlalchemy.create_engine(db_url)
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT COUNT(*) FROM name_stat"))
-            count = result.scalar()
-            assert count == 3
+            # Verify the DB has exactly 3 rows (duplicates not inserted)
+            engine = sqlalchemy.create_engine(db_url)
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM name_stat"))
+                count = result.scalar()
+                assert count == 3
 
 
 @pytest.fixture
@@ -335,38 +294,9 @@ class TestIntegration:
         with PostgresContainer("postgres:15-alpine") as postgres:
             db_url = postgres.get_connection_url()
 
-            # Create the database schema (load.py expects tables to exist)
+            # Load the Flyway schema instead of hand-rolled DDL
             engine = sqlalchemy.create_engine(db_url)
-            with engine.connect() as conn:
-                conn.execute(text('''
-                    CREATE TABLE IF NOT EXISTS given_name (
-                        id SERIAL PRIMARY KEY,
-                        name TEXT UNIQUE NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                '''))
-                conn.execute(text('''
-                    CREATE TABLE IF NOT EXISTS country (
-                        id SERIAL PRIMARY KEY,
-                        code TEXT UNIQUE NOT NULL,
-                        name TEXT NOT NULL
-                    )
-                '''))
-                conn.execute(text('''
-                    CREATE TABLE IF NOT EXISTS name_stat (
-                        id SERIAL PRIMARY KEY,
-                        given_name_id INTEGER NOT NULL,
-                        country_id INTEGER NOT NULL,
-                        sex TEXT NOT NULL,
-                        year INTEGER NOT NULL,
-                        count INTEGER NOT NULL,
-                        rank INTEGER NOT NULL,
-                        UNIQUE(given_name_id, country_id, sex, year),
-                        FOREIGN KEY (given_name_id) REFERENCES given_name(id),
-                        FOREIGN KEY (country_id) REFERENCES country(id)
-                    )
-                '''))
-                conn.commit()
+            _load_flyway_schema(engine)
 
             # First load
             stats1 = load_canonical_csv(csv_path=sample_csv_file, db_url=db_url)
