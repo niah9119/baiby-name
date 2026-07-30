@@ -80,14 +80,18 @@ for i in $(seq 1 "$MAX"); do
 
   # Fresh Claude Code instance via local Qwen. stream-json captures EVERY tool call, so we
   # get an audit trail and can verify the agent actually ran the build (not just claimed to).
-  # Cap per-response output so input + max_tokens can never exceed the model's 131K context
-  # (uncapped, Claude Code asks for 64K output and vLLM hard-rejects once input passes ~67K).
+  # Cap per-response output. vLLM checks input + max_tokens against the 131K context UP FRONT,
+  # so this value is a fixed reservation, not a ceiling on what gets generated: at 16384 the
+  # usable input was only 114688, and every request past that failed with a 400 regardless of
+  # how short the reply would be. Runs #8 and #14 died exactly there, at 115778 input tokens.
+  # 8192 moves the wall to 122880. A tool-calling turn is a few hundred tokens plus a tool
+  # call, so 8192 is still far more headroom than any single response needs.
   # Hard time budget so a non-converging agent can't hold the GPU indefinitely. 90m, not 45:
   # three runs (#4, #7, #33) were killed with the work finished but uncommitted -- #33 died
   # on `git status`, the first command of the commit step. Losing completed work costs a
   # rescue-commit or a whole re-run; an over-long run only costs local GPU time, which is free.
   sed "s/{{ISSUE}}/$N/g" "$PROMPT_TMPL" \
-    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384 timeout 90m \
+    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout 90m \
         claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
     | tee "$log" >/dev/null || true
 
