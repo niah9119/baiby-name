@@ -82,9 +82,12 @@ for i in $(seq 1 "$MAX"); do
   # get an audit trail and can verify the agent actually ran the build (not just claimed to).
   # Cap per-response output so input + max_tokens can never exceed the model's 131K context
   # (uncapped, Claude Code asks for 64K output and vLLM hard-rejects once input passes ~67K).
-  # Hard time budget so a non-converging agent can't hold the GPU indefinitely.
+  # Hard time budget so a non-converging agent can't hold the GPU indefinitely. 90m, not 45:
+  # three runs (#4, #7, #33) were killed with the work finished but uncommitted -- #33 died
+  # on `git status`, the first command of the commit step. Losing completed work costs a
+  # rescue-commit or a whole re-run; an over-long run only costs local GPU time, which is free.
   sed "s/{{ISSUE}}/$N/g" "$PROMPT_TMPL" \
-    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384 timeout 45m \
+    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384 timeout 90m \
         claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
     | tee "$log" >/dev/null || true
 

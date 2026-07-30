@@ -54,7 +54,7 @@ may already exist from that attempt — build on them rather than starting over.
   Do NOT change git remotes or repo settings.
 - NEVER commit to `main`. Run `git branch --show-current` immediately before every commit
   and confirm it prints `issue-{{ISSUE}}`.
-- You have a 45-minute budget. Spend it on the acceptance criteria, not on exploration:
+- You have a 90-minute budget. Spend it on the acceptance criteria, not on exploration:
   get something that satisfies them committed and pushed EARLY, then improve it. A timeout
   with nothing pushed loses the whole run.
 - CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
