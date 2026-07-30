@@ -46,6 +46,7 @@ def load_canonical_csv(
         "total_rows": 0,
         "inserted_rows": 0,
         "skipped_rows": 0,
+        "dropped_on_conflict": 0,
         "errors": [],
     }
 
@@ -71,15 +72,13 @@ def load_canonical_csv(
 
             if len(rows_to_insert) >= batch_size:
                 if not dry_run:
-                    _insert_batch(engine, rows_to_insert)
-                stats["inserted_rows"] += len(rows_to_insert)
+                    _insert_batch(engine, rows_to_insert, stats)
                 rows_to_insert = []
 
         # Insert remaining rows
         if rows_to_insert:
             if not dry_run:
-                _insert_batch(engine, rows_to_insert)
-            stats["inserted_rows"] += len(rows_to_insert)
+                _insert_batch(engine, rows_to_insert, stats)
 
     return stats
 
@@ -107,8 +106,14 @@ def _name_stat_exists(engine: sqlalchemy.Engine, row: dict) -> bool:
         return result is not None
 
 
-def _insert_batch(engine: sqlalchemy.Engine, rows: list[dict]) -> None:
-    """Insert a batch of rows into the database."""
+def _insert_batch(engine: sqlalchemy.Engine, rows: list[dict], stats: Optional[dict] = None) -> None:
+    """Insert a batch of rows into the database.
+
+    Args:
+        engine: Database engine
+        rows: List of rows to insert
+        stats: Optional stats dict to update with actual row counts
+    """
     with engine.begin() as conn:
         for row in rows:
             # Insert given_name if not exists (idempotent upsert)
@@ -142,8 +147,8 @@ def _insert_batch(engine: sqlalchemy.Engine, rows: list[dict]) -> None:
                 {"code": row["country"]},
             ).scalar()
 
-            # Insert name_stat
-            conn.execute(
+            # Insert name_stat and track affected rows
+            result = conn.execute(
                 text("""
                     INSERT INTO name_stat (
                         given_name_id, country_id, sex, year, count, rank
@@ -160,6 +165,14 @@ def _insert_batch(engine: sqlalchemy.Engine, rows: list[dict]) -> None:
                     "rank": int(row["rank"]),
                 },
             )
+
+            # Track actual affected rows from name_stat insert
+            if stats is not None:
+                # rowcount is 1 if row was inserted, 0 if conflict (DO NOTHING)
+                if result.rowcount > 0:
+                    stats["inserted_rows"] += 1
+                else:
+                    stats["dropped_on_conflict"] += 1
 
 
 def _get_country_name(code: str) -> str:
@@ -207,6 +220,7 @@ if __name__ == "__main__":
         print(f"  Total rows in CSV: {stats['total_rows']}")
         print(f"  Inserted rows: {stats['inserted_rows']}")
         print(f"  Skipped rows (already exists): {stats['skipped_rows']}")
+        print(f"  Dropped on conflict (source duplicate): {stats['dropped_on_conflict']}")
         if stats["errors"]:
             print(f"  Errors: {len(stats['errors'])}")
             for error in stats["errors"][:5]:

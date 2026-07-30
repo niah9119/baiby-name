@@ -209,6 +209,83 @@ class TestLoad:
             count = result.scalar()
             assert count == 1
 
+    def test_source_duplicate_rows(self, tmp_path):
+        """Test that duplicate rows in the CSV are reported separately.
+
+        This test verifies that if the CSV contains duplicate rows (same name/country/sex/year),
+        the loader correctly reports:
+        - inserted_rows: actual rows inserted into the database
+        - dropped_on_conflict: rows that were silently dropped due to conflict
+        - skipped_rows: rows that already existed before the load
+
+        Totals should reconcile: inserted + dropped + skipped == total_rows
+        """
+        import sqlalchemy
+        from sqlalchemy import text
+
+        # Create a temporary CSV file with a duplicate row
+        csv_path = tmp_path / "names_canonical.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "country", "sex", "year", "count", "rank"])
+            writer.writerow(["Alice", "US", "F", "2023", "100", "1"])
+            writer.writerow(["Bob", "US", "M", "2023", "50", "2"])
+            writer.writerow(["Alice", "US", "F", "2023", "100", "1"])  # Duplicate of row 1
+            writer.writerow(["Charlie", "US", "F", "2023", "75", "3"])
+
+        # Create a temporary database file
+        db_file = tmp_path / "test.db"
+        db_url = f"sqlite:///{db_file}"
+
+        # Create the database schema
+        engine = sqlalchemy.create_engine(db_url)
+        with engine.connect() as conn:
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS given_name (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            '''))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS country (
+                    id INTEGER PRIMARY KEY,
+                    code TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL
+                )
+            '''))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS name_stat (
+                    id INTEGER PRIMARY KEY,
+                    given_name_id INTEGER NOT NULL,
+                    country_id INTEGER NOT NULL,
+                    sex TEXT NOT NULL,
+                    year INTEGER NOT NULL,
+                    count INTEGER NOT NULL,
+                    rank INTEGER NOT NULL,
+                    UNIQUE(given_name_id, country_id, sex, year),
+                    FOREIGN KEY (given_name_id) REFERENCES given_name(id),
+                    FOREIGN KEY (country_id) REFERENCES country(id)
+                )
+            '''))
+            conn.commit()
+
+        # Load the CSV
+        stats = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
+        # Verify totals reconcile: inserted + dropped + skipped == total_rows
+        assert stats["total_rows"] == 4
+        assert stats["inserted_rows"] == 3  # Alice, Bob, Charlie (Alice duplicate dropped)
+        assert stats["dropped_on_conflict"] == 1  # Second Alice row
+        assert stats["skipped_rows"] == 0  # No pre-existing rows
+
+        # Verify the DB has exactly 3 rows (duplicates not inserted)
+        engine = sqlalchemy.create_engine(db_url)
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM name_stat"))
+            count = result.scalar()
+            assert count == 3
+
 
 @pytest.fixture
 def sample_csv_file(tmp_path):
