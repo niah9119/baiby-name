@@ -37,16 +37,33 @@
                         </a>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="#" class="nav-link">Browse</a>
-                        <a href="#" class="nav-link">Interview</a>
-                        <a href="#" class="nav-link">Shortlist</a>
+                        <a href="#" class="nav-link" th:text="#{nav.browse}">Browse</a>
+                        <a href="#" class="nav-link" th:text="#{nav.interview}">Interview</a>
+                        <a href="#" class="nav-link" th:text="#{nav.shortlist}">Shortlist</a>
                     </div>
                 </div>
                 <div class="hidden sm:ml-6 sm:flex sm:items-center">
                     <div class="ml-3 relative">
-                        <button class="btn-secondary">
+                        <button class="btn-secondary" th:text="#{nav.login}">
                             <i class="fa-solid fa-user mr-2"></i>Log in
                         </button>
+                    </div>
+                    <!-- Language Switcher -->
+                    <div class="ml-3 relative">
+                        <select id="language-switcher" class="btn-secondary cursor-pointer">
+                            <option value="en" th:selected="${#locale.language == 'en'}">English</option>
+                            <option value="sv" th:selected="${#locale.language == 'sv'}">Svenska</option>
+                        </select>
+                        <script>
+                            document.getElementById('language-switcher').addEventListener('change', function(e) {
+                                var lang = e.target.value;
+                                // Make a POST request to change the locale
+                                // We need to add a form or use AJAX with CSRF token
+                                // For simplicity, we'll use a GET request with lang parameter
+                                // The LocaleChangeInterceptor handles this
+                                window.location.href = window.location.pathname + '?lang=' + lang;
+                            });
+                        </script>
                     </div>
                 </div>
             </div>
@@ -63,7 +80,7 @@
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-sm text-gray-500">
+            <p class="text-center text-sm text-gray-500" th:text="#{footer.copyright}">
                 &copy; 2026 BaibyName. Helping expecting parents choose the perfect name.
             </p>
         </div>
