@@ -20,12 +20,48 @@
         .btn-secondary {
             @apply bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
         }
+        .btn-danger {
+            @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+        }
         .card {
             @apply bg-white rounded-xl shadow-sm p-6;
+        }
+        /* Consent banner styles */
+        .consent-banner {
+            @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 transform transition-transform duration-300;
+        }
+        .consent-banner.hidden {
+            @apply -translate-y-full;
+        }
+        .consent-banner-content {
+            @apply max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8;
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
+    <!-- Consent Banner -->
+    <div id="consent-banner" class="consent-banner hidden" th:fragment="consent-banner">
+        <div class="consent-banner-content">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex-1">
+                    <h3 class="font-semibold text-gray-900" th:text="#{consent.title}">We value your privacy</h3>
+                    <p class="text-sm text-gray-600 mt-1" th:text="#{consent.description}">
+                        We use cookies to improve your experience, show personalized content, and analyze our traffic.
+                        By clicking "Accept All", you consent to our use of cookies.
+                    </p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="consent-decline" class="btn-secondary" th:text="#{consent.decline}">
+                        Decline
+                    </button>
+                    <button id="consent-accept" class="btn-primary" th:text="#{consent.accept}">
+                        Accept All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Navigation -->
     <nav class="bg-white shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,10 +79,18 @@
                     </div>
                 </div>
                 <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <div class="ml-3 relative">
-                        <button class="btn-secondary" th:text="#{nav.login}">
+                    <div class="ml-3 relative" th:if="${#httpServletRequest.userPrincipal == null}">
+                        <a href="/login" class="btn-secondary" th:text="#{nav.login}">
                             <i class="fa-solid fa-user mr-2"></i>Log in
-                        </button>
+                        </a>
+                    </div>
+                    <div class="ml-3 relative" th:unless="${#httpServletRequest.userPrincipal == null}">
+                        <span class="text-gray-600 px-3 py-2 text-sm" th:text="#{nav.hello}">
+                            Hello,
+                        </span>
+                        <a href="/account" class="btn-secondary" th:text="#{nav.account}">
+                            <i class="fa-solid fa-user mr-2"></i>Account
+                        </a>
                     </div>
                     <!-- Language Switcher -->
                     <div class="ml-3 relative">
@@ -57,10 +101,6 @@
                         <script>
                             document.getElementById('language-switcher').addEventListener('change', function(e) {
                                 var lang = e.target.value;
-                                // Make a POST request to change the locale
-                                // We need to add a form or use AJAX with CSRF token
-                                // For simplicity, we'll use a GET request with lang parameter
-                                // The LocaleChangeInterceptor handles this
                                 window.location.href = window.location.pathname + '?lang=' + lang;
                             });
                         </script>
@@ -80,10 +120,54 @@
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-sm text-gray-500" th:text="#{footer.copyright}">
-                &copy; 2026 BaibyName. Helping expecting parents choose the perfect name.
-            </p>
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <p class="text-center text-sm text-gray-500 mb-4 md:mb-0" th:text="#{footer.copyright}">
+                    &copy; 2026 BaibyName. Helping expecting parents choose the perfect name.
+                </p>
+                <div class="flex gap-4">
+                    <a href="/privacy-policy" class="text-sm text-gray-500 hover:text-gray-900" th:text="#{footer.privacy}">
+                        Privacy Policy
+                    </a>
+                    <a href="/gdpr/consent" class="text-sm text-gray-500 hover:text-gray-900" th:text="#{footer.consent}">
+                        Consent
+                    </a>
+                </div>
+            </div>
         </div>
     </footer>
+
+    <script th:if="${showConsentBanner}">
+        document.addEventListener('DOMContentLoaded', function() {
+            const banner = document.getElementById('consent-banner');
+            const acceptBtn = document.getElementById('consent-accept');
+            const declineBtn = document.getElementById('consent-decline');
+
+            // Check localStorage for consent
+            const consent = localStorage.getItem('baibyname_consent');
+            if (consent) {
+                banner.classList.add('hidden');
+            }
+
+            acceptBtn.addEventListener('click', function() {
+                localStorage.setItem('baibyname_consent', JSON.stringify({
+                    cookies: true,
+                    processing: true,
+                    marketing: true,
+                    consentedAt: new Date().toISOString()
+                }));
+                banner.classList.add('hidden');
+            });
+
+            declineBtn.addEventListener('click', function() {
+                localStorage.setItem('baibyname_consent', JSON.stringify({
+                    cookies: false,
+                    processing: false,
+                    marketing: false,
+                    consentedAt: new Date().toISOString()
+                }));
+                banner.classList.add('hidden');
+            });
+        });
+    </script>
 </body>
 </html>
