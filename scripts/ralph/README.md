@@ -8,7 +8,7 @@ This directory contains the "Ralph pattern" scripts for processing GitHub issues
 - `issue-prompt.md` - Prompt template for the agent
 - `pick_eligible.py` - Python script to pick eligible issues from the queue
 - `set-status.sh` - Script to update project board status
-- `watch.sh` - Watch script for log files
+- `watch.sh` - Follow a run live: the model's reasoning interleaved with its tool calls
 
 ## Usage
 
