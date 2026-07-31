@@ -56,7 +56,10 @@ public class BrowseService {
 
         // If no countries selected, return all names from all countries
         if (countries.isEmpty()) {
-            return givenNameRepository.findAll(pageable);
+            Page<GivenName> result = givenNameRepository.findAll(pageable);
+            // Eagerly initialize nameStats for template rendering
+            result.getContent().forEach(gn -> gn.getNameStats().size());
+            return result;
         }
 
         // Get base query results based on sex filter
@@ -69,6 +72,9 @@ public class BrowseService {
             String firstSex = state.getSexes().iterator().next();
             result = givenNameService.findBySexInAllCountries(countries, firstSex, pageable);
         }
+
+        // Eagerly initialize nameStats for template rendering
+        result.getContent().forEach(gn -> gn.getNameStats().size());
 
         // Apply popularity filter in memory (for simplicity with pagination)
         String popularityFilter = state.getPopularityFilter();

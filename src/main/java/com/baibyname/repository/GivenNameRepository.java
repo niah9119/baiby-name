@@ -60,11 +60,11 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     @Query("""
         SELECT gn FROM GivenName gn
         WHERE gn.id IN (
-            SELECT ns.givenName.id FROM NameStat ns
-            WHERE ns.country IN :countries
-            AND ns.sex = :sex
-            GROUP BY ns.givenName.id
-            HAVING COUNT(DISTINCT ns.country) = :countryCount
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.country IN :countries
+            AND ns2.sex = :sex
+            GROUP BY ns2.givenName.id
+            HAVING COUNT(DISTINCT ns2.country) = :countryCount
         )
         ORDER BY gn.name ASC
         """)
