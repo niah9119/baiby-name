@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-gemma
+    runtime: nvidia  # Requires nvidia-container-toolkit
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGINGFACE_HUB_CACHE=/data
+    volumes:
+      - vllm-data:/data
+    # Command to run vLLM with Gemma-4-26B-A4B-it
+    # Quantization: aqlm (activations and weights quantized) or awq (weights only)
+    # max_model_len: context window (Gemma-4-26B supports up to 32768 tokens)
+    # tensor_parallel_size: for multi-GPU setups
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+        --model google/gemma-4-26B-A4B-it
+        --quantization aqlm
+        --max-model-len 32768
+        --tensor-parallel-size 1
+        --dtype half
+
+volumes:
+  vllm-data:
