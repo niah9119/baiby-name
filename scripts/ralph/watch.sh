@@ -41,7 +41,7 @@ done
 
 # Colour only for a terminal: piping to grep/less/a file should stay plain.
 if [[ "$use_color" == never || -n "${NO_COLOR:-}" || ! -t 1 ]]; then
-  C_THINK="" ; C_CMD="" ; C_READ="" ; C_WRITE="" ; C_OK="" ; C_ERR="" ; C_OFF=""
+  C_THINK="" ; C_CMD="" ; C_READ="" ; C_WRITE="" ; C_OK="" ; C_ERR="" ; C_OFF="" ; C_DIM=""
 else
   C_THINK=$'\033[36m'      # cyan     — the model reasoning
   C_CMD=$'\033[33m'        # yellow   — shell commands
@@ -50,6 +50,7 @@ else
   C_OK=$'\033[1;32m'       # green    — final result
   C_ERR=$'\033[1;31m'      # red      — failed result
   C_OFF=$'\033[0m'
+  C_DIM=$'\033[2m'       # dim      — timestamps
 fi
 
 if (( use_icons )); then
@@ -88,21 +89,27 @@ tail -n +1 -f "$log" \
       --arg think "$C_THINK$I_THINK " --arg cmd "$C_CMD$I_CMD " \
       --arg read "$C_READ$I_READ " --arg write "$C_WRITE$I_WRITE " \
       --arg tool "$C_CMD$I_TOOL " --arg ok "$C_OK$I_OK " --arg err "$C_ERR$I_ERR " \
-      --arg off "$C_OFF" '
-      select(.type=="assistant")
-      | .message.content[]?
-      | if .type == "text" then
-          (.text | select(length > 0) | "\n" + $think + . + $off)
-        elif .type == "tool_use" then
-          (if .input.command then
-             $cmd + (.input.command | tostring | split("\n")[0] | .[0:120]) + $off
-           elif .input.file_path then
-             (if (.name | test("Read|Glob|Grep")) then $read else $write end)
-             + .name + " " + (.input.file_path | tostring | .[0:100]) + $off
-           else $tool + .name + $off
-           end)
-        else empty
-        end
+      --arg off "$C_OFF" --arg dim "$C_DIM" '
+      # Local HH:MM:SS from the entry timestamp, so gaps are visible: a quiet stretch is
+      # usually a `mvnw verify` taking minutes, not a stall.
+      ( . as $e
+        | ($e.timestamp // "" | if . == "" then "        "
+           else (sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601 | strflocaltime("%H:%M:%S")) end) as $ts
+        | select($e.type=="assistant")
+        | $e.message.content[]?
+        | if .type == "text" then
+            (.text | select(length > 0) | "\n" + $dim + $ts + " " + $off + $think + . + $off)
+          elif .type == "tool_use" then
+            ($dim + $ts + " " + $off +
+             (if .input.command then
+                $cmd + (.input.command | tostring | split("\n")[0] | .[0:110]) + $off
+              elif .input.file_path then
+                (if (.name | test("Read|Glob|Grep")) then $read else $write end)
+                + .name + " " + (.input.file_path | tostring | .[0:90]) + $off
+              else $tool + .name + $off
+              end))
+          else empty
+          end )
       , ( select(.type=="result")
           | (if (.is_error // false) or ((.result // "") | tostring | test("API Error|Error:"))
              then $err else $ok end)
