@@ -11,6 +11,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -27,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @Testcontainers
-@DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+@Transactional
 class GivenNameRepositoryTest {
 
     @Container
@@ -324,9 +325,9 @@ class GivenNameRepositoryTest {
         // Stats in country2 - rank 80 in 2022 (within last 5 years of 2023)
         addNameStat(commonName, country2, "Boy", 2022, 80, 80);
 
-        // Act
+        // Act - pass minYear = currentYear - 4 = 2019 (last 5 years: 2019-2023)
         var result = givenNameRepository.findCommonLatelyInAllCountries(
-                List.of(country1, country2), 2023, 2);
+                List.of(country1, country2), 2019, 2);
 
         // Assert
         assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
