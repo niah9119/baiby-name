@@ -26,7 +26,11 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="$SCRIPT_DIR/logs"
+# RALPH_DIR lets you watch another checkout's runs -- e.g. follow the agent clone's logs
+# from your own tree, which matters while the clone is mid-run and must not be touched:
+#   RALPH_DIR=/work/git/baiby-name-agent/scripts/ralph ./watch.sh 10
+RALPH_DIR="${RALPH_DIR:-$SCRIPT_DIR}"
+LOG_DIR="$RALPH_DIR/logs"
 
 issue=""
 use_color=auto
@@ -70,7 +74,7 @@ fi
 # say whether this log is live or finished instead of silently tailing a dead file --
 # which is how a finished run's "ISSUE N DONE" gets mistaken for current activity.
 live_log=""
-pid_file="$SCRIPT_DIR/.agent-loop.pid"
+pid_file="$RALPH_DIR/.agent-loop.pid"
 if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
   live_log=$(ls -t "$LOG_DIR"/issue-*.jsonl 2>/dev/null | head -1)
 fi
