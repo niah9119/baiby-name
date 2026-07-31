@@ -51,6 +51,9 @@ class GivenNameServiceTest {
     @Autowired
     private NameStatRepository nameStatRepository;
 
+    @Autowired
+    private com.baibyname.repository.NameStyleRepository nameStyleRepository;
+
     private Country country1;
     private Country country2;
 
@@ -374,5 +377,183 @@ class GivenNameServiceTest {
         stat.setRank(rank);
         stat.setCreatedAt(OffsetDateTime.now());
         nameStatRepository.save(stat);
+    }
+
+    // --- Tests for Style Attribute Filters ---
+
+    @BeforeEach
+    void setupNameStyleData() {
+        // Create a given name with style data for testing
+        var nameWithStyle = new GivenName();
+        nameWithStyle.setName("StyleTest" + System.currentTimeMillis());
+        nameWithStyle.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(nameWithStyle);
+
+        var nameStyle = new com.baibyname.domain.NameStyle();
+        nameStyle.setGivenName(nameWithStyle);
+        nameStyle.setStyleScore((short) 50);
+        nameStyle.setSyllableCount((short) 2);
+        nameStyle.setSoundCharacter((short) -30);
+        nameStyle.setOrigin("English");
+        nameStyle.setInternational(true);
+        nameStyleRepository.save(nameStyle);
+    }
+
+    @Test
+    void findByStyleScoreRange() {
+        // Setup: create names with different style scores
+        var traditionalName = createNameWithStyleScore((short) -80);
+        var modernName = createNameWithStyleScore((short) 80);
+        var neutralName = createNameWithStyleScore((short) 0);
+
+        // Act: find names with traditional score (-100 to -50)
+        var result = givenNameService.findByStyleScoreRange((short) -100, (short) -50);
+
+        // Assert
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(traditionalName.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(modernName.getName());
+    }
+
+    @Test
+    void findBySyllableCount() {
+        // Setup: create names with different syllable counts
+        var oneSyllableName = createNameWithSyllableCount((short) 1);
+        var twoSyllableName = createNameWithSyllableCount((short) 2);
+        var threeSyllableName = createNameWithSyllableCount((short) 3);
+
+        // Act: find names with 2 syllables
+        var result = givenNameService.findBySyllableCount((short) 2);
+
+        // Assert
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(twoSyllableName.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(oneSyllableName.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(threeSyllableName.getName());
+    }
+
+    @Test
+    void findBySoundCharacterRange() {
+        // Setup: create names with different sound characters
+        var softName = createNameWithSoundCharacter((short) -80);
+        var strongName = createNameWithSoundCharacter((short) 80);
+        var neutralName = createNameWithSoundCharacter((short) 0);
+
+        // Act: find names with soft sound (-100 to -50)
+        var result = givenNameService.findBySoundCharacterRange((short) -100, (short) -50);
+
+        // Assert
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(softName.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(strongName.getName());
+    }
+
+    @Test
+    void findByOrigin() {
+        // Setup: create names with different origins
+        var englishName = createNameWithOrigin("English");
+        var latinName = createNameWithOrigin("Latin");
+        var scandinavianName = createNameWithOrigin("Scandinavian");
+
+        // Act: find English names
+        var result = givenNameService.findByOrigin("English");
+
+        // Assert
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(englishName.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(latinName.getName());
+    }
+
+    @Test
+    void findByInternational() {
+        // Setup: create international and culture-specific names
+        var internationalName = createNameWithInternational(true);
+        var cultureSpecificName = createNameWithInternational(false);
+
+        // Act: find international names
+        var result = givenNameService.findByInternational(true);
+
+        // Assert
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(internationalName.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(cultureSpecificName.getName());
+    }
+
+    // --- Helper methods for style attribute tests ---
+
+    private GivenName createNameWithStyleScore(short score) {
+        var name = new GivenName();
+        name.setName("StyleScoreTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        var nameStyle = new com.baibyname.domain.NameStyle();
+        nameStyle.setGivenName(name);
+        nameStyle.setStyleScore(score);
+        nameStyleRepository.save(nameStyle);
+
+        return name;
+    }
+
+    private GivenName createNameWithSyllableCount(short count) {
+        var name = new GivenName();
+        name.setName("SyllableTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        var nameStyle = new com.baibyname.domain.NameStyle();
+        nameStyle.setGivenName(name);
+        nameStyle.setSyllableCount(count);
+        nameStyleRepository.save(nameStyle);
+
+        return name;
+    }
+
+    private GivenName createNameWithSoundCharacter(short character) {
+        var name = new GivenName();
+        name.setName("SoundTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        var nameStyle = new com.baibyname.domain.NameStyle();
+        nameStyle.setGivenName(name);
+        nameStyle.setSoundCharacter(character);
+        nameStyleRepository.save(nameStyle);
+
+        return name;
+    }
+
+    private GivenName createNameWithOrigin(String origin) {
+        var name = new GivenName();
+        name.setName("OriginTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        var nameStyle = new com.baibyname.domain.NameStyle();
+        nameStyle.setGivenName(name);
+        nameStyle.setOrigin(origin);
+        nameStyleRepository.save(nameStyle);
+
+        return name;
+    }
+
+    private GivenName createNameWithInternational(boolean international) {
+        var name = new GivenName();
+        name.setName("IntlTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        var nameStyle = new com.baibyname.domain.NameStyle();
+        nameStyle.setGivenName(name);
+        nameStyle.setInternational(international);
+        nameStyleRepository.save(nameStyle);
+
+        return name;
     }
 }
