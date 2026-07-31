@@ -65,7 +65,21 @@ if [[ -z "${log:-}" ]]; then
   exit 1
 fi
 
+# Is a run actually in progress? The loop writes the agent's PID while it runs, so we can
+# say whether this log is live or finished instead of silently tailing a dead file --
+# which is how a finished run's "ISSUE N DONE" gets mistaken for current activity.
+live_log=""
+pid_file="$SCRIPT_DIR/.agent-loop.pid"
+if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
+  live_log=$(ls -t "$LOG_DIR"/issue-*.jsonl 2>/dev/null | head -1)
+fi
+
 echo "watching: $log   (Ctrl-C to stop)"
+if [[ -z "$live_log" ]]; then
+  echo "  NOTE: no run is active — this log is finished, so nothing new will appear."
+elif [[ "$live_log" != "$log" ]]; then
+  echo "  NOTE: a different run is live ($(basename "$live_log")). This log is finished."
+fi
 echo
 
 tail -n +1 -f "$log" \
