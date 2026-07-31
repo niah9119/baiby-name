@@ -56,3 +56,7 @@ __pycache__/
 
 # Pipeline working data: downloaded SSA archives and generated canonical CSVs
 pipeline/data/
+
+# Ralph loop runtime state (lock/PID files live beside the script, inside the repo)
+scripts/ralph/.agent-loop.lock
+scripts/ralph/.agent-loop.pid
