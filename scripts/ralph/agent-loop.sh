@@ -80,14 +80,18 @@ for i in $(seq 1 "$MAX"); do
 
   # Fresh Claude Code instance via local Qwen. stream-json captures EVERY tool call, so we
   # get an audit trail and can verify the agent actually ran the build (not just claimed to).
-  # Cap per-response output so input + max_tokens can never exceed the model's 131K context
-  # (uncapped, Claude Code asks for 64K output and vLLM hard-rejects once input passes ~67K).
+  # Cap per-response output. vLLM checks input + max_tokens against the 131K context UP FRONT,
+  # so this value is a fixed reservation, not a ceiling on what gets generated: at 16384 the
+  # usable input was only 114688, and every request past that failed with a 400 regardless of
+  # how short the reply would be. Runs #8 and #14 died exactly there, at 115778 input tokens.
+  # 8192 moves the wall to 122880. A tool-calling turn is a few hundred tokens plus a tool
+  # call, so 8192 is still far more headroom than any single response needs.
   # Hard time budget so a non-converging agent can't hold the GPU indefinitely. 90m, not 45:
   # three runs (#4, #7, #33) were killed with the work finished but uncommitted -- #33 died
   # on `git status`, the first command of the commit step. Losing completed work costs a
   # rescue-commit or a whole re-run; an over-long run only costs local GPU time, which is free.
   sed "s/{{ISSUE}}/$N/g" "$PROMPT_TMPL" \
-    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384 timeout 90m \
+    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout 90m \
         claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
     | tee "$log" >/dev/null || true
 
@@ -117,6 +121,24 @@ for i in $(seq 1 "$MAX"); do
     echo "-> agent reported BLOCKED for #$N (left 'in-progress')"
   else
     echo "-> no explicit promise from agent for #$N (verify via label: ready-for-human = done)"
+  fi
+
+  # Rescue anything the agent left uncommitted. A run that dies -- on the wall clock, or on a
+  # context-window overflow that ends it mid-sentence -- leaves its work in the tree. Two
+  # things then go wrong if we just switch branches: the work is lost, and (worse) the NEXT
+  # iteration branches from a dirty tree and commits someone else's changes into its own PR.
+  # That happened between #8 and #9: #9's PR arrived carrying #8's repository queries.
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "-- agent left uncommitted work; rescuing onto issue-$N"
+    git checkout -q -B "issue-$N" 2>/dev/null || true
+    git add -A
+    git commit -q -m "WIP #$N: rescued from an interrupted run
+
+The agent run ended before committing (time limit, or a context-window
+overflow). Committed by agent-loop.sh so the work survives and cannot leak
+into the next iteration. Unverified." || true
+    git push -q -u origin "issue-$N" 2>/dev/null && echo "-- pushed issue-$N" \
+      || echo "-- WARN: could not push issue-$N (work is committed locally)"
   fi
 
   # Back to main so the next iteration starts clean even if the agent left a branch checked out.

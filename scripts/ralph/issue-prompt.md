@@ -54,9 +54,20 @@ may already exist from that attempt — build on them rather than starting over.
   Do NOT change git remotes or repo settings.
 - NEVER commit to `main`. Run `git branch --show-current` immediately before every commit
   and confirm it prints `issue-{{ISSUE}}`.
-- You have a 90-minute budget. Spend it on the acceptance criteria, not on exploration:
-  get something that satisfies them committed and pushed EARLY, then improve it. A timeout
-  with nothing pushed loses the whole run.
+- COMMIT AND PUSH EARLY, THEN IMPROVE. As soon as anything compiles and its tests pass,
+  commit it and `git push -u origin issue-{{ISSUE}}` — even if the issue is only half done.
+  Then keep working and push again. Do not save committing for the end.
+
+  Two ways a run dies with no warning, and both destroy uncommitted work:
+  - a 90-minute wall-clock limit;
+  - your context window filling up, which ends the run mid-sentence with an API error.
+
+  Runs have been lost to each with the work finished but never committed. A pushed branch
+  survives both; an uncommitted tree survives neither. Pushing early costs nothing — you
+  can amend or add commits afterwards.
+
+- Spend the budget on the acceptance criteria, not on exploration. If you find yourself
+  investigating rather than writing code, commit what you have first.
 - CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
   containers (`docker compose up`) to check something, stop them again before you finish —
   never leave a server holding port 8080 or a database container running.
