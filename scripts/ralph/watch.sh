@@ -18,11 +18,16 @@
 # Colour is disabled automatically when piped, so grep and files stay clean.
 # NO_COLOR=1 or --no-color forces it off; --no-icons falls back to > $ ~ markers.
 #
-# Usage: ./watch.sh [ISSUE_NUMBER] [--no-color] [--no-icons]
-#        ./watch.sh 11
+# Usage: ./watch.sh                       <- normal use: follows whatever is running
+#        ./watch.sh 11                    <- pin to one issue's newest log
+#        ./watch.sh [--no-color] [--no-icons]
 #
-# Without an issue number it follows the newest log of any issue. Note that it picks the
-# log ONCE at start and follows that file — if a new run begins, restart it.
+# The issue number is rarely needed. Only one run can exist at a time (agent-loop.sh holds
+# a lock and its iterations are sequential), so the newest log IS the live one. Pass a
+# number only to read back a specific finished run.
+#
+# It resolves the log ONCE at start and follows that file, so when the loop moves on to the
+# next issue, restart it. The header says whether the log you are on is live or finished.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
