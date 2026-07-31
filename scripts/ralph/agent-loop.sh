@@ -14,6 +14,34 @@
 # queue once you trust it.
 #
 # Usage: ./agent-loop.sh [--max N] [--scope LABEL]
+#
+# STOPPING A RUN:
+#   A run must be stopped using the documented signal mechanism, NOT by killing agent-loop.sh
+#   directly. The script runs the agent in its own process group for clean termination.
+#
+#   METHOD 1: Using kill with negative PGID (recommended):
+#     # Find the process group of the agent:
+#     ps -o pid,pgid,cmd -ef | grep '[a]gent-loop'
+#     # Then send SIGTERM to the process group:
+#     kill -TERM -<PGID>
+#
+#   METHOD 2: Using pkill to target the agent directly:
+#     pkill -f 'claude-qwen.*--dangerously-skip-permissions'
+#
+#   METHOD 3: Using the lock file to get the PID and kill its group:
+#     pid=$(cat "$SCRIPT_DIR/.agent-loop.lock" 2>/dev/null)
+#     if [[ -n "$pid" ]]; then
+#       pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
+#       kill -TERM -$pgid
+#     fi
+#
+#   WARNING: The script is read incrementally by bash. Editing a running script can cause
+#   garbage execution from the edit point. This run was launched from a copy at /tmp/ralph-runner/
+#   so edits to the repo copy cannot affect the live process. Do not assume this is always true.
+#
+#   To stop safely: find the process group and send a signal to the group, not the parent.
+#   A killed loop still leaves the tree recoverable — the existing rescue step commits
+#   leftover work onto issue-N.
 set -euo pipefail
 
 MAX=1
@@ -22,6 +50,9 @@ SCOPE_LABEL="ralph-test"          # extra label the issue must also carry; "" = 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROMPT_TMPL="$SCRIPT_DIR/issue-prompt.md"
 LOG_DIR="$SCRIPT_DIR/logs"
+LOCK_FILE="$SCRIPT_DIR/.agent-loop.lock"
+AGENT_PID_FILE="$SCRIPT_DIR/.agent-loop.pid"
+MAX_LOCK_WAIT=30                  # seconds to wait for lock before failing
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,11 +72,144 @@ label_args=(--label "$QUEUE_LABEL")
 echo "agent-loop: max=$MAX  queue-label=$QUEUE_LABEL  scope-label='${SCOPE_LABEL:-<none>}'"
 echo "branch: $(git branch --show-current)"
 
+# --- Lock file mechanism to prevent concurrent runs ---
+# Only one instance can run at a time against this clone
+acquire_lock() {
+  exec 200>"$LOCK_FILE"
+
+  local waited=0
+  while ! flock -n 200 2>/dev/null; do
+    waited=$((waited + 1))
+    if [[ $waited -ge $MAX_LOCK_WAIT ]]; then
+      local existing_pid
+      existing_pid=$(cat "$LOCK_FILE" 2>/dev/null || echo "unknown")
+      echo "ERROR: Another agent-loop is already running (PID: $existing_pid)" >&2
+      echo "ERROR: Waited ${waited}s for lock. Exit non-zero." >&2
+      exit 1
+    fi
+    echo "agent-loop: waiting for lock (already held by PID $(cat "$LOCK_FILE" 2>/dev/null || echo 'unknown'))..."
+    sleep 1
+  done
+
+  # Write our PID to the lock file
+  echo $$ >&200
+  echo "agent-loop: acquired lock (PID $$)"
+}
+
+release_lock() {
+  if [[ -t 200 ]]; then
+    flock -u 200 2>/dev/null || true
+  fi
+  rm -f "$LOCK_FILE"
+}
+
+# --- PID file management for documented stop mechanism ---
+# The agent PID is written here so external tools can find and terminate it
+write_agent_pid() {
+  local pid="$1"
+  echo "$pid" > "$AGENT_PID_FILE"
+  echo "agent-loop: wrote agent PID $pid to $AGENT_PID_FILE"
+}
+
+remove_agent_pid() {
+  rm -f "$AGENT_PID_FILE"
+}
+
+# --- Cleanup function to terminate agent process group ---
+# This is called from the EXIT trap to ensure clean termination
+cleanup_agent() {
+  local agent_pid="$1"
+  if [[ -z "$agent_pid" ]]; then
+    return
+  fi
+  if ! kill -0 "$agent_pid" 2>/dev/null; then
+    echo "agent-loop: agent (PID $agent_pid) already terminated"
+    return
+  fi
+
+  echo "agent-loop: cleaning up agent (PID $agent_pid)..."
+  # Get the process group ID
+  local pgid
+  pgid=$(ps -o pgid= -p "$agent_pid" 2>/dev/null | tr -d ' ' || echo "")
+  if [[ -z "$pgid" ]]; then
+    pgid="$agent_pid"
+  fi
+
+  echo "agent-loop: killing process group $pgid..."
+  # Send SIGTERM to the process group to terminate all members (timeout, claude-qwen, tee)
+  kill -TERM -$pgid 2>/dev/null || true
+
+  # Wait briefly for graceful termination
+  local wait_count=0
+  while [[ $wait_count -lt 5 ]]; do
+    if ! kill -0 "$agent_pid" 2>/dev/null; then
+      echo "agent-loop: agent group terminated gracefully"
+      return
+    fi
+    sleep 1
+    wait_count=$((wait_count + 1))
+  done
+
+  # Force kill if still running
+  echo "agent-loop: force-killing agent group $pgid..."
+  kill -KILL -$pgid 2>/dev/null || true
+}
+
+# --- Main cleanup function called on exit ---
+# This is registered with trap to ensure it runs on EXIT, INT, and TERM
+run_cleanup() {
+  local agent_pid=""
+  if [[ -f "$AGENT_PID_FILE" ]]; then
+    agent_pid=$(cat "$AGENT_PID_FILE" 2>/dev/null || true)
+  fi
+  cleanup_agent "$agent_pid"
+  remove_agent_pid
+  release_lock
+}
+trap run_cleanup EXIT INT TERM
+
 # Pick the lowest-numbered queued issue whose "Depends on" issues are all closed.
 # Reads two JSON lines on stdin (queued issues; all open issue titles), prints number or nothing.
 pick_eligible() {
   python3 "$SCRIPT_DIR/pick_eligible.py"
 }
+
+# --- Agent runner function ---
+# Starts the agent in its own process group and waits for it
+# Returns the agent's exit code
+run_agent() {
+  local issue_num="$1"
+  local log_file="$2"
+
+  # Start the agent in its own process group for clean termination.
+  # Using a subshell with set -m enables job control. The entire pipeline runs in
+  # this subshell's process group, so sending a signal to the group terminates all members.
+  (
+    set -m
+    set -e
+    sed "s/{{ISSUE}}/$issue_num/g" "$PROMPT_TMPL" \
+      | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout 90m \
+          claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
+      | tee "$log_file" >/dev/null
+  ) &
+  local agent_pid=$!
+  write_agent_pid "$agent_pid"
+
+  echo "agent-loop: started agent with PID $agent_pid (in group $(ps -o pgid= -p $agent_pid 2>/dev/null | tr -d ' '))"
+
+  # Wait for the agent to complete (or be killed)
+  wait "$agent_pid" || true
+  local agent_exit=$?
+
+  # Remove PID file after agent exits (or is killed)
+  remove_agent_pid
+
+  echo "agent-loop: agent exited with status $agent_exit"
+  return $agent_exit
+}
+
+# Main loop
+acquire_lock
 
 for i in $(seq 1 "$MAX"); do
   N=$( { gh issue list "${label_args[@]}" --state open --limit 100 --json number,title,body | jq -c '.' ;
@@ -90,37 +254,40 @@ for i in $(seq 1 "$MAX"); do
   # three runs (#4, #7, #33) were killed with the work finished but uncommitted -- #33 died
   # on `git status`, the first command of the commit step. Losing completed work costs a
   # rescue-commit or a whole re-run; an over-long run only costs local GPU time, which is free.
-  sed "s/{{ISSUE}}/$N/g" "$PROMPT_TMPL" \
-    | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout 90m \
-        claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
-    | tee "$log" >/dev/null || true
+
+  run_agent "$N" "$log"
+  agent_exit=$?
 
   # --- post-run audit (only lines starting with '{' are JSON) ---
-  result=$(grep '^{' "$log" | jq -r 'select(.type=="result") | .result' 2>/dev/null | tail -1)
-  echo "-- agent result: ${result:-<none>}"
+  if [[ -f "$log" ]]; then
+    result=$(grep '^{' "$log" | jq -r 'select(.type=="result") | .result' 2>/dev/null | tail -1)
+    echo "-- agent result: ${result:-<none>}"
 
-  # Proof-of-verification: did the agent invoke the build/test runner as a Bash tool call?
-  verify_cmds=$(grep '^{' "$log" \
-    | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command' 2>/dev/null \
-    | grep -E "mvnw|pytest" || true)
-  if [[ -n "$verify_cmds" ]]; then
-    echo "-- VERIFIED: agent ran the build/test runner:"; echo "$verify_cmds" | sed 's/^/     $ /'
+    # Proof-of-verification: did the agent invoke the build/test runner as a Bash tool call?
+    verify_cmds=$(grep '^{' "$log" \
+      | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command' 2>/dev/null \
+      | grep -E "mvnw|pytest" || true)
+    if [[ -n "$verify_cmds" ]]; then
+      echo "-- VERIFIED: agent ran the build/test runner:"; echo "$verify_cmds" | sed 's/^/     $ /'
+    else
+      echo "-- NOTE: no mvnw/pytest tool call seen for #$N (fine for docs-only tasks; suspicious for code tasks)"
+    fi
+
+    # Board status follows the label the agent left behind: handed over for review, or still ours.
+    if gh issue view "$N" --json labels --jq '.labels[].name' | grep -qx "ready-for-human"; then
+      "$SCRIPT_DIR/set-status.sh" "$N" "In review"
+    fi
+
+    # Completion signal is advisory only — GitHub labels are the source of truth.
+    if echo "$result" | grep -q "ISSUE $N DONE"; then
+      echo "-> agent reported DONE for #$N"
+    elif echo "$result" | grep -q "ISSUE $N BLOCKED"; then
+      echo "-> agent reported BLOCKED for #$N (left 'in-progress')"
+    else
+      echo "-> no explicit promise from agent for #$N (verify via label: ready-for-human = done)"
+    fi
   else
-    echo "-- NOTE: no mvnw/pytest tool call seen for #$N (fine for docs-only tasks; suspicious for code tasks)"
-  fi
-
-  # Board status follows the label the agent left behind: handed over for review, or still ours.
-  if gh issue view "$N" --json labels --jq '.labels[].name' | grep -qx "ready-for-human"; then
-    "$SCRIPT_DIR/set-status.sh" "$N" "In review"
-  fi
-
-  # Completion signal is advisory only — GitHub labels are the source of truth.
-  if echo "$result" | grep -q "ISSUE $N DONE"; then
-    echo "-> agent reported DONE for #$N"
-  elif echo "$result" | grep -q "ISSUE $N BLOCKED"; then
-    echo "-> agent reported BLOCKED for #$N (left 'in-progress')"
-  else
-    echo "-> no explicit promise from agent for #$N (verify via label: ready-for-human = done)"
+    echo "WARNING: Log file $log not found. Agent may have failed to start."
   fi
 
   # Rescue anything the agent left uncommitted. A run that dies -- on the wall clock, or on a
