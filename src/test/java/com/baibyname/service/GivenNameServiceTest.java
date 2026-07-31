@@ -1,8 +1,11 @@
-package com.baibyname.repository;
+package com.baibyname.service;
 
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
+import com.baibyname.repository.CountryRepository;
+import com.baibyname.repository.GivenNameRepository;
+import com.baibyname.repository.NameStatRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -18,21 +22,25 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for GivenNameRepository and NameStatRepository.
+ * Tests for GivenNameService.
  */
 @SpringBootTest
 @Testcontainers
 @Transactional
-class GivenNameRepositoryTest {
+class GivenNameServiceTest {
 
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
+
+    @Autowired
+    private GivenNameService givenNameService;
 
     @Autowired
     private GivenNameRepository givenNameRepository;
@@ -53,134 +61,16 @@ class GivenNameRepositoryTest {
         country2 = countryRepository.findByCode("NO").orElseThrow();
     }
 
-    @Test
-    void findByGivenNameReturnsCorrectName() {
-        // Setup
-        var givenName = new GivenName();
-        givenName.setName("Elsa" + System.currentTimeMillis());
-        givenName.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(givenName);
-
-        // Act
-        var result = givenNameRepository.findByName(givenName.getName());
-
-        // Assert
-        assertThat(result).isPresent();
-        assertThat(result.get().getName()).isEqualTo(givenName.getName());
-    }
-
-    @Test
-    void findByGivenNameNotFoundReturnsEmpty() {
-        // Act
-        var result = givenNameRepository.findByName("NonExistent" + System.currentTimeMillis());
-
-        // Assert
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    void findSexesForGivenNameAndCountry() {
-        // Setup
-        var givenName = new GivenName();
-        givenName.setName("SexesName" + System.currentTimeMillis());
-        givenName.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(givenName);
-
-        var stat = new NameStat();
-        stat.setGivenName(givenName);
-        stat.setCountry(country1);
-        stat.setSex("Boy");
-        stat.setYear(2023);
-        stat.setCount(100);
-        stat.setRank(50);
-        stat.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat);
-
-        // Act
-        var sexes = nameStatRepository.findSexesForGivenNameAndCountry(givenName, country1);
-
-        // Assert
-        assertThat(sexes).containsOnly("Boy");
-    }
-
-    @Test
-    void findSexesForGivenNameAndCountryReturnsEmptyWhenNoStats() {
-        // Setup: create a new given name without stats
-        var givenNameWithoutStats = new GivenName();
-        givenNameWithoutStats.setName("NoStats" + System.currentTimeMillis());
-        givenNameWithoutStats.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(givenNameWithoutStats);
-
-        // Act
-        var sexes = nameStatRepository.findSexesForGivenNameAndCountry(givenNameWithoutStats, country1);
-
-        // Assert
-        assertThat(sexes).isEmpty();
-    }
-
-    @Test
-    void findStatsForGivenNameAndCountries() {
-        // Setup
-        var givenName = new GivenName();
-        givenName.setName("StatsName" + System.currentTimeMillis());
-        givenName.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(givenName);
-
-        var stat = new NameStat();
-        stat.setGivenName(givenName);
-        stat.setCountry(country1);
-        stat.setSex("Boy");
-        stat.setYear(2023);
-        stat.setCount(100);
-        stat.setRank(50);
-        stat.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat);
-
-        // Act
-        var stats = nameStatRepository.findStatsForGivenNameAndCountries(givenName, List.of(country1));
-
-        // Assert
-        assertThat(stats).hasSize(1);
-        assertThat(stats.get(0).getSex()).isEqualTo("Boy");
-        // Compare by ID since entity instances differ
-        assertThat(stats.get(0).getCountry().getId()).isEqualTo(country1.getId());
-    }
-
-    // --- Tests for intersection-based queries ---
+    // --- Tests for findByNameKnownInAllCountries ---
 
     @Test
     void findByNameKnownInAllCountriesReturnsNamesInAllCountries() {
         // Setup: create a name with stats in both countries
-        var nameInBoth = new GivenName();
-        nameInBoth.setName("NameInBoth" + System.currentTimeMillis());
-        nameInBoth.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(nameInBoth);
-
-        // Add stats in country1
-        NameStat stat1 = new NameStat();
-        stat1.setGivenName(nameInBoth);
-        stat1.setCountry(country1);
-        stat1.setSex("Boy");
-        stat1.setYear(2023);
-        stat1.setCount(100);
-        stat1.setRank(50);
-        stat1.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat1);
-
-        // Add stats in country2
-        NameStat stat2 = new NameStat();
-        stat2.setGivenName(nameInBoth);
-        stat2.setCountry(country2);
-        stat2.setSex("Boy");
-        stat2.setYear(2023);
-        stat2.setCount(50);
-        stat2.setRank(30);
-        stat2.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat2);
+        var nameInBoth = createNameWithStatsInBothCountries();
 
         // Act
-        var result = givenNameRepository.findByNameKnownInAllCountries(
-                List.of(country1, country2), 2, PageRequest.of(0, 10));
+        var result = givenNameService.findByNameKnownInAllCountries(
+                List.of(country1, country2), PageRequest.of(0, 10));
 
         // Assert
         assertThat(result.getContent()).hasSize(1);
@@ -197,19 +87,11 @@ class GivenNameRepositoryTest {
         nameOnlyInCountry1.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(nameOnlyInCountry1);
 
-        NameStat stat1 = new NameStat();
-        stat1.setGivenName(nameOnlyInCountry1);
-        stat1.setCountry(country1);
-        stat1.setSex("Boy");
-        stat1.setYear(2023);
-        stat1.setCount(100);
-        stat1.setRank(50);
-        stat1.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat1);
+        addNameStat(nameOnlyInCountry1, country1, "Boy", 2023, 100, 50);
 
         // Act
-        var result = givenNameRepository.findByNameKnownInAllCountries(
-                List.of(country1, country2), 2, PageRequest.of(0, 10));
+        var result = givenNameService.findByNameKnownInAllCountries(
+                List.of(country1, country2), PageRequest.of(0, 10));
 
         // Assert
         assertThat(result.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
@@ -221,65 +103,40 @@ class GivenNameRepositoryTest {
         // Setup: create multiple names with stats in both countries
         int count = 3;
         for (int i = 0; i < count; i++) {
-            var name = new GivenName();
-            name.setName("CountTest" + i + System.currentTimeMillis());
-            name.setCreatedAt(OffsetDateTime.now());
-            givenNameRepository.save(name);
-
-            // Add stats in country1
-            NameStat stat1 = new NameStat();
-            stat1.setGivenName(name);
-            stat1.setCountry(country1);
-            stat1.setSex("Boy");
-            stat1.setYear(2023);
-            stat1.setCount(100);
-            stat1.setRank(50);
-            stat1.setCreatedAt(OffsetDateTime.now());
-            nameStatRepository.save(stat1);
-
-            // Add stats in country2
-            NameStat stat2 = new NameStat();
-            stat2.setGivenName(name);
-            stat2.setCountry(country2);
-            stat2.setSex("Boy");
-            stat2.setYear(2023);
-            stat2.setCount(50);
-            stat2.setRank(30);
-            stat2.setCreatedAt(OffsetDateTime.now());
-            nameStatRepository.save(stat2);
+            createNameWithStatsInBothCountries("CountTest" + i);
         }
 
         // Act
-        long total = givenNameRepository.countByNameKnownInAllCountries(
-                List.of(country1, country2), 2);
+        long total = givenNameService.countByNameKnownInAllCountries(List.of(country1, country2));
 
         // Assert
         assertThat(total).isEqualTo(count);
     }
 
+    // --- Tests for findBySexInAllCountries ---
+
     @Test
     void findBySexInAllCountries() {
-        // Setup: create names with different sex distributions
+        // Setup: create a boy name with stats in both countries
         var boyName = new GivenName();
         boyName.setName("BoyName" + System.currentTimeMillis());
         boyName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(boyName);
 
-        // Boy stats in both countries
         addNameStat(boyName, country1, "Boy", 2023, 100, 50);
         addNameStat(boyName, country2, "Boy", 2023, 50, 30);
 
+        // Create a girl name with stats only in country1
         var girlName = new GivenName();
         girlName.setName("GirlName" + System.currentTimeMillis());
         girlName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(girlName);
 
-        // Girl stats only in country1
         addNameStat(girlName, country1, "Girl", 2023, 100, 50);
 
         // Act - find Boy names in all countries
-        var result = givenNameRepository.findBySexInAllCountries(
-                List.of(country1, country2), "Boy", 2, PageRequest.of(0, 10));
+        var result = givenNameService.findBySexInAllCountries(
+                List.of(country1, country2), "Boy", PageRequest.of(0, 10));
 
         // Assert
         assertThat(result.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
@@ -304,12 +161,13 @@ class GivenNameRepositoryTest {
         }
 
         // Act
-        long total = givenNameRepository.countBySexInAllCountries(
-                List.of(country1, country2), "Boy", 2);
+        long total = givenNameService.countBySexInAllCountries(List.of(country1, country2), "Boy");
 
         // Assert
         assertThat(total).isEqualTo(count);
     }
+
+    // --- Tests for findCommonLatelyInAllCountries ---
 
     @Test
     void findCommonLatelyInAllCountries() {
@@ -319,14 +177,12 @@ class GivenNameRepositoryTest {
         commonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(commonName);
 
-        // Stats in country1 - rank 50 in 2023 (within last 5 years of 2023)
         addNameStat(commonName, country1, "Boy", 2023, 100, 50);
-        // Stats in country2 - rank 80 in 2022 (within last 5 years of 2023)
         addNameStat(commonName, country2, "Boy", 2022, 80, 80);
 
-        // Act - pass minYear = currentYear - 4 = 2019 (last 5 years: 2019-2023)
-        var result = givenNameRepository.findCommonLatelyInAllCountries(
-                List.of(country1, country2), 2019, 2);
+        // Act
+        var result = givenNameService.findCommonLatelyInAllCountries(
+                List.of(country1, country2), 2023);
 
         // Assert
         assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
@@ -341,14 +197,12 @@ class GivenNameRepositoryTest {
         uncommonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(uncommonName);
 
-        // Stats in country1 - rank 150 (outside top 100)
         addNameStat(uncommonName, country1, "Boy", 2023, 50, 150);
-        // Stats in country2 - rank 200 (outside top 100)
         addNameStat(uncommonName, country2, "Boy", 2022, 30, 200);
 
         // Act
-        var result = givenNameRepository.findCommonLatelyInAllCountries(
-                List.of(country1, country2), 2023, 2);
+        var result = givenNameService.findCommonLatelyInAllCountries(
+                List.of(country1, country2), 2023);
 
         // Assert
         assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
@@ -370,12 +224,14 @@ class GivenNameRepositoryTest {
         }
 
         // Act
-        long total = givenNameRepository.countCommonLatelyInAllCountries(
-                List.of(country1, country2), 2023, 2);
+        long total = givenNameService.countCommonLatelyInAllCountries(
+                List.of(country1, country2), 2023);
 
         // Assert
         assertThat(total).isEqualTo(count);
     }
+
+    // --- Tests for findUncommonLatelyInCountries ---
 
     @Test
     void findUncommonLatelyInCountries() {
@@ -385,14 +241,12 @@ class GivenNameRepositoryTest {
         uncommonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(uncommonName);
 
-        // Stats in country1 - rank 150 (outside top 100)
         addNameStat(uncommonName, country1, "Boy", 2023, 50, 150);
-        // Stats in country2 - rank 200 (outside top 100)
         addNameStat(uncommonName, country2, "Boy", 2023, 30, 200);
 
         // Act
-        var result = nameStatRepository.findUncommonLatelyInCountries(
-                List.of(country1, country2), 2019, 2);  // minYear = 2019 (2023-4)
+        var result = givenNameService.findUncommonLatelyInCountries(
+                List.of(country1, country2), 2023);
 
         // Assert
         assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
@@ -407,19 +261,19 @@ class GivenNameRepositoryTest {
         commonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(commonName);
 
-        // Stats in country1 - rank 50 (within top 100)
         addNameStat(commonName, country1, "Boy", 2023, 100, 50);
-        // Stats in country2 - rank 80 (within top 100)
         addNameStat(commonName, country2, "Boy", 2023, 80, 80);
 
         // Act
-        var result = nameStatRepository.findUncommonLatelyInCountries(
-                List.of(country1, country2), 2019, 2);
+        var result = givenNameService.findUncommonLatelyInCountries(
+                List.of(country1, country2), 2023);
 
         // Assert
         assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
                 .doesNotContain(commonName.getName());
     }
+
+    // --- Tests for isCommonLately ---
 
     @Test
     void isCommonLately() {
@@ -429,11 +283,10 @@ class GivenNameRepositoryTest {
         name.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name);
 
-        // Stats with rank 50 in 2023 (within top 100)
         addNameStat(name, country1, "Boy", 2023, 100, 50);
 
         // Act
-        boolean result = nameStatRepository.isCommonLately(name, country1, 2019);
+        boolean result = givenNameService.isCommonLately(name, country1, 2023);
 
         // Assert
         assertThat(result).isTrue();
@@ -447,14 +300,68 @@ class GivenNameRepositoryTest {
         name.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name);
 
-        // Stats with rank 150 in 2023 (outside top 100)
         addNameStat(name, country1, "Boy", 2023, 50, 150);
 
         // Act
-        boolean result = nameStatRepository.isCommonLately(name, country1, 2019);
+        boolean result = givenNameService.isCommonLately(name, country1, 2023);
 
         // Assert
         assertThat(result).isFalse();
+    }
+
+    // --- Tests for findSexesForGivenNameAndCountry ---
+
+    @Test
+    void findSexesForGivenNameAndCountry() {
+        // Setup: create a name with stats
+        var name = new GivenName();
+        name.setName("SexesTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        addNameStat(name, country1, "Boy", 2023, 100, 50);
+        addNameStat(name, country1, "Girl", 2023, 80, 40);
+
+        // Act
+        Set<String> sexes = givenNameService.findSexesForGivenNameAndCountry(name, country1);
+
+        // Assert
+        assertThat(sexes).containsExactlyInAnyOrder("Boy", "Girl");
+    }
+
+    @Test
+    void findSexesForGivenNameAndCountryReturnsSingleSex() {
+        // Setup: create a name with Boy stats only
+        var name = new GivenName();
+        name.setName("SingleSexTest" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        addNameStat(name, country1, "Boy", 2023, 100, 50);
+
+        // Act
+        Set<String> sexes = givenNameService.findSexesForGivenNameAndCountry(name, country1);
+
+        // Assert
+        assertThat(sexes).containsOnly("Boy");
+    }
+
+    // --- Helpers ---
+
+    private GivenName createNameWithStatsInBothCountries() {
+        return createNameWithStatsInBothCountries("BothCountries" + System.currentTimeMillis());
+    }
+
+    private GivenName createNameWithStatsInBothCountries(String namePrefix) {
+        var name = new GivenName();
+        name.setName(namePrefix);
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        addNameStat(name, country1, "Boy", 2023, 100, 50);
+        addNameStat(name, country2, "Boy", 2023, 50, 30);
+
+        return name;
     }
 
     private void addNameStat(GivenName givenName, Country country, String sex, int year, int count, int rank) {
