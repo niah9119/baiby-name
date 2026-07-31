@@ -184,14 +184,23 @@ run_agent() {
   # Start the agent in its own process group for clean termination.
   # Using a subshell with set -m enables job control. The entire pipeline runs in
   # this subshell's process group, so sending a signal to the group terminates all members.
-  (
-    set -m
-    set -e
-    sed "s/{{ISSUE}}/$issue_num/g" "$PROMPT_TMPL" \
-      | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout 90m \
+  # `setsid` is what actually creates a new process group: a plain `( ... ) &` subshell
+  # inherits the loop's group, and `set -m` inside a subshell only affects jobs started
+  # within it. With the group shared, cleanup's `kill -TERM -$pgid` signals the cleanup
+  # handler's own shell, which dies partway through and orphans the pipeline -- the exact
+  # bug this fixes.
+  #
+  # `timeout --foreground` matters too: GNU timeout puts its child in a NEW process group by
+  # default so it can kill that group on deadline, which would place the pipeline outside
+  # the group we just created. Verified: without --foreground, a `timeout` process survived
+  # the abort with a process group of its own.
+  AGENT_ISSUE="$issue_num" AGENT_LOG="$log_file" AGENT_PROMPT="$PROMPT_TMPL" \
+  setsid bash -c '
+    sed "s/{{ISSUE}}/$AGENT_ISSUE/g" "$AGENT_PROMPT" \
+      | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout --foreground 90m \
           claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
-      | tee "$log_file" >/dev/null
-  ) &
+      | tee "$AGENT_LOG" >/dev/null
+  ' &
   local agent_pid=$!
   write_agent_pid "$agent_pid"
 
