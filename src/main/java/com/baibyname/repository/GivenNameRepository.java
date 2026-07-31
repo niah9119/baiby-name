@@ -129,4 +129,10 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("countries") List<Country> countries,
             @Param("minYear") int minYear,
             @Param("countryCount") int countryCount);
+
+    /**
+     * Find all distinct sex values in the database.
+     */
+    @Query("SELECT DISTINCT ns.sex FROM NameStat ns ORDER BY ns.sex")
+    List<String> findDistinctSexes();
 }
