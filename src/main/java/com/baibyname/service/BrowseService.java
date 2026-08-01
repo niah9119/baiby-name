@@ -58,7 +58,15 @@ public class BrowseService {
         if (countries.isEmpty()) {
             Page<GivenName> result = givenNameRepository.findAll(pageable);
             // Eagerly initialize nameStats for template rendering
-            result.getContent().forEach(gn -> gn.getNameStats().size());
+            if (!result.isEmpty()) {
+                List<GivenName> content = result.getContent();
+                List<Long> ids = content.stream().map(GivenName::getId).toList();
+                List<com.baibyname.domain.NameStat> stats = givenNameRepository.findNameStatsByGivenNameIds(ids);
+                // Group stats by givenName
+                java.util.Map<Long, Set<com.baibyname.domain.NameStat>> statsByGivenName = stats.stream()
+                        .collect(java.util.stream.Collectors.groupingBy(ns -> ns.getGivenName().getId(), java.util.stream.Collectors.toSet()));
+                content.forEach(gn -> gn.setNameStats(statsByGivenName.getOrDefault(gn.getId(), java.util.Set.of())));
+            }
             return result;
         }
 
@@ -74,7 +82,15 @@ public class BrowseService {
         }
 
         // Eagerly initialize nameStats for template rendering
-        result.getContent().forEach(gn -> gn.getNameStats().size());
+        if (!result.isEmpty()) {
+            List<GivenName> content = result.getContent();
+            List<Long> ids = content.stream().map(GivenName::getId).toList();
+            List<com.baibyname.domain.NameStat> stats = givenNameRepository.findNameStatsByGivenNameIds(ids);
+            // Group stats by givenName
+            java.util.Map<Long, Set<com.baibyname.domain.NameStat>> statsByGivenName = stats.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(ns -> ns.getGivenName().getId(), java.util.stream.Collectors.toSet()));
+            content.forEach(gn -> gn.setNameStats(statsByGivenName.getOrDefault(gn.getId(), java.util.Set.of())));
+        }
 
         // Apply popularity filter in memory (for simplicity with pagination)
         String popularityFilter = state.getPopularityFilter();

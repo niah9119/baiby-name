@@ -135,4 +135,14 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
      */
     @Query("SELECT DISTINCT ns.sex FROM NameStat ns ORDER BY ns.sex")
     List<String> findDistinctSexes();
+
+    /**
+     * Find all NameStats for the given GivenName IDs.
+     * Used to eagerly load nameStats after the main query.
+     */
+    @Query("""
+        SELECT ns FROM NameStat ns
+        WHERE ns.givenName.id IN :givenNameIds
+        """)
+    List<NameStat> findNameStatsByGivenNameIds(@Param("givenNameIds") List<Long> givenNameIds);
 }
