@@ -1,5 +1,6 @@
 package com.baibyname.controller;
 
+import com.baibyname.exception.NameNotFoundException;
 import com.baibyname.service.GivenNameService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -40,7 +41,7 @@ public class GivenNameController {
         Optional<GivenNameService.NameDetails> details = givenNameService.getByName(name);
 
         if (details.isEmpty()) {
-            return "forward:/error/404";
+            throw new NameNotFoundException(name);
         }
 
         model.addAttribute("nameDetails", details.get());

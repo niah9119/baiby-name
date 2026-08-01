@@ -17,6 +17,14 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
 
     Optional<GivenName> findByName(String name);
 
+    @Query("""
+        SELECT gn FROM GivenName gn
+        LEFT JOIN FETCH gn.famousBearers
+        LEFT JOIN FETCH gn.nameStats
+        WHERE gn.name = :name
+        """)
+    Optional<GivenName> findByNameWithBearers(@Param("name") String name);
+
     List<GivenName> findByNameContainingIgnoreCase(String name);
 
     /**

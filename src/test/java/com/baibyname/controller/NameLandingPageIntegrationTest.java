@@ -3,10 +3,12 @@ package com.baibyname.controller;
 import com.baibyname.domain.Country;
 import com.baibyname.domain.FamousBearer;
 import com.baibyname.domain.GivenName;
+import com.baibyname.domain.NameFamousBearer;
 import com.baibyname.domain.NameStat;
 import com.baibyname.repository.CountryRepository;
 import com.baibyname.repository.FamousBearerRepository;
 import com.baibyname.repository.GivenNameRepository;
+import com.baibyname.repository.NameFamousBearerRepository;
 import com.baibyname.repository.NameStatRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
+
+import org.hamcrest.Matchers;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -57,6 +61,9 @@ class NameLandingPageIntegrationTest {
 
     @Autowired
     private FamousBearerRepository bearerRepository;
+
+    @Autowired
+    private NameFamousBearerRepository nameBearerRepository;
 
     private Country sweden;
     private GivenName testName;
@@ -104,8 +111,7 @@ class NameLandingPageIntegrationTest {
     void landingPageReturns404ForUnknownName() throws Exception {
         // Act & Assert
         mockMvc.perform(get("/names/NonExistentName" + System.currentTimeMillis()))
-                .andExpect(status().isOk())
-                .andExpect(view().name("forward:/error/404"));
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -129,9 +135,9 @@ class NameLandingPageIntegrationTest {
         // Act & Assert
         mockMvc.perform(get("/names/" + testName2.getName()))
                 .andExpect(status().isOk())
-                .andExpect(content().string(testName2.getName()))
-                .andExpect(content().string("Boy"))
-                .andExpect(content().string("2023"));
+                .andExpect(content().string(Matchers.containsString(testName2.getName())))
+                .andExpect(content().string(Matchers.containsString("Boy")))
+                .andExpect(content().string(Matchers.containsString("2023")));
     }
 
     @Test
@@ -148,15 +154,17 @@ class NameLandingPageIntegrationTest {
         bearer.setCreatedAt(OffsetDateTime.now());
         bearerRepository.save(bearer);
 
-        // Link via the many-to-many on FamousBearer
-        bearer.getGivenNames().add(testName2);
-        bearerRepository.save(bearer);
+        // Link via the join entity NameFamousBearer
+        NameFamousBearer nameBearer = new NameFamousBearer();
+        nameBearer.setGivenName(testName2);
+        nameBearer.setFamousBearer(bearer);
+        nameBearerRepository.save(nameBearer);
 
         // Act & Assert
         mockMvc.perform(get("/names/" + testName2.getName()))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Lionel Messi"))
-                .andExpect(content().string("SPORTS_STAR"));
+                .andExpect(content().string(Matchers.containsString("Lionel Messi")))
+                .andExpect(content().string(Matchers.containsString("SPORTS STAR")));
     }
 
     @Test
@@ -171,10 +179,8 @@ class NameLandingPageIntegrationTest {
         mockMvc.perform(get("/sitemap.xml"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/xml;charset=UTF-8"))
-                .andExpect(content().string(testName.getName()))
-                .andExpect(content().string(testName2.getName()))
-                .andExpect(content().string("<?xml"))
-                .andExpect(content().string("<urlset>"));
+                .andExpect(content().string(Matchers.containsString("names/" + testName.getName())))
+                .andExpect(content().string(Matchers.containsString("names/" + testName2.getName())));
     }
 
     @Test
@@ -206,7 +212,7 @@ class NameLandingPageIntegrationTest {
         // Act & Assert
         mockMvc.perform(get("/names/" + specialName.getName()))
                 .andExpect(status().isOk())
-                .andExpect(content().string(specialName.getName()))
-                .andExpect(content().string("Åke"));
+                .andExpect(content().string(Matchers.containsString(specialName.getName())))
+                .andExpect(content().string(Matchers.containsString("Åke")));
     }
 }

@@ -158,7 +158,7 @@ public class GivenNameService {
      * @return Optional containing name details if found, empty otherwise
      */
     public Optional<NameDetails> getByName(String name) {
-        return givenNameRepository.findByName(name)
+        return givenNameRepository.findByNameWithBearers(name)
                 .map(gn -> buildNameDetails(gn, gn.getId()));
     }
 
