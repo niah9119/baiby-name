@@ -8,6 +8,7 @@ import com.baibyname.domain.NameStyle;
 import com.baibyname.domain.NameStat;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
+import com.baibyname.repository.NameStyleRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,10 +32,13 @@ public class GivenNameService {
 
     private final GivenNameRepository givenNameRepository;
     private final NameStatRepository nameStatRepository;
+    private final NameStyleRepository nameStyleRepository;
 
-    public GivenNameService(GivenNameRepository givenNameRepository, NameStatRepository nameStatRepository) {
+    public GivenNameService(GivenNameRepository givenNameRepository, NameStatRepository nameStatRepository,
+                            NameStyleRepository nameStyleRepository) {
         this.givenNameRepository = givenNameRepository;
         this.nameStatRepository = nameStatRepository;
+        this.nameStyleRepository = nameStyleRepository;
     }
 
     /**
@@ -232,5 +236,59 @@ public class GivenNameService {
     private GivenName findByName(String name) {
         return givenNameRepository.findByName(name)
                 .orElseThrow(() -> new IllegalArgumentException("Name not found: " + name));
+    // --- Style Attribute Filters ---
+
+    /**
+     * Find names with style score (traditional/modern) in a range.
+     * style_score: -100 (very traditional) to +100 (very modern).
+     *
+     * @param minScore minimum style score (inclusive)
+     * @param maxScore maximum style score (inclusive)
+     * @return list of names within the style score range
+     */
+    public List<GivenName> findByStyleScoreRange(short minScore, short maxScore) {
+        return nameStyleRepository.findByStyleScoreBetween(minScore, maxScore);
+    }
+
+    /**
+     * Find names with a specific syllable count.
+     *
+     * @param syllableCount the exact syllable count
+     * @return list of names with the specified syllable count
+     */
+    public List<GivenName> findBySyllableCount(short syllableCount) {
+        return nameStyleRepository.findBySyllableCount(syllableCount);
+    }
+
+    /**
+     * Find names with sound character in a range.
+     * sound_character: -100 (soft) to +100 (strong).
+     *
+     * @param minCharacter minimum sound character (inclusive)
+     * @param maxCharacter maximum sound character (inclusive)
+     * @return list of names within the sound character range
+     */
+    public List<GivenName> findBySoundCharacterRange(short minCharacter, short maxCharacter) {
+        return nameStyleRepository.findBySoundCharacterBetween(minCharacter, maxCharacter);
+    }
+
+    /**
+     * Find names with the specified origin.
+     *
+     * @param origin the cultural origin (e.g., "English", "Scandinavian", "Latin")
+     * @return list of names with the specified origin
+     */
+    public List<GivenName> findByOrigin(String origin) {
+        return nameStyleRepository.findByOrigin(origin);
+    }
+
+    /**
+     * Find names with the specified international status.
+     *
+     * @param international true for international names, false for culture-specific
+     * @return list of names with the specified international status
+     */
+    public List<GivenName> findByInternational(boolean international) {
+        return nameStyleRepository.findByInternational(international);
     }
 }

@@ -12,9 +12,22 @@ Read it now — `--comments` matters, review feedback arrives as comments:
 gh issue view {{ISSUE}} --comments
 ```
 
-If the issue carries review feedback from an earlier attempt, that feedback is part of
-your task: address every point in it. The branch `issue-{{ISSUE}}` and its pull request
-may already exist from that attempt — build on them rather than starting over.
+If the issue carries review feedback from an earlier attempt, **that feedback IS your
+task**. Read every comment on both the issue and the pull request:
+
+```
+gh issue view {{ISSUE}} --comments
+gh pr list --head issue-{{ISSUE}} --state open        # then, if one exists:
+gh pr view <number> --comments
+```
+
+Work through each point and change the code. An existing PR is NOT evidence the work is
+done — it is where the review lives. A run that finds the PR open, comments on it, and
+marks the issue `ready-for-human` without changing anything has accomplished nothing and
+wastes a whole cycle. That has happened; do not repeat it.
+
+Only mark the issue `ready-for-human` when you have actually addressed the feedback, and
+say in your PR comment which point each change answers.
 
 ## Before writing any code
 
@@ -93,10 +106,15 @@ may already exist from that attempt — build on them rather than starting over.
    `git push -u origin issue-{{ISSUE}}`
    Then check whether a pull request already exists for it:
    `gh pr list --head issue-{{ISSUE}} --state open`
-   - No PR yet -> open one:
+   - No PR yet -> open one. The body MUST begin with `Closes #{{ISSUE}}.` — that link is
+     what ties the PR to the issue and closes it on merge. Without it the issue stays open
+     after the work lands and someone has to close it by hand:
      `gh pr create --title "Implement #{{ISSUE}}: <short summary>" --body "Closes #{{ISSUE}}. <one-paragraph summary>"`
+
+     This holds even when your change feels small — a PR that fixes one import is still the
+     PR for this issue. Describe the whole issue's work, not just your last edit.
    - PR already exists (a correction run) -> the push already updated it. Do NOT open a
-     second PR. Comment on it instead, saying what you changed in response to the review:
+     second PR. Comment on it saying what you changed in response to the review:
      `gh pr comment <number> --body "..."`
 3. Comment on the issue with a one-paragraph summary of what you did:
    `gh issue comment {{ISSUE}} --body "..."`
