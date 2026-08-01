@@ -214,6 +214,11 @@
                     <p th:if="${#lists.isEmpty(similarNames)}" class="text-gray-500">No similar names found.</p>
                 </div>
             </div>
+
+            <!-- Ad Slot: On Name Landing Page (placement 3) -->
+            <div class="my-8">
+                <th:block th:insert="~{layout :: ad-slot-name-landing-page()}"/>
+            </div>
         </div>
     </main>
 
