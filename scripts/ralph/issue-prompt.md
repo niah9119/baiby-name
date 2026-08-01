@@ -106,8 +106,13 @@ say in your PR comment which point each change answers.
    `git push -u origin issue-{{ISSUE}}`
    Then check whether a pull request already exists for it:
    `gh pr list --head issue-{{ISSUE}} --state open`
-   - No PR yet -> open one:
+   - No PR yet -> open one. The body MUST begin with `Closes #{{ISSUE}}.` — that link is
+     what ties the PR to the issue and closes it on merge. Without it the issue stays open
+     after the work lands and someone has to close it by hand:
      `gh pr create --title "Implement #{{ISSUE}}: <short summary>" --body "Closes #{{ISSUE}}. <one-paragraph summary>"`
+
+     This holds even when your change feels small — a PR that fixes one import is still the
+     PR for this issue. Describe the whole issue's work, not just your last edit.
    - PR already exists (a correction run) -> the push already updated it. Do NOT open a
      second PR. Comment on it saying what you changed in response to the review:
      `gh pr comment <number> --body "..."`
