@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  vllm:
+    # NVIDIA's NGC build, not vllm/vllm-openai: this host is aarch64 (GB10 Grace-Blackwell)
+    # and the stock images do not cover it. Both vLLM services already running here use this.
+    image: nvcr.io/nvidia/vllm:26.01-py3
+    container_name: vllm-gemma
+    runtime: nvidia  # Requires nvidia-container-toolkit
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGINGFACE_HUB_CACHE=/data
+    volumes:
+      - vllm-data:/data
+    # Command to run vLLM with Gemma-4-26B-A4B-it
+    # Quantization: aqlm (activations and weights quantized) or awq (weights only)
+    # max_model_len: context window (Gemma-4-26B supports up to 32768 tokens)
+    # tensor_parallel_size: for multi-GPU setups
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+        --model google/gemma-4-26B-A4B-it
+        --quantization aqlm
+        --max-model-len 32768
+        --tensor-parallel-size 1
+        # GPU and system memory are ONE 121 GB pool on this host, claimed at startup.
+        # Left unset, vLLM takes ~0.9 (~109 GB) and starves the Maven builds and
+        # Testcontainers Postgres this project also runs. The existing units use 0.75.
+        --gpu-memory-utilization 0.75
+        --dtype half
+
+volumes:
+  vllm-data:

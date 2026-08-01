@@ -48,6 +48,9 @@ coverage/
 
 # Python virtualenvs anywhere (agents have created stray ones at the repo root)
 .venv/
+# Also ignore venv in subdirectories like deploy/llm/.venv
+deploy/*/venv/
+deploy/*/\.venv/
 
 # Python bytecode
 __pycache__/

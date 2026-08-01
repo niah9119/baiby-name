@@ -12,9 +12,22 @@ Read it now — `--comments` matters, review feedback arrives as comments:
 gh issue view {{ISSUE}} --comments
 ```
 
-If the issue carries review feedback from an earlier attempt, that feedback is part of
-your task: address every point in it. The branch `issue-{{ISSUE}}` and its pull request
-may already exist from that attempt — build on them rather than starting over.
+If the issue carries review feedback from an earlier attempt, **that feedback IS your
+task**. Read every comment on both the issue and the pull request:
+
+```
+gh issue view {{ISSUE}} --comments
+gh pr list --head issue-{{ISSUE}} --state open        # then, if one exists:
+gh pr view <number> --comments
+```
+
+Work through each point and change the code. An existing PR is NOT evidence the work is
+done — it is where the review lives. A run that finds the PR open, comments on it, and
+marks the issue `ready-for-human` without changing anything has accomplished nothing and
+wastes a whole cycle. That has happened; do not repeat it.
+
+Only mark the issue `ready-for-human` when you have actually addressed the feedback, and
+say in your PR comment which point each change answers.
 
 ## Before writing any code
 
@@ -96,7 +109,7 @@ may already exist from that attempt — build on them rather than starting over.
    - No PR yet -> open one:
      `gh pr create --title "Implement #{{ISSUE}}: <short summary>" --body "Closes #{{ISSUE}}. <one-paragraph summary>"`
    - PR already exists (a correction run) -> the push already updated it. Do NOT open a
-     second PR. Comment on it instead, saying what you changed in response to the review:
+     second PR. Comment on it saying what you changed in response to the review:
      `gh pr comment <number> --body "..."`
 3. Comment on the issue with a one-paragraph summary of what you did:
    `gh issue comment {{ISSUE}} --body "..."`
