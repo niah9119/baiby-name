@@ -1,15 +1,25 @@
 package com.baibyname.service;
 
 import com.baibyname.domain.Country;
+import com.baibyname.domain.FamousBearer;
 import com.baibyname.domain.GivenName;
+import com.baibyname.domain.NameFamousBearer;
+import com.baibyname.domain.NameStyle;
+import com.baibyname.domain.NameStat;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
+import com.baibyname.repository.NameStyleRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Service for querying given names with intersection semantics across countries.
@@ -22,10 +32,13 @@ public class GivenNameService {
 
     private final GivenNameRepository givenNameRepository;
     private final NameStatRepository nameStatRepository;
+    private final NameStyleRepository nameStyleRepository;
 
-    public GivenNameService(GivenNameRepository givenNameRepository, NameStatRepository nameStatRepository) {
+    public GivenNameService(GivenNameRepository givenNameRepository, NameStatRepository nameStatRepository,
+                            NameStyleRepository nameStyleRepository) {
         this.givenNameRepository = givenNameRepository;
         this.nameStatRepository = nameStatRepository;
+        this.nameStyleRepository = nameStyleRepository;
     }
 
     /**
@@ -140,5 +153,144 @@ public class GivenNameService {
      */
     public Set<String> findSexesForGivenNameAndCountry(GivenName givenName, Country country) {
         return nameStatRepository.findSexesForGivenNameAndCountry(givenName, country);
+    }
+
+    /**
+     * Get detailed data for a name landing page.
+     *
+     * @param name the name to look up
+     * @return Optional containing name details if found, empty otherwise
+     */
+    public Optional<NameDetails> getByName(String name) {
+        return givenNameRepository.findByNameWithBearers(name)
+                .map(gn -> buildNameDetails(gn, gn.getId()));
+    }
+
+    /**
+     * Find similar names (same first letter or shared countries).
+     *
+     * @param nameDetails the name details to find similar ones for
+     * @return list of similar names
+     */
+    public List<GivenName> findSimilarNames(NameDetails nameDetails) {
+        List<GivenName> byStarting = givenNameRepository.findSimilarByNameStartingWith(
+                nameDetails.name(), nameDetails.id());
+        List<GivenName> byCountries = givenNameRepository.findSimilarBySharedCountries(
+                nameDetails.id(), Pageable.ofSize(10));
+
+        // Combine and deduplicate
+        return Stream.concat(byStarting.stream(), byCountries.stream())
+                .distinct()
+                .limit(10)
+                .toList();
+    }
+
+    /**
+     * Find similar names (same first letter or shared countries).
+     *
+     * @param givenName the name to find similar ones for
+     * @return list of similar names
+     */
+    public List<GivenName> findSimilarNames(GivenName givenName) {
+        List<GivenName> byStarting = givenNameRepository.findSimilarByNameStartingWith(
+                givenName.getName(), givenName.getId());
+        List<GivenName> byCountries = givenNameRepository.findSimilarBySharedCountries(
+                givenName.getId(), Pageable.ofSize(10));
+
+        // Combine and deduplicate
+        return Stream.concat(byStarting.stream(), byCountries.stream())
+                .distinct()
+                .limit(10)
+                .toList();
+    }
+
+    private NameDetails buildNameDetails(GivenName givenName, Long id) {
+        return new NameDetails(
+                givenName.getName(),
+                id,
+                givenName.getCreatedAt(),
+                givenName.getNameStyle(),
+                givenName.getFamousBearers().stream()
+                        .map(NameFamousBearer::getFamousBearer)
+                        .collect(Collectors.toSet()),
+                givenName.getNameStats().stream()
+                        .collect(Collectors.groupingBy(
+                                ns -> ns.getCountry().getCode(),
+                                Collectors.mapping(ns -> ns, Collectors.toList())
+                        ))
+        );
+    }
+
+    /**
+     * Data transfer object for name landing page details.
+     */
+    public record NameDetails(
+            String name,
+            Long id,
+            OffsetDateTime createdAt,
+            NameStyle style,
+            Set<FamousBearer> famousBearers,
+            Map<String, List<NameStat>> countryStats
+    ) {}
+
+    private GivenName findByName(String name) {
+        return givenNameRepository.findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Name not found: " + name));
+    }
+
+    // --- Style Attribute Filters ---
+
+    /**
+     * Find names with style score (traditional/modern) in a range.
+     * style_score: -100 (very traditional) to +100 (very modern).
+     *
+     * @param minScore minimum style score (inclusive)
+     * @param maxScore maximum style score (inclusive)
+     * @return list of names within the style score range
+     */
+    public List<GivenName> findByStyleScoreRange(short minScore, short maxScore) {
+        return nameStyleRepository.findByStyleScoreBetween(minScore, maxScore);
+    }
+
+    /**
+     * Find names with a specific syllable count.
+     *
+     * @param syllableCount the exact syllable count
+     * @return list of names with the specified syllable count
+     */
+    public List<GivenName> findBySyllableCount(short syllableCount) {
+        return nameStyleRepository.findBySyllableCount(syllableCount);
+    }
+
+    /**
+     * Find names with sound character in a range.
+     * sound_character: -100 (soft) to +100 (strong).
+     *
+     * @param minCharacter minimum sound character (inclusive)
+     * @param maxCharacter maximum sound character (inclusive)
+     * @return list of names within the sound character range
+     */
+    public List<GivenName> findBySoundCharacterRange(short minCharacter, short maxCharacter) {
+        return nameStyleRepository.findBySoundCharacterBetween(minCharacter, maxCharacter);
+    }
+
+    /**
+     * Find names with the specified origin.
+     *
+     * @param origin the cultural origin (e.g., "English", "Scandinavian", "Latin")
+     * @return list of names with the specified origin
+     */
+    public List<GivenName> findByOrigin(String origin) {
+        return nameStyleRepository.findByOrigin(origin);
+    }
+
+    /**
+     * Find names with the specified international status.
+     *
+     * @param international true for international names, false for culture-specific
+     * @return list of names with the specified international status
+     */
+    public List<GivenName> findByInternational(boolean international) {
+        return nameStyleRepository.findByInternational(international);
     }
 }

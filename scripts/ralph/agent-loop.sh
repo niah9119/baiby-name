@@ -283,8 +283,25 @@ for i in $(seq 1 "$MAX"); do
     fi
 
     # Board status follows the label the agent left behind: handed over for review, or still ours.
-    if gh issue view "$N" --json labels --jq '.labels[].name' | grep -qx "ready-for-human"; then
+    # An issue the agent never finished must go BACK IN THE QUEUE, not sit on 'in-progress'
+    # forever -- the picker only takes 'ready-for-agent', so a stranded issue is skipped for
+    # good. Three issues (#10, #13, #18) had to be requeued by hand after runs died on the
+    # context limit, each with real work already committed to its branch.
+    labels=$(gh issue view "$N" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
+    if grep -qx "ready-for-human" <<<"$labels"; then
       "$SCRIPT_DIR/set-status.sh" "$N" "In review"
+    elif grep -qx "in-progress" <<<"$labels"; then
+      # Still ours: the run ended without handing over. BLOCKED is a deliberate report and
+      # is left alone for a human; anything else is an interrupted run and goes back to the
+      # queue so the next iteration can continue from the branch we just pushed.
+      if echo "$result" | grep -q "ISSUE $N BLOCKED"; then
+        echo "-- #$N reported BLOCKED; leaving 'in-progress' for a human"
+      else
+        echo "-- #$N did not finish; returning it to the queue"
+        gh issue edit "$N" --remove-label in-progress --add-label ready-for-agent >/dev/null 2>&1 \
+          && "$SCRIPT_DIR/set-status.sh" "$N" "Ready" \
+          || echo "-- WARN: could not requeue #$N"
+      fi
     fi
 
     # Completion signal is advisory only — GitHub labels are the source of truth.

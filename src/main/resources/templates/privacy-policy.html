@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="layout :: head">
+    <title th:text="#{privacy.title}">Privacy Policy - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-6" th:text="#{privacy.title}">
+                Privacy Policy
+            </h1>
+
+            <div class="prose prose-lg max-w-none">
+                <p class="text-gray-600 mb-4">
+                    <strong>Last updated:</strong> July 2026
+                </p>
+
+                <h2 class="text-xl font-semibold text-gray-900 mt-6 mb-3" th:text="#{privacy.intro.title}">
+                    Introduction
+                </h2>
+                <p class="text-gray-600 mb-4" th:text="#{privacy.intro.text}">
+                    BaibyName ("we", "our", or "our") is committed to protecting your privacy and personal data.
+                    This privacy policy explains how we collect, use, and safeguard your information when you
+                    use our website and services.
+                </p>
+
+                <h2 class="text-xl font-semibold text-gray-900 mt-6 mb-3" th:text="#{privacy.data.title}">
+                    Information We Collect
+                </h2>
+                <p class="text-gray-600 mb-4" th:text="#{privacy.data.text}">
+                    When you create an account, we collect your email address and a password hash. We do not
+                    collect sensitive personal data such as health information or biometric data.
+                </p>
+
+                <h2 class="text-xl font-semibold text-gray-900 mt-6 mb-3" th:text="#{privacy.cookies.title}">
+                    Cookies and Tracking
+                </h2>
+                <p class="text-gray-600 mb-4" th:text="#{privacy.cookies.text}">
+                    We use cookies to remember your preferences and maintain your session. You can manage
+                    your cookie preferences at any time through our consent banner.
+                </p>
+
+                <h2 class="text-xl font-semibold text-gray-900 mt-6 mb-3" th:text="#{privacy.shortlist.title}">
+                    Your Shortlist
+                </h2>
+                <p class="text-gray-600 mb-4" th:text="#{privacy.shortlist.text}">
+                    Your shortlist of favorite names is stored securely and associated with your account.
+                    You can delete your shortlist at any time by deleting your account.
+                </p>
+
+                <h2 class="text-xl font-semibold text-gray-900 mt-6 mb-3" th:text="#{privacy.erasure.title}">
+                    Your Rights
+                </h2>
+                <p class="text-gray-600 mb-4" th:text="#{privacy.erasure.text}">
+                    Under GDPR, you have the right to:
+                    <ul class="list-disc list-inside mt-2 space-y-1">
+                        <li th:text="#{privacy.right.access}">Access your personal data</li>
+                        <li th:text="#{privacy.right.rectify}">Request correction of your data</li>
+                        <li th:text="#{privacy.right.erase}">Request deletion of your data</li>
+                        <li th:text="#{privacy.right.object}">Object to processing of your data</li>
+                    </ul>
+                </p>
+
+                <h2 class="text-xl font-semibold text-gray-900 mt-6 mb-3" th:text="#{privacy.contact.title}">
+                    Contact Us
+                </h2>
+                <p class="text-gray-600 mb-4" th:text="#{privacy.contact.text}">
+                    If you have any questions about this privacy policy or your data, please contact us
+                    at privacy@baibyname.com.
+                </p>
+
+                <div class="mt-8 p-4 bg-blue-50 rounded-lg">
+                    <p class="text-sm text-gray-600" th:text="#{privacy.thirdparty.text}">
+                        <strong>Note:</strong> We do not share your personal data with third parties except
+                        as necessary to provide our services (e.g., our hosting provider). We do not sell
+                        your data to advertisers.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -82,4 +82,15 @@ public interface NameStatRepository extends JpaRepository<NameStat, Long> {
             @Param("countries") List<com.baibyname.domain.Country> countries,
             @Param("minYear") int minYear,
             @Param("countryCount") int countryCount);
+
+    /**
+     * Find all name statistics for a specific given name.
+     */
+    @Query("""
+        SELECT ns FROM NameStat ns
+        JOIN FETCH ns.country
+        WHERE ns.givenName.id = :givenNameId
+        ORDER BY ns.country.id, ns.year DESC
+        """)
+    List<NameStat> findAllByGivenNameId(@Param("givenNameId") Long givenNameId);
 }

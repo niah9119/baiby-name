@@ -1,5 +1,6 @@
 """Pipeline package for importing official statistics into the database."""
 
+from . import classify_style
 from . import config
 from . import fetch
 from . import fetch_ons
@@ -12,6 +13,7 @@ from . import normalize_scb
 from . import normalize_ssb
 
 __all__ = [
+    "classify_style",
     "config",
     "fetch",
     "fetch_ons",

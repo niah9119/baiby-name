@@ -60,9 +60,10 @@ CREATE TABLE famous_bearer (
 -- Many-to-many link: famous bearer to given names
 -- e.g., Leo Messi links to both "Leo" and "Lionel"
 CREATE TABLE name_famous_bearer (
+    id SERIAL PRIMARY KEY,
     given_name_id INT NOT NULL REFERENCES given_name(id) ON DELETE CASCADE,
     famous_bearer_id INT NOT NULL REFERENCES famous_bearer(id) ON DELETE CASCADE,
-    PRIMARY KEY (given_name_id, famous_bearer_id)
+    UNIQUE(given_name_id, famous_bearer_id)
 );
 
 -- Account table: user accounts

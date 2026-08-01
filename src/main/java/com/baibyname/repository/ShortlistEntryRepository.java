@@ -4,6 +4,7 @@ import com.baibyname.domain.GivenName;
 import com.baibyname.domain.Shortlist;
 import com.baibyname.domain.ShortlistEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -30,4 +31,8 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
         WHERE se.member = :member
         """)
     List<ShortlistEntry> findEntriesByMember(@Param("member") com.baibyname.domain.ShortlistMember member);
+
+    @Modifying
+    @Query("DELETE FROM ShortlistEntry se WHERE se.member.account.id = :accountId")
+    void deleteAllByAccountId(@Param("accountId") Long accountId);
 }

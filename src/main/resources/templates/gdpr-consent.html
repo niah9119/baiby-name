@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="layout :: head">
+    <title>GDPR Consent - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="max-w-md mx-auto">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                        GDPR Consent
+                    </h1>
+                    <p class="text-gray-600">
+                        Your privacy preferences and consent settings.
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center py-2 border-b">
+                            <span class="text-gray-700">Cookies Accepted</span>
+                            <span class="px-2 py-1 text-sm rounded-full" id="cookies-accepted">Unknown</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b">
+                            <span class="text-gray-700">Processing Consented</span>
+                            <span class="px-2 py-1 text-sm rounded-full" id="processing-consented">Unknown</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b">
+                            <span class="text-gray-700">Marketing Consented</span>
+                            <span class="px-2 py-1 text-sm rounded-full" id="marketing-consented">Unknown</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-700">Consented At</span>
+                            <span class="text-sm text-gray-600" id="consented-at">-</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 text-center">
+                        <a href="/" class="btn-primary inline-block" th:text="#{nav.browse}">
+                            Back to Browse
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const consent = localStorage.getItem('baibyname_consent');
+            if (consent) {
+                const data = JSON.parse(consent);
+                document.getElementById('cookies-accepted').textContent = data.cookies ? 'Yes' : 'No';
+                document.getElementById('cookies-accepted').className = 'px-2 py-1 text-sm rounded-full ' + (data.cookies ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+                document.getElementById('processing-consented').textContent = data.processing ? 'Yes' : 'No';
+                document.getElementById('processing-consented').className = 'px-2 py-1 text-sm rounded-full ' + (data.processing ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+                document.getElementById('marketing-consented').textContent = data.marketing ? 'Yes' : 'No';
+                document.getElementById('marketing-consented').className = 'px-2 py-1 text-sm rounded-full ' + (data.marketing ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+                document.getElementById('consented-at').textContent = new Date(data.consentedAt).toLocaleString();
+            }
+        });
+    </script>
+</body>
+</html>
