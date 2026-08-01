@@ -143,6 +143,7 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
      */
     @Query("""
         SELECT ns FROM NameStat ns
+        LEFT JOIN FETCH ns.country
         WHERE ns.givenName.id IN :givenNameIds
         """)
     List<NameStat> findNameStatsByGivenNameIds(@Param("givenNameIds") List<Long> givenNameIds);
