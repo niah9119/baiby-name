@@ -80,26 +80,18 @@ public class AccountService {
      */
     @Transactional
     public void deleteAccount(Long accountId) {
-        // Find the account with its shortlist members
+        // Verify account exists before deleting
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Account not found with id: " + accountId));
 
-        // Delete all shortlist entries through the members (cascade will handle this)
-        // First, get all shortlist members for this account
-        for (ShortlistMember member : account.getShortlistMembers()) {
-            // Get the shortlist for this member
-            Shortlist shortlist = member.getShortlist();
-            if (shortlist != null) {
-                // Delete all entries for this shortlist
-                shortlistEntryRepository.deleteAll(shortlist.getEntries());
-                // Delete the shortlist
-                shortlistRepository.delete(shortlist);
-            }
-            // The member will be deleted by cascade when we delete the account
-        }
+        // Delete all shortlist entries for this account
+        shortlistEntryRepository.deleteAllByAccountId(accountId);
 
-        // Clear the shortlist members set to avoid issues
-        account.getShortlistMembers().clear();
+        // Delete all shortlists for this account
+        shortlistRepository.deleteAllByAccountId(accountId);
+
+        // Delete all members for this account
+        shortlistMemberRepository.deleteAllByAccountId(accountId);
 
         // Delete the account
         accountRepository.delete(account);

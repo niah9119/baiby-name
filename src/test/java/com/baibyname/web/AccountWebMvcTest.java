@@ -198,6 +198,7 @@ class AccountWebMvcTest {
         givenName = givenNameRepo.save(givenName);
 
         ShortlistEntry entry = new ShortlistEntry();
+        entry.setShortlist(shortlist);
         entry.setMember(member);
         entry.setGivenName(givenName);
         entry.setAddedAt(OffsetDateTime.now());

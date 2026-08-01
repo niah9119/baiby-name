@@ -6,16 +6,16 @@ import jakarta.validation.constraints.Size;
 
 public class RegistrationForm {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email address")
-    @Size(max = 254, message = "Email must be less than 254 characters")
+    @NotBlank(message = "{form.email.required}")
+    @Email(message = "{form.email.invalid}")
+    @Size(max = 254, message = "{form.email.max}")
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+    @NotBlank(message = "{form.password.required}")
+    @Size(min = 8, max = 100, message = "{form.password.size}")
     private String password;
 
-    @NotBlank(message = "Password confirmation is required")
+    @NotBlank(message = "{form.password.confirm.required}")
     private String confirmPassword;
 
     public String getEmail() {

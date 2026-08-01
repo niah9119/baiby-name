@@ -36,8 +36,7 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
                 .permitAll()
-            )
-            .csrf(csrf -> csrf.disable());
+            );
         return http.build();
     }
 

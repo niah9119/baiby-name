@@ -6,6 +6,8 @@ import com.baibyname.web.RegistrationForm;
 import com.baibyname.web.LoginForm;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -75,16 +77,27 @@ public class AccountController {
         return "redirect:/";
     }
 
+    @GetMapping("/account")
+    public String account() {
+        return "account";
+    }
+
     @GetMapping("/delete-account")
     public String showDeleteAccount() {
         return "delete-account";
     }
 
     @PostMapping("/delete-account")
-    public String deleteAccount(HttpSession session) {
-        // The actual deletion is handled by a filter or service that uses the authenticated user
-        // For now, we'll just invalidate the session
-        session.invalidate();
+    public String deleteAccount() {
+        // Get the authenticated user's email from Spring Security
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        // Delete the account using the service
+        accountService.deleteAccount(accountService.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Account not found for user: " + email))
+                .getId());
+
         return "redirect:/";
     }
 

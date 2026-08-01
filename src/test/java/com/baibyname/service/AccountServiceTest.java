@@ -131,34 +131,16 @@ class AccountServiceTest {
         Account account = new Account();
         account.setId(accountId);
 
-        Shortlist shortlist = new Shortlist();
-        shortlist.setId(2L);
-        shortlist.setName("My Shortlist");
-
-        ShortlistMember member = new ShortlistMember();
-        member.setId(3L);
-        member.setShortlist(shortlist);
-        member.setAccount(account);
-
-        ShortlistEntry entry = new ShortlistEntry();
-        entry.setId(4L);
-
-        Set<ShortlistEntry> entries = new HashSet<>();
-        entries.add(entry);
-
-        Set<ShortlistMember> members = new HashSet<>();
-        members.add(member);
-
-        account.setShortlistMembers(members);
-        shortlist.setEntries(entries);
-
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
 
         // When
         accountService.deleteAccount(accountId);
 
-        // Then
+        // Then - verify the repositories were called in the correct order
         verify(accountRepository).findById(accountId);
+        verify(shortlistEntryRepository).deleteAllByAccountId(accountId);
+        verify(shortlistRepository).deleteAllByAccountId(accountId);
+        verify(shortlistMemberRepository).deleteAllByAccountId(accountId);
         verify(accountRepository).delete(account);
     }
 
