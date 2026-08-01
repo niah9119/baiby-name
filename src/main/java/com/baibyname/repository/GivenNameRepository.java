@@ -2,6 +2,7 @@ package com.baibyname.repository;
 
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
+import com.baibyname.domain.NameStat;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
