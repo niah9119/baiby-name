@@ -59,18 +59,14 @@ public class AccountController {
     }
 
     @GetMapping("/login")
-    public String showLoginForm(@ModelAttribute("success") Boolean success, Model model) {
+    public String showLoginForm(Model model) {
         model.addAttribute("loginForm", new LoginForm());
-        model.addAttribute("success", success);
         return "login";
     }
 
-    @PostMapping("/login")
-    public String loginUser(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult,
-                            Model model, HttpSession session) {
-        // Spring Security handles authentication, this is just for displaying errors
-        // The actual authentication is handled by Spring Security's formLogin
-        return "login";
+    @ModelAttribute("loginForm")
+    public LoginForm getLoginForm() {
+        return new LoginForm();
     }
 
     @GetMapping("/logout")

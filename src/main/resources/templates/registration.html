@@ -17,7 +17,7 @@
                 </div>
 
                 <div class="card">
-                    <form th:if="${!success}" th:action="@{/register}" method="post" th:object="${registrationForm}">
+                    <form th:if="${success == null or !success}" th:action="@{/register}" method="post" th:object="${registrationForm}">
                         <div class="mb-4">
                             <label for="email" class="block text-sm font-medium text-gray-700 mb-1" th:text="#{form.email}">
                                 Email address
