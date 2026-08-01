@@ -236,6 +236,8 @@ public class GivenNameService {
     private GivenName findByName(String name) {
         return givenNameRepository.findByName(name)
                 .orElseThrow(() -> new IllegalArgumentException("Name not found: " + name));
+    }
+
     // --- Style Attribute Filters ---
 
     /**

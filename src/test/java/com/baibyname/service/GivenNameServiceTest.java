@@ -452,6 +452,8 @@ class GivenNameServiceTest {
         // Assert
         assertThat(similarNames.stream().map(GivenName::getName).collect(Collectors.toList()))
                 .doesNotContain(original.getName());
+    }
+
     // --- Tests for Style Attribute Filters ---
 
     @BeforeEach
