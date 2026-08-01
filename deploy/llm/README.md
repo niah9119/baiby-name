@@ -2,10 +2,27 @@
 
 This directory contains configuration for running vLLM with the `google/gemma-4-26B-A4B-it` model behind an OpenAI-compatible API.
 
+## Stop the other vLLM first
+
+> **This host runs one vLLM at a time.** GPU and system memory are a single 121 GB pool, and
+> each server claims its share at startup. Starting this one while another is up will OOM
+> the machine — which is why `qwen-coder.service` and `vllm.service` carry `Conflicts=` in
+> systemd. Docker Compose knows nothing about those units, so the check is yours:
+
+```bash
+systemctl is-active qwen-coder vllm     # expect: inactive
+sudo systemctl stop qwen-coder          # if it is running
+```
+
+Note that `qwen-coder` is what runs the agent loop, so no agent run can be in flight while
+this model is up.
+
 ## Requirements
 
 - Docker and Docker Compose
 - NVIDIA Container Toolkit (for GPU acceleration)
+- **aarch64 host** — the compose file uses NVIDIA's NGC image (`nvcr.io/nvidia/vllm`)
+  because the stock `vllm/vllm-openai` images do not cover this platform
 
 ## Quick Start
 
