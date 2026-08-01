@@ -468,4 +468,102 @@ class GivenNameRepositoryTest {
         stat.setCreatedAt(OffsetDateTime.now());
         nameStatRepository.save(stat);
     }
+
+    // --- Tests for findSimilarByNameStartingWith ---
+
+    @Test
+    void findSimilarByNameStartingWithReturnsNamesStartingWithSameLetter() {
+        // Setup
+        var nameA = new GivenName();
+        nameA.setName("Adam" + System.currentTimeMillis());
+        nameA.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(nameA);
+
+        var nameB = new GivenName();
+        nameB.setName("Anna" + System.currentTimeMillis());
+        nameB.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(nameB);
+
+        var nameC = new GivenName();
+        nameC.setName("Bertil" + System.currentTimeMillis());
+        nameC.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(nameC);
+
+        // Act
+        var result = givenNameRepository.findSimilarByNameStartingWith(nameA.getName(), nameA.getId());
+
+        // Assert
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(nameB.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(nameA.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(nameC.getName());
+    }
+
+    @Test
+    void findSimilarByNameStartingWithExcludesOriginalName() {
+        // Setup - create a name and search for it
+        var givenName = new GivenName();
+        givenName.setName("TestName" + System.currentTimeMillis());
+        givenName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(givenName);
+
+        // Act
+        var result = givenNameRepository.findSimilarByNameStartingWith(givenName.getName(), givenName.getId());
+
+        // Assert
+        assertThat(result).isEmpty();
+    }
+
+    // --- Tests for findSimilarBySharedCountries ---
+
+    @Test
+    void findSimilarBySharedCountriesReturnsNamesInSameCountries() {
+        // Setup
+        var name1 = new GivenName();
+        name1.setName("Name1Shared" + System.currentTimeMillis());
+        name1.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name1);
+
+        var name2 = new GivenName();
+        name2.setName("Name2Shared" + System.currentTimeMillis());
+        name2.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name2);
+
+        var name3 = new GivenName();
+        name3.setName("Name3OnlySE" + System.currentTimeMillis());
+        name3.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name3);
+
+        // Both name1 and name2 have stats in country1
+        addNameStat(name1, country1, "Boy", 2023, 100, 50);
+        addNameStat(name2, country1, "Boy", 2023, 80, 60);
+        addNameStat(name3, country1, "Boy", 2023, 60, 70);
+
+        // Act
+        var result = givenNameRepository.findSimilarBySharedCountries(name1.getId(), PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result).isNotEmpty();
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(name2.getName());
+        assertThat(result.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(name1.getName());
+    }
+
+    @Test
+    void findSimilarBySharedCountriesExcludesOriginalName() {
+        // Setup
+        var givenName = new GivenName();
+        givenName.setName("OriginalName" + System.currentTimeMillis());
+        givenName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(givenName);
+
+        // Act
+        var result = givenNameRepository.findSimilarBySharedCountries(givenName.getId(), PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result).isEmpty();
+    }
 }

@@ -17,6 +17,14 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
 
     Optional<GivenName> findByName(String name);
 
+    @Query("""
+        SELECT gn FROM GivenName gn
+        LEFT JOIN FETCH gn.famousBearers
+        LEFT JOIN FETCH gn.nameStats
+        WHERE gn.name = :name
+        """)
+    Optional<GivenName> findByNameWithBearers(@Param("name") String name);
+
     List<GivenName> findByNameContainingIgnoreCase(String name);
 
     /**
@@ -129,4 +137,34 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("countries") List<Country> countries,
             @Param("minYear") int minYear,
             @Param("countryCount") int countryCount);
+
+    /**
+     * Find names that start with the same first letter as the given name.
+     */
+    @Query("""
+        SELECT gn FROM GivenName gn
+        WHERE gn.name LIKE CONCAT(SUBSTRING(:name, 1, 1), '%')
+        AND gn.id != :id
+        ORDER BY gn.name ASC
+        """)
+    List<GivenName> findSimilarByNameStartingWith(
+            @Param("name") String name,
+            @Param("id") Long id);
+
+    /**
+     * Find names that share at least one country with the given name.
+     * Used to find names with similar origins.
+     */
+    @Query("""
+        SELECT gn FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns.givenName.id FROM NameStat ns
+            WHERE ns.country IN (
+                SELECT ns2.country FROM NameStat ns2
+                WHERE ns2.givenName.id = :id
+            )
+        )
+        AND gn.id != :id
+        """)
+    List<GivenName> findSimilarBySharedCountries(@Param("id") Long id, Pageable pageable);
 }

@@ -22,6 +22,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -377,6 +378,80 @@ class GivenNameServiceTest {
         stat.setRank(rank);
         stat.setCreatedAt(OffsetDateTime.now());
         nameStatRepository.save(stat);
+    }
+
+    // --- Tests for getByName ---
+
+    @Test
+    void getByNameReturnsNameDetails() {
+        // Setup
+        GivenName name = new GivenName();
+        name.setName("TestElsa" + System.currentTimeMillis());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        GivenNameService.NameDetails details = givenNameService.getByName(name.getName()).orElse(null);
+
+        // Assert
+        assertThat(details).isNotNull();
+        assertThat(details.name()).isEqualTo(name.getName());
+    }
+
+    @Test
+    void getByNameNotFoundReturnsEmpty() {
+        // Act
+        Optional<GivenNameService.NameDetails> result = givenNameService.getByName("NonExistent" + System.currentTimeMillis());
+
+        // Assert
+        assertThat(result).isEmpty();
+    }
+
+    // --- Tests for findSimilarNames ---
+
+    @Test
+    void findSimilarNamesFindsNamesStartingWithSameLetter() {
+        // Setup
+        GivenName andrea = new GivenName();
+        andrea.setName("Andrea");
+        andrea.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(andrea);
+
+        GivenName anders = new GivenName();
+        anders.setName("Anders");
+        anders.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(anders);
+
+        // Act
+        List<GivenName> similar = givenNameService.findSimilarNames(anders);
+
+        // Assert
+        assertThat(similar).isNotEmpty();
+        assertThat(similar.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains("Andrea");
+    }
+
+    @Test
+    void findSimilarNamesExcludesOriginalName() {
+        // Setup
+        GivenName original = new GivenName();
+        original.setName("OriginalName" + System.currentTimeMillis());
+        original.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(original);
+
+        GivenName similar = new GivenName();
+        similar.setName("Origin" + System.currentTimeMillis());
+        similar.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(similar);
+
+        GivenNameService.NameDetails details = givenNameService.getByName(original.getName()).orElse(null);
+        assertThat(details).isNotNull();
+
+        // Act
+        List<GivenName> similarNames = givenNameService.findSimilarNames(details);
+
+        // Assert
+        assertThat(similarNames.stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(original.getName());
     }
 
     // --- Tests for Style Attribute Filters ---
