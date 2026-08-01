@@ -2,6 +2,7 @@ package com.baibyname.repository;
 
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
+import com.baibyname.domain.NameStat;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -68,11 +69,11 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     @Query("""
         SELECT gn FROM GivenName gn
         WHERE gn.id IN (
-            SELECT ns.givenName.id FROM NameStat ns
-            WHERE ns.country IN :countries
-            AND ns.sex = :sex
-            GROUP BY ns.givenName.id
-            HAVING COUNT(DISTINCT ns.country) = :countryCount
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.country IN :countries
+            AND ns2.sex = :sex
+            GROUP BY ns2.givenName.id
+            HAVING COUNT(DISTINCT ns2.country) = :countryCount
         )
         ORDER BY gn.name ASC
         """)
@@ -137,6 +138,23 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("countries") List<Country> countries,
             @Param("minYear") int minYear,
             @Param("countryCount") int countryCount);
+
+    /**
+     * Find all distinct sex values in the database.
+     */
+    @Query("SELECT DISTINCT ns.sex FROM NameStat ns ORDER BY ns.sex")
+    List<String> findDistinctSexes();
+
+    /**
+     * Find all NameStats for the given GivenName IDs.
+     * Used to eagerly load nameStats after the main query.
+     */
+    @Query("""
+        SELECT ns FROM NameStat ns
+        LEFT JOIN FETCH ns.country
+        WHERE ns.givenName.id IN :givenNameIds
+        """)
+    List<NameStat> findNameStatsByGivenNameIds(@Param("givenNameIds") List<Long> givenNameIds);
 
     /**
      * Find names that start with the same first letter as the given name.

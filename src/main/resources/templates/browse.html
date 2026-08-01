@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:include="layout :: head">
+    <title th:text="#{browse.title}">BaibyName - Browse Names</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <!-- Filter Panel -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{browse.title}">Browse Names</h1>
+                <p class="text-gray-600" th:text="#{browse.description}">Filter names by sex, country, and popularity...</p>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4" th:text="#{browse.filters.title}">Filters</h2>
+
+                <!-- Sex Filter -->
+                <div class="mb-4" th:with="sexLabel=#{filter.sex.label}">
+                    <label class="block text-sm font-medium text-gray-700 mb-2" th:text="${sexLabel}">
+                        Sex
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        <button th:each="sex : ${sexes}"
+                                th:class="${filterState.sexes.contains(sex)} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="#{${'filter.sex.' + sex.toLowerCase()}}"
+                                hx-post th:href="@{/browse/filter/sex/{sex}(htmx=true,page=0)}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="sex"
+                                th:data-filter-value="${sex}">
+                            <!-- Button text set via th:text -->
+                        </button>
+                        <button hx-post th:href="@{/browse/filter/clear(htmx=true,page=0)}"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                th:text="#{chip.remove}">
+                            Clear all
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Country Filter -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{filter.country.label}">
+                        Country
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        <button th:each="country : ${countries}"
+                                th:class="${filterState.countries.contains(country.code)} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${country.name}"
+                                hx-post th:href="@{/browse/filter/country/{code}(htmx=true,page=0,code=${country.code})}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="country"
+                                th:data-filter-value="${country.code}">
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Celebrity Filter -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{filter.celebrity.label}">
+                        Celebrity
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        <button th:with="allText=#{filter.celebrity.all}"
+                                hx-post th:href="@{/browse/filter/celebrity(htmx=true,page=0)}"
+                                th:class="${filterState.celebrityFilter == null} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${allText}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="celebrity"
+                                th:data-filter-value="all">
+                        </button>
+                        <button th:with="withText=#{filter.celebrity.with}"
+                                hx-post th:href="@{/browse/filter/celebrity(htmx=true,page=0,withCelebrity=true)}"
+                                th:class="${filterState.celebrityFilter == true} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${withText}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="celebrity"
+                                th:data-filter-value="with">
+                        </button>
+                        <button th:with="withoutText=#{filter.celebrity.without}"
+                                hx-post th:href="@{/browse/filter/celebrity(htmx=true,page=0,withCelebrity=false)}"
+                                th:class="${filterState.celebrityFilter == false} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${withoutText}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="celebrity"
+                                th:data-filter-value="without">
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Popularity Filter -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{filter.popularity.label}">
+                        Popularity
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        <button th:with="allText=#{filter.popularity.all}"
+                                hx-post th:href="@{/browse/filter/popularity(htmx=true,page=0)}"
+                                th:class="${filterState.popularityFilter == null} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${allText}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="popularity"
+                                th:data-filter-value="all">
+                        </button>
+                        <button th:with="commonText=#{filter.popularity.common}"
+                                hx-post th:href="@{/browse/filter/popularity(htmx=true,page=0,filterType=common_lately)}"
+                                th:class="${'common_lately' == filterState.popularityFilter} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${commonText}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="popularity"
+                                th:data-filter-value="common">
+                        </button>
+                        <button th:with="uncommonText=#{filter.popularity.uncommon}"
+                                hx-post th:href="@{/browse/filter/popularity(htmx=true,page=0,filterType=uncommon_lately)}"
+                                th:class="${'uncommon_lately' == filterState.popularityFilter} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="${uncommonText}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="popularity"
+                                th:data-filter-value="uncommon">
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Filters Display -->
+            <div class="mb-6" th:if="${filterState.hasAnyFilter()}">
+                <h3 class="text-sm font-medium text-gray-500 mb-2" th:text="#{browse.filters.active}">Active filters:</h3>
+                <div class="flex flex-wrap gap-2">
+                    <span th:each="sex : ${filterState.sexes}"
+                          class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                          th:with="chipText=#{chip.sex(${sex})}">
+                        <span th:text="#{filter.sex.label}">Sex</span>: <span th:text="${sex}">Boy</span>
+                        <button th:attr="data-filter-type=sex, data-filter-value=${sex}"
+                                hx-post th:href="@{/browse/filter/sex/{sex}(htmx=true,page=0)}"
+                                class="ml-2 text-blue-600 hover:text-blue-800">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <span th:each="countryCode : ${filterState.countries}"
+                          class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
+                          th:with="chipText=#{chip.country(${countryCode})}">
+                        <span th:text="#{filter.country.label}">Country</span>: <span th:text="${countryCode}">SE</span>
+                        <button th:attr="data-filter-type=country, data-filter-value=${countryCode}"
+                                hx-post th:href="@{/browse/filter/country/{code}(htmx=true,page=0,code=${countryCode})}"
+                                class="ml-2 text-green-600 hover:text-green-800">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <span th:if="${filterState.celebrityFilter != null}"
+                          class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                        <span th:text="#{filter.celebrity.label}">Celebrity</span>:
+                        <span th:if="${filterState.celebrityFilter}">With celebrities</span>
+                        <span th:unless="${filterState.celebrityFilter}">Without celebrities</span>
+                        <button th:attr="data-filter-type=celebrity, data-filter-value=clear"
+                                hx-post th:href="@{/browse/filter/celebrity(htmx=true,page=0)}"
+                                class="ml-2 text-purple-600 hover:text-purple-800">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <span th:if="${filterState.popularityFilter != null}"
+                          class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                        <span th:text="#{filter.popularity.label}">Popularity</span>:
+                        <span th:if="${'common_lately' == filterState.popularityFilter}">Common lately</span>
+                        <span th:if="${'uncommon_lately' == filterState.popularityFilter}">Uncommon lately</span>
+                        <button th:attr="data-filter-type=popularity, data-filter-value=clear"
+                                hx-post th:href="@{/browse/filter/popularity(htmx=true,page=0)}"
+                                class="ml-2 text-orange-600 hover:text-orange-800">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Candidate List Fragment -->
+            <th:block th:fragment="candidate-list">
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-900" th:text="#{candidate.list.title}">Candidate Names</h2>
+                        <span class="text-sm text-gray-500" th:text="#{candidate.list.count(${candidates.totalElements})}">
+                            0 names found
+                        </span>
+                    </div>
+
+                    <div th:if="${candidates.empty}" class="text-center py-12">
+                        <i class="fa-solid fa-search text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-lg" th:text="#{candidate.list.empty}">No names found matching your filters.</p>
+                    </div>
+
+                    <div th:unless="${candidates.empty}" class="space-y-4">
+                        <div th:each="candidate : ${candidates}"
+                             class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-900" th:text="${candidate.name}">Name</h3>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <span th:each="stat : ${candidate.nameStats}"
+                                              class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700"
+                                              th:if="${filterState.countries.isEmpty() or filterState.countries.contains(stat.country?.code)}">
+                                            <span th:text="${stat.country?.code} ?: 'SE'">SE</span>:
+                                            <span th:text="${stat.sex}">Boy</span>
+                                        </span>
+                                    </div>
+                                    <div class="mt-2 text-sm text-gray-600">
+                                        <span th:if="${filterState.popularityFilter == 'common_lately'}"
+                                              th:text="#{namecard.popularity.common}">
+                                            Common
+                                        </span>
+                                        <span th:if="${filterState.popularityFilter == 'uncommon_lately'}"
+                                              th:text="#{namecard.popularity.uncommon}">
+                                            Uncommon
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                            th:title="#{candidate.shortlist.add}">
+                                        <i class="fa-solid fa-heart"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div th:if="${not candidates.empty}" class="mt-6 flex items-center justify-center gap-2">
+                        <button th:if="${candidates.hasPrevious()}"
+                                hx-get th:href="@{/browse/page(page=${candidates.number - 1}, pageSize=${candidates.size})}"
+                                class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                th:text="#{pagination.previous}">
+                            <i class="fa-solid fa-chevron-left"></i>
+                            Previous
+                        </button>
+
+                        <span class="px-4 py-2 text-sm text-gray-600"
+                              th:text="#{pagination.of} + ' ' + ${candidates.number + 1} + ' ' + #{pagination.of} + ' ' + ${candidates.totalPages}">
+                            1 of 10
+                        </span>
+
+                        <button th:if="${candidates.hasNext()}"
+                                hx-get th:href="@{/browse/page(page=${candidates.number + 1}, pageSize=${candidates.size})}"
+                                class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                th:text="#{pagination.next}">
+                            Next
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </th:block>
+
+            <!-- Placeholder slots for future features -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Shortlist Actions Slot -->
+                <div class="bg-gray-100 rounded-xl p-6 border-2 border-dashed border-gray-300">
+                    <h3 class="text-sm font-medium text-gray-500 mb-2">Shortlist Actions</h3>
+                    <p class="text-xs text-gray-400">Slot for shortlist management controls</p>
+                </div>
+                <!-- Ad Slot -->
+                <div class="bg-gray-100 rounded-xl p-6 border-2 border-dashed border-gray-300">
+                    <h3 class="text-sm font-medium text-gray-500 mb-2">Ad Slot</h3>
+                    <p class="text-xs text-gray-400">Slot for advertising content</p>
+                </div>
+                <!-- Chat Panel Slot -->
+                <div class="bg-gray-100 rounded-xl p-6 border-2 border-dashed border-gray-300">
+                    <h3 class="text-sm font-medium text-gray-500 mb-2">Chat Panel</h3>
+                    <p class="text-xs text-gray-400">Slot for chat/assistant interface</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- HTMX Script Configuration -->
+    <script>
+        // Ensure HTMX works with Thymeleaf
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            // Add CSRF token if present
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+            if (csrfToken) {
+                evt.detail.headers['X-CSRF-Token'] = csrfToken;
+            }
+        });
+    </script>
+</body>
+</html>
