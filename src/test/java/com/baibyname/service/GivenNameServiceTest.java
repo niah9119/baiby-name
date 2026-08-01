@@ -503,7 +503,7 @@ class GivenNameServiceTest {
 
     private GivenName createNameWithSyllableCount(short count) {
         var name = new GivenName();
-        name.setName("SyllableTest" + System.currentTimeMillis());
+        name.setName("SyllableTest" + System.nanoTime());
         name.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name);
 

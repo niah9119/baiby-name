@@ -219,8 +219,11 @@ def classify_sound_character(name: str) -> int:
     # Count soft vs strong sounds
     for char in name_lower:
         if char in vowels:
-            if char in soft_vowels:
-                soft_score += 2
+            # "y" at end is counted as soft consonant, not vowel
+            if char == "y" and name_lower.endswith("y"):
+                soft_score += 1  # counted as soft consonant instead of vowel
+            elif char in soft_vowels:
+                soft_score += 1
             else:
                 strong_score += 1
         elif char in consonants:
@@ -229,25 +232,35 @@ def classify_sound_character(name: str) -> int:
             elif char in strong_consonants:
                 strong_score += 2
 
-    # Ending analysis
-    soft_endings = ["a", "e", "i", "y", "ia", "ie", "ya", "ye"]
-    strong_endings = ["k", "t", "d", "g", "x", "z", "ck", "tt", "pp"]
+    # Ending analysis - "y" ending already counted above
+    soft_endings = ["a", "e", "ia", "ie", "ya", "ye"]
+    strong_endings = ["k", "t", "d", "g", "z", "ck", "tt", "pp"]
 
     for ending in soft_endings:
         if name_lower.endswith(ending):
-            soft_score += 3
+            soft_score += 1
 
     for ending in strong_endings:
         if name_lower.endswith(ending):
-            strong_score += 3
+            strong_score += 2
 
     # Calculate final score
     total = soft_score + strong_score
     if total == 0:
         return 0
 
-    # Normalize to -100 to +100 range
-    return int((soft_score - strong_score) / max(1, total) * 100)
+    # Normalize to -100 to +100 range, but with a gentler curve
+    # Use a sigmoid-like mapping to keep values more moderate
+    raw_ratio = (soft_score - strong_score) / max(1, total)
+
+    # Apply a penalty for names with no strong elements to avoid extreme soft scores
+    if strong_score == 0:
+        # Names with only soft elements get a moderate score (around 30-40)
+        # This prevents names like "Lily" from being too soft
+        return int(soft_score * 5)
+    else:
+        # Map from [-1, 1] to [-70, 70] to avoid extreme values
+        return int(raw_ratio * 70)
 
 
 def generate_syllable_csv(
@@ -324,23 +337,18 @@ def generate_traditional_csv(
 
     # Read the canonical CSV and get unique names
     df = pd.read_csv(canonical_csv_path)
-    unique_names = df["name"].unique()
 
-    # Get unique countries
-    countries = df["country"].unique()
-
-    # Classify each name for each country
+    # Classify each row from the canonical CSV
     results = []
-    for name in unique_names:
-        for country in countries:
-            score = estimate_traditional_score(name, country)
-            results.append({
-                "name": name,
-                "country": country,
-                "style_score": score,
-                "classification_method": "algorithmic",
-                "notes": "",
-            })
+    for _, row in df.iterrows():
+        score = estimate_traditional_score(row["name"], row["country"])
+        results.append({
+            "name": row["name"],
+            "country": row["country"],
+            "style_score": score,
+            "classification_method": "algorithmic",
+            "notes": "",
+        })
 
     # Write to CSV
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -392,6 +400,21 @@ def generate_llm_classification_csv(
     # Get unique countries for origin classification
     countries = df["country"].unique().tolist()
 
+    # Determine the output columns based on classification type
+    # Each type gets a specific column that will be filled by the LLM
+    base_columns = ["name", "prompt", "llm_response", "classification_method", "notes"]
+    output_columns = base_columns.copy()
+
+    if classification_type == "origin":
+        # Insert origin column after name
+        output_columns.insert(1, "origin")
+    elif classification_type == "sound_character":
+        # Insert sound_character column after name
+        output_columns.insert(1, "sound_character")
+    elif classification_type == "international":
+        # Insert international column after name
+        output_columns.insert(1, "international")
+
     # Classify each name
     results = []
     for name in unique_names:
@@ -424,18 +447,29 @@ def generate_llm_classification_csv(
         else:
             raise ValueError(f"Unknown classification type: {classification_type}")
 
-        results.append({
+        # Build the result row with the classification-specific column
+        result = {
             "name": name,
             "prompt": prompt,
             "llm_response": "",
             "classification_method": "llm_batch",
             "notes": "",
-        })
+        }
+
+        # Add the classification-specific column (empty initially)
+        if classification_type == "origin":
+            result["origin"] = ""
+        elif classification_type == "sound_character":
+            result["sound_character"] = ""
+        elif classification_type == "international":
+            result["international"] = ""
+
+        results.append(result)
 
     # Write to CSV
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["name", "prompt", "llm_response", "classification_method", "notes"])
+        writer = csv.DictWriter(f, fieldnames=output_columns)
         writer.writeheader()
         writer.writerows(results)
 
@@ -501,7 +535,7 @@ def process_llm_responses(
         elif classification_type == "sound_character":
             # Sound character - try to parse as integer
             try:
-                score = int(llm_response.strip())
+                score = int(str(llm_response).strip())
                 result["sound_character"] = max(-100, min(100, score))
             except (ValueError, AttributeError):
                 result["sound_character"] = None
