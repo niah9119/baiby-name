@@ -330,25 +330,4 @@ class ShortlistServiceTest {
         assertThat(result).isFalse();
     }
 
-    @Test
-    void getEntriesReturnsAllEntriesForShortlist() {
-        // Given
-        Shortlist shortlist = new Shortlist();
-        shortlist.setId(1L);
-
-        ShortlistEntry entry1 = new ShortlistEntry();
-        entry1.setId(1L);
-
-        ShortlistEntry entry2 = new ShortlistEntry();
-        entry2.setId(2L);
-
-        when(shortlistEntryRepository.findEntriesByShortlist(shortlist))
-                .thenReturn(List.of(entry1, entry2));
-
-        // When
-        List<ShortlistEntry> entries = shortlistService.getEntries(shortlist);
-
-        // Then
-        assertThat(entries).hasSize(2);
-    }
 }

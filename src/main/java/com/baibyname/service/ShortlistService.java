@@ -213,7 +213,7 @@ public class ShortlistService {
 
     /**
      * Remove a given name from a specific shortlist by member.
-     * Used for administrative purposes and account deletion.
+     * Only for internal use (account deletion) - does not verify caller membership (IDOR risk).
      *
      * @param shortlistId the ID of the shortlist
      * @param givenNameId the ID of the given name to remove
@@ -221,7 +221,7 @@ public class ShortlistService {
      * @return true if removed successfully
      */
     @Transactional
-    public boolean removeFromShortlist(Long shortlistId, Long givenNameId, Long memberId) {
+    private boolean removeFromShortlist(Long shortlistId, Long givenNameId, Long memberId) {
         Optional<Shortlist> shortlistOpt = shortlistRepository.findById(shortlistId);
         if (shortlistOpt.isEmpty()) {
             return false;
@@ -245,11 +245,12 @@ public class ShortlistService {
 
     /**
      * Get all entries in a shortlist, ordered by add date (newest first).
+     * Only for internal use - does not verify caller membership (IDOR risk if used externally).
      *
      * @param shortlist the shortlist
      * @return list of entries in the shortlist
      */
-    public List<ShortlistEntry> getEntries(Shortlist shortlist) {
+    private List<ShortlistEntry> getEntries(Shortlist shortlist) {
         return shortlistEntryRepository.findEntriesByShortlist(shortlist);
     }
 

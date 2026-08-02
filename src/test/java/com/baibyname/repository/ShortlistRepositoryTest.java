@@ -155,4 +155,41 @@ class ShortlistRepositoryTest {
         assertThat(result.get().getShortlist().getId()).isEqualTo(shortlist.getId());
         assertThat(result.get().getAccount().getId()).isEqualTo(account.getId());
     }
+
+    /**
+     * Cross-account test: verifies that account A cannot access account B's shortlist.
+     * This is a shared/membership feature so this is the interesting boundary.
+     */
+    @Test
+    void crossAccountCannotAccessOtherShortlist() {
+        // Setup: create a second account and their shortlist
+        var otherAccount = new Account();
+        otherAccount.setEmail("other" + System.currentTimeMillis() + "@example.com");
+        otherAccount.setPasswordHash("hash456");
+        otherAccount.setCreatedAt(OffsetDateTime.now());
+        accountRepository.save(otherAccount);
+
+        var otherShortlist = new Shortlist();
+        otherShortlist.setName("Other Person's Shortlist");
+        otherShortlist.setCreatedAt(OffsetDateTime.now());
+        shortlistRepository.save(otherShortlist);
+
+        var otherMember = new ShortlistMember();
+        otherMember.setShortlist(otherShortlist);
+        otherMember.setAccount(otherAccount);
+        otherMember.setCreatedAt(OffsetDateTime.now());
+        shortlistMemberRepository.save(otherMember);
+
+        // Verify account A cannot find membership in account B's shortlist
+        var result = shortlistMemberRepository.findByShortlistAndAccount(shortlist, otherAccount);
+        assertThat(result).isEmpty();
+
+        // Verify account B cannot find membership in account A's shortlist
+        var result2 = shortlistMemberRepository.findByShortlistAndAccount(otherShortlist, account);
+        assertThat(result2).isEmpty();
+
+        // Verify entries are isolated - account A's shortlist entries should not be visible for account B
+        var otherEntries = shortlistEntryRepository.findEntriesByShortlist(otherShortlist);
+        assertThat(otherEntries).isEmpty();
+    }
 }
