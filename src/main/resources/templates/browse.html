@@ -220,7 +220,7 @@
                                         </span>
                                     </div>
                                 </div>
-                                <div class="flex gap-2" th:if="${#httpServletRequest.userPrincipal != null}">
+                                <div class="flex gap-2" th:if="${authenticated}">
                                     <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
                                             th:data-given-name-id="${candidate.id}"
                                             hx-post th:href="@{/shortlist/add/{id}(id=${candidate.id})}"
@@ -229,7 +229,7 @@
                                         <i class="fa-solid fa-heart"></i>
                                     </button>
                                 </div>
-                                <div class="flex gap-2" th:unless="${#httpServletRequest.userPrincipal != null}">
+                                <div class="flex gap-2" th:unless="${authenticated}">
                                     <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
                                             th:title="#{candidate.shortlist.login_required}"
                                             disabled>
