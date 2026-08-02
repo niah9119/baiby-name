@@ -1,9 +1,9 @@
 package com.baibyname.service;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Holds the current filter state for a user session.
@@ -11,11 +11,16 @@ import java.util.Set;
  *
  * <p>All filter criteria use intersection semantics: a name must satisfy
  * ALL selected criteria to be included in the results.</p>
+ *
+ * <p>Thread safety: This class is used by both the HTTP request thread (reading
+ * state for UI rendering) and the LLM streaming callback thread (mutating state
+ * via tool calls). Therefore, all mutable collections are concurrent and safe for
+ * concurrent read/write operations without external synchronization.</p>
  */
 public class FilterState {
 
-    private final Set<String> sexes = new HashSet<>();
-    private final Set<String> countries = new HashSet<>();
+    private final Set<String> sexes = ConcurrentHashMap.newKeySet();
+    private final Set<String> countries = ConcurrentHashMap.newKeySet();
     private Boolean celebrityFilter;  // null = no filter, true = only with celebrities, false = only without
     private String popularityFilter;  // null = no filter, "common_lately" or "uncommon_lately"
 
