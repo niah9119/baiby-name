@@ -2,8 +2,9 @@ package com.baibyname.controller;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ModelAttribute;
 
 /**
  * Controller advice that exposes an {@code authenticated} boolean attribute to all templates.
@@ -19,12 +20,19 @@ public class AuthenticatedControllerAdvice {
 
     /**
      * Add the authenticated status to the model for all controllers.
+     * <p>Uses "anonymousUser" principal check (like ShortlistService) rather than
+     * {@code authentication.isAuthenticated()} because Spring's
+     * {@code AnonymousAuthenticationToken} returns true for isAuthenticated().</p>
      *
-     * @param model the Thymeleaf model
+     * @return true if the user is authenticated (not anonymous)
      */
-    public void addToModel(Model model) {
+    @ModelAttribute("authenticated")
+    public boolean authenticated() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean authenticated = authentication != null && authentication.isAuthenticated();
-        model.addAttribute("authenticated", authenticated);
+        if (authentication == null) {
+            return false;
+        }
+        // AnonymousAuthenticationToken returns isAuthenticated()=true, so check principal
+        return authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal());
     }
 }

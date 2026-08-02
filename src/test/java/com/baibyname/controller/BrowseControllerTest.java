@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -47,7 +48,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Testcontainers
 @Transactional
-@WithMockUser
 class BrowseControllerTest {
 
     @Container
@@ -506,5 +506,59 @@ class BrowseControllerTest {
         mockMvc.perform(get("/browse/filter/state"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("{}"));  // Empty state initially
+    }
+
+    // --- Tests for authenticated vs anonymous rendering ---
+
+    @Test
+    @WithMockUser
+    void authenticatedUser_seesShortlistButton() throws Exception {
+        // Setup: create a name with stats so candidate list renders
+        GivenName testName = new GivenName();
+        testName.setName("TestName" + System.currentTimeMillis());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act
+        mockMvc.perform(get("/browse"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("data-given-name-id")));
+    }
+
+    @Test
+    void anonymousUser_seesLoginRequiredButton() throws Exception {
+        // Clear authentication for anonymous access
+        SecurityContextHolder.clearContext();
+
+        // Setup: create a name with stats so candidate list renders
+        GivenName testName = new GivenName();
+        testName.setName("TestName" + System.currentTimeMillis());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act
+        mockMvc.perform(get("/browse"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("disabled")));
     }
 }

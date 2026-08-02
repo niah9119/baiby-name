@@ -330,4 +330,48 @@ class ShortlistServiceTest {
         assertThat(result).isFalse();
     }
 
+    @Test
+    void crossAccountCannotAccessOtherShortlist() {
+        // Given: two accounts, A and B
+        Account accountA = new Account();
+        accountA.setId(1L);
+        accountA.setEmail("accountA@example.com");
+
+        Account accountB = new Account();
+        accountB.setId(2L);
+        accountB.setEmail("accountB@example.com");
+
+        Shortlist shortlistA = new Shortlist();
+        shortlistA.setId(1L);
+
+        ShortlistMember memberA = new ShortlistMember();
+        memberA.setShortlist(shortlistA);
+        memberA.setAccount(accountA);
+
+        // Mock: account A is authenticated, and account A's shortlist has member A
+        when(accountRepository.findByEmail("test@example.com")).thenReturn(Optional.of(accountA));
+        when(shortlistMemberRepository.findMembersByAccount(accountA)).thenReturn(List.of(memberA));
+        when(shortlistMemberRepository.findByShortlistAndAccount(shortlistA, accountA))
+                .thenReturn(Optional.of(memberA));
+        // Account B has their own shortlist (separate from A's)
+        Shortlist shortlistB = new Shortlist();
+        shortlistB.setId(2L);
+        ShortlistMember memberB = new ShortlistMember();
+        memberB.setShortlist(shortlistB);
+        memberB.setAccount(accountB);
+        when(accountRepository.findById(accountB.getId())).thenReturn(Optional.of(accountB));
+        when(shortlistMemberRepository.findMembersByAccount(accountB)).thenReturn(List.of(memberB));
+        when(shortlistMemberRepository.findByShortlistAndAccount(shortlistB, accountB))
+                .thenReturn(Optional.of(memberB));
+        // Account A should NOT be a member of account B's shortlist
+        when(shortlistMemberRepository.findByShortlistAndAccount(shortlistB, accountA))
+                .thenReturn(Optional.empty());
+
+        // When: account A tries to access account B's shortlist
+        Optional<Shortlist> result = shortlistService.getShortlistForAccountId(accountB.getId());
+
+        // Then: access should be denied
+        assertThat(result).isEmpty();
+    }
+
 }

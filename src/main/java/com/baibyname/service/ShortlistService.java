@@ -266,6 +266,50 @@ public class ShortlistService {
     }
 
     /**
+     * Get the shortlist for a given account ID, but only if the current authenticated user
+     * is a member of that shortlist. This is for cross-account access control testing.
+     *
+     * @param accountId the ID of the account whose shortlist to get
+     * @return the shortlist if the current user is a member, empty otherwise
+     */
+    @Transactional(readOnly = true)
+    public Optional<Shortlist> getShortlistForAccountId(Long accountId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+
+        String username = authentication.getName();
+        Optional<Account> currentAccountOpt = accountRepository.findByEmail(username);
+        if (currentAccountOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Account currentAccount = currentAccountOpt.get();
+        Account targetAccount = accountRepository.findById(accountId).orElse(null);
+        if (targetAccount == null) {
+            return Optional.empty();
+        }
+
+        // Get shortlist for target account
+        Optional<Shortlist> targetShortlistOpt = getShortlistForAccount(targetAccount);
+        if (targetShortlistOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Shortlist targetShortlist = targetShortlistOpt.get();
+
+        // Verify the current user is a member of the target shortlist
+        Optional<ShortlistMember> memberOpt = shortlistMemberRepository.findByShortlistAndAccount(targetShortlist, currentAccount);
+        if (memberOpt.isEmpty()) {
+            // Current user is NOT a member - cross-account access denied
+            return Optional.empty();
+        }
+
+        return targetShortlistOpt;
+    }
+
+    /**
      * Check if a given name is in the current user's shortlist.
      *
      * @param givenNameId the ID of the given name
