@@ -33,23 +33,48 @@ The pipeline job probes for `pipeline/` and no-ops until issue #3 lands.
 - [x] PR #27 (CI warning fixes: action pins, `spring.jpa.open-in-view: false`) — merged
 - [x] Agent prompt hardened — see `scripts/ralph/issue-prompt.md`
 
-## Where things stand (2026-07-30 00:00)
+## Where things stand (2026-08-02 00:00)
 
-**Merged:** #1 skeleton, #2 schema, #3 USA, #4 Sweden, #5 Norway, #6 Denmark, #7 England &
-Wales, plus CI. Loader follow-ups all merged too: #32 (honest rowcounts), #35 (tests moved
-off SQLite onto Testcontainers + real Flyway schema), #33 (bulk loading -- the 363,707-row
-ONS load went from ~3 hours to **16 seconds**).
+**Merged:** #1–#7 (skeleton, schema, all five country importers), #8, #9, #13 (SEO landing
+pages), #14 (accounts/GDPR), #18, #10 (browse UI, PR #48), plus CI and the loader
+follow-ups #32/#33/#35.
 
-**Running unattended:** detached loop, `--max 3`, working #8 -> #9 -> #14. Log at
-`/tmp/ralph-night2.log`. These three are the only issues with no unmerged dependencies;
-#10/#13 wait on #8, #11 on #9, #12 on #10, #15 on #14.
+### NEXT RUN MUST BE SCOPED TO #55
+
+    ./scripts/ralph/agent-loop.sh --max 1 --scope priority-now
+
+`#55` carries a temporary `priority-now` label so `--scope` pins the queue to it. The picker
+otherwise takes the **lowest-numbered** eligible issue, which would be #12. **Remove the
+label once #55 merges**, or every later run stays pinned to it:
+
+    gh issue edit 55 --remove-label priority-now
+
+**Why #55 first:** `main` is red. `GivenNameServiceTest` fails with a duplicate-key
+violation on `given_name_name_key` — but in a *different method* on `main`
+(`findBySoundCharacterRange`) than on `issue-12` (`findByOrigin`). Order-dependent
+pollution, so CI has been passing on luck. Until it is fixed, a failing `./mvnw verify`
+cannot distinguish "this branch broke something" from "the flake fired again"; every review
+costs an extra run against `main` to disambiguate.
+
+### Open work
+
+| issue | state | note |
+|---|---|---|
+| #55 | queued, **pinned** | flaky `GivenNameServiceTest`; blocks honest verification |
+| #12 | round 3 in flight | shortlists; `AuthenticatedControllerAdvice` missing `@ModelAttribute` |
+| #19 | queued, **spec ready** | Wikidata source fully verified in the issue comments |
+| #20 | queued, PR #51 open | rebased by hand to +525 ad-only files; consent gate still stubbed |
+| #52 | queued | name page renders per-year lists in aggregate-labelled columns |
+| #53 | queued | sitemap emits 120,909 URLs in one file; protocol cap is 50,000 |
+| #15/#16/#17/#21 | blocked | need the Gemma LLM gateway; #21 parked deliberately |
 
 **Nothing merges without review.** CI grades the build, not whether the work meets the
-acceptance criteria.
+acceptance criteria — PR #51 was green with a consent gate that returned `true` on every
+path, and PR #54 was green with a `@ControllerAdvice` method Spring never calls.
 
-In the morning:
+Resuming:
 
-    tail -40 /tmp/ralph-night2.log
+    tail -40 /tmp/ralph-aug01c.log
     gh pr list --state open
     gh issue list --label in-progress      # stuck mid-flight -> relabel ready-for-agent
 
