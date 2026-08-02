@@ -33,4 +33,10 @@ public interface ShortlistMemberRepository extends JpaRepository<ShortlistMember
     @Modifying
     @Query("DELETE FROM ShortlistMember sm WHERE sm.account.id = :accountId")
     void deleteAllByAccountId(@Param("accountId") Long accountId);
+
+    @Modifying
+    @Query("DELETE FROM ShortlistMember sm WHERE sm.shortlist = :shortlist")
+    void deleteAllByShortlist(@Param("shortlist") Shortlist shortlist);
+
+    long countByShortlist(Shortlist shortlist);
 }
