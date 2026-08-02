@@ -109,8 +109,8 @@ public class InterviewController {
             Map<String, Object> doneMap = new HashMap<>();
             doneMap.put("type", "done");
             return Flux.just(
-                "data: " + toJson(msgMap) + "\n\n",
-                "data: " + toJson(doneMap) + "\n\n"
+                toJson(msgMap),
+                toJson(doneMap)
             );
         }
 
@@ -130,20 +130,20 @@ public class InterviewController {
                                 resultMap.put("type", "toolResult");
                                 resultMap.put("toolName", toolCall.getFunction().getName());
                                 resultMap.put("toolId", toolCall.getId());
-                                events.add(toJson(resultMap) + "\n\n");
+                                events.add(toJson(resultMap));
                             }
                         } else if (delta.getContent() != null) {
                             // Handle message content
                             Map<String, Object> contentMap = new HashMap<>();
                             contentMap.put("type", "message");
                             contentMap.put("content", delta.getContent());
-                            events.add(toJson(contentMap) + "\n\n");
+                            events.add(toJson(contentMap));
                         }
                     }
 
                     return Flux.fromIterable(events);
                 })
-                .concatWith(Flux.just(toJson(Map.of("type", "done")) + "\n\n"));
+                .concatWith(Flux.just(toJson(Map.of("type", "done"))));
         } catch (LlmGateway.LlmUnavailableException e) {
             Map<String, Object> msgMap = new HashMap<>();
             msgMap.put("type", "message");
@@ -151,8 +151,8 @@ public class InterviewController {
             Map<String, Object> doneMap = new HashMap<>();
             doneMap.put("type", "done");
             return Flux.just(
-                "data: " + toJson(msgMap) + "\n\n",
-                "data: " + toJson(doneMap) + "\n\n"
+                toJson(msgMap),
+                toJson(doneMap)
             );
         }
     }

@@ -12,10 +12,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Integration tests for Interview functionality with mocked LLM.
+ * Integration tests for FilterStateService and tool call handling.
  * Tests tool call round-trip mutates filter state and re-renders chips/list.
  */
-class InterviewServiceTest {
+class FilterStateServiceTest {
 
     private FilterStateService filterStateService;
 

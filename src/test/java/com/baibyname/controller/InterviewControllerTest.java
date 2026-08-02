@@ -75,11 +75,18 @@ class InterviewControllerTest {
         when(llmGateway.isAvailable()).thenReturn(false);
 
         // Act
-        mockMvc.perform(get("/interview/stream")
+        String response = mockMvc.perform(get("/interview/stream")
                 .param("message", "Hello"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("type\":\"message\"")))
-                .andExpect(content().string(containsString("type\":\"done\"")));
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Verify SSE format: exactly one "data:" prefix per event, not "data:data:"
+        assertThat(response).contains("data:{\"type\":\"message\"");
+        assertThat(response).contains("data:{\"type\":\"done\"");
+        // Verify no doubled prefix
+        assertThat(response).doesNotContain("data:data:");
     }
 
     @Test
@@ -104,12 +111,21 @@ class InterviewControllerTest {
         );
 
         // Act
-        mockMvc.perform(get("/interview/stream")
+        String response = mockMvc.perform(get("/interview/stream")
                 .param("message", "Hello"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("\"type\":\"message\"")))
-                .andExpect(content().string(containsString("\"type\":\"done\"")))
-                .andExpect(content().string(containsString("unavailable")));
+                .andExpect(content().string(containsString("type\":\"message\"")))
+                .andExpect(content().string(containsString("type\":\"done\"")))
+                .andExpect(content().string(containsString("unavailable")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Verify SSE format: exactly one "data:" prefix per event, not "data:data:"
+        assertThat(response).contains("data:{\"type\":\"message\"");
+        assertThat(response).contains("data:{\"type\":\"done\"");
+        // Verify no doubled prefix
+        assertThat(response).doesNotContain("data:data:");
     }
 
     @Test
