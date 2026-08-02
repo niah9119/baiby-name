@@ -115,7 +115,7 @@ class BrowseControllerTest {
     void sexFilterUpdatesCandidateList() throws Exception {
         // Setup: create a boy name with stats in both countries
         GivenName boyName = new GivenName();
-        boyName.setName("BoyName" + System.currentTimeMillis());
+        boyName.setName("BoyName" + System.nanoTime());
         boyName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(boyName);
 
@@ -159,7 +159,7 @@ class BrowseControllerTest {
     void sexFilterChipRemoval() throws Exception {
         // Setup: create a girl name with stats
         GivenName girlName = new GivenName();
-        girlName.setName("GirlName" + System.currentTimeMillis());
+        girlName.setName("GirlName" + System.nanoTime());
         girlName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(girlName);
 
@@ -196,7 +196,7 @@ class BrowseControllerTest {
     void countryFilterUpdatesCandidateList() throws Exception {
         // Setup: create a name with stats in both countries
         GivenName commonName = new GivenName();
-        commonName.setName("CommonName" + System.currentTimeMillis());
+        commonName.setName("CommonName" + System.nanoTime());
         commonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(commonName);
 
@@ -234,7 +234,7 @@ class BrowseControllerTest {
     void countryFilterIntersectionSemantics() throws Exception {
         // Setup: create a name with stats in only Sweden
         GivenName swedenOnlyName = new GivenName();
-        swedenOnlyName.setName("SwedenOnly" + System.currentTimeMillis());
+        swedenOnlyName.setName("SwedenOnly" + System.nanoTime());
         swedenOnlyName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(swedenOnlyName);
 
@@ -354,7 +354,7 @@ class BrowseControllerTest {
     void popularityFilterWorks() throws Exception {
         // Setup: create common and uncommon names
         GivenName commonName = new GivenName();
-        commonName.setName("CommonLately" + System.currentTimeMillis());
+        commonName.setName("CommonLately" + System.nanoTime());
         commonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(commonName);
 
@@ -369,7 +369,7 @@ class BrowseControllerTest {
         nameStatRepository.save(stat1);
 
         GivenName uncommonName = new GivenName();
-        uncommonName.setName("UncommonLately" + System.currentTimeMillis());
+        uncommonName.setName("UncommonLately" + System.nanoTime());
         uncommonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(uncommonName);
 
@@ -401,7 +401,7 @@ class BrowseControllerTest {
     void popularityFilterUncommon() throws Exception {
         // Setup: create an uncommon name
         GivenName uncommonName = new GivenName();
-        uncommonName.setName("UncommonLately" + System.currentTimeMillis());
+        uncommonName.setName("UncommonLately" + System.nanoTime());
         uncommonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(uncommonName);
 
@@ -471,7 +471,7 @@ class BrowseControllerTest {
     void htmxResponsesReturnFragment() throws Exception {
         // Setup: create a name
         GivenName testName = new GivenName();
-        testName.setName("HtmxTest" + System.currentTimeMillis());
+        testName.setName("HtmxTest" + System.nanoTime());
         testName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName);
 
@@ -515,7 +515,7 @@ class BrowseControllerTest {
     void authenticatedUser_seesShortlistButton() throws Exception {
         // Setup: create a name with stats so candidate list renders
         GivenName testName = new GivenName();
-        testName.setName("TestName" + System.currentTimeMillis());
+        testName.setName("TestName" + System.nanoTime());
         testName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName);
 
@@ -542,7 +542,7 @@ class BrowseControllerTest {
 
         // Setup: create a name with stats so candidate list renders
         GivenName testName = new GivenName();
-        testName.setName("TestName" + System.currentTimeMillis());
+        testName.setName("TestName" + System.nanoTime());
         testName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName);
 
