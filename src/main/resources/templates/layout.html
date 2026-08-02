@@ -79,12 +79,12 @@
                     </div>
                 </div>
                 <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <div class="ml-3 relative" th:if="${#httpServletRequest.userPrincipal == null}">
+                    <div class="ml-3 relative" th:unless="${authenticated}">
                         <a href="/login" class="btn-secondary" th:text="#{nav.login}">
                             <i class="fa-solid fa-user mr-2"></i>Log in
                         </a>
                     </div>
-                    <div class="ml-3 relative" th:unless="${#httpServletRequest.userPrincipal == null}">
+                    <div class="ml-3 relative" th:if="${authenticated}">
                         <span class="text-gray-600 px-3 py-2 text-sm" th:text="#{nav.hello}">
                             Hello,
                         </span>

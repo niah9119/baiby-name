@@ -19,6 +19,17 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
 
     @Query("""
         SELECT se FROM ShortlistEntry se
+        WHERE se.shortlist = :shortlist
+        AND se.givenName.id = :givenNameId
+        AND se.member = :member
+        """)
+    Optional<ShortlistEntry> findByShortlistAndGivenNameIdAndMember(
+        @Param("shortlist") Shortlist shortlist,
+        @Param("givenNameId") Long givenNameId,
+        @Param("member") com.baibyname.domain.ShortlistMember member);
+
+    @Query("""
+        SELECT se FROM ShortlistEntry se
         JOIN FETCH se.givenName
         WHERE se.shortlist = :shortlist
         ORDER BY se.addedAt DESC
@@ -35,4 +46,8 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
     @Modifying
     @Query("DELETE FROM ShortlistEntry se WHERE se.member.account.id = :accountId")
     void deleteAllByAccountId(@Param("accountId") Long accountId);
+
+    @Modifying
+    @Query("DELETE FROM ShortlistEntry se WHERE se.shortlist = :shortlist")
+    void deleteAllByShortlist(@Param("shortlist") Shortlist shortlist);
 }

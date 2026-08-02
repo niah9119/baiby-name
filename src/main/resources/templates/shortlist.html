@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="layout :: head">
+    <title th:text="#{shortlist.title}">Shortlist - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{shortlist.title}">
+                    Your Shortlist
+                </h1>
+                <p class="text-gray-600" th:text="#{shortlist.description}">
+                    Save names you like and review them here.
+                </p>
+            </div>
+
+            <!-- Empty state -->
+            <th:block th:if="${not hasEntries}">
+                <div class="card text-center py-12">
+                    <i class="fa-solid fa-heart text-6xl text-gray-300 mb-4"></i>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-2" th:text="#{shortlist.empty.title}">
+                        Your shortlist is empty
+                    </h2>
+                    <p class="text-gray-600 mb-6" th:text="#{shortlist.empty.description}">
+                        Browse names and add the ones you like to your shortlist.
+                    </p>
+                    <a href="/browse" class="btn-primary" th:text="#{nav.browse}">
+                        Browse Names
+                    </a>
+                </div>
+            </th:block>
+
+            <!-- Shortlist entries -->
+            <th:block th:unless="${not hasEntries}">
+                <div class="card">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-semibold text-gray-900" th:text="#{shortlist.entries.count(${entries.size()})}">
+                            Saved names
+                        </h2>
+                        <span class="text-sm text-gray-500" th:text="#{shortlist.member.limit}">
+                            Max 1 member (v1)
+                        </span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div th:each="entry : ${entries}" class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-900" th:text="${entry.givenName.name}">
+                                        Name
+                                    </h3>
+                                    <div class="mt-2 text-sm text-gray-600">
+                                        <span th:text="#{shortlist.added}">Added</span>
+                                        <span th:text="${#temporals.format(entry.addedAt, 'yyyy-MM-dd')}">
+                                            2024-01-15
+                                        </span>
+                                        <span th:text="#{shortlist.by}">by</span>
+                                        <span class="font-medium" th:text="#{shortlist.you}">
+                                            You
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button th:data-given-name-id="${entry.givenName.id}"
+                                            hx-post th:href="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
+                                            hx-swap="none"
+                                            class="px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200"
+                                            th:title="#{shortlist.remove}">
+                                        <i class="fa-solid fa-heart-crush"></i>
+                                        <span th:text="#{shortlist.remove}">Remove</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </div>
+    </main>
+
+    <!-- HTMX Script Configuration -->
+    <script>
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+            if (csrfToken) {
+                evt.detail.headers['X-CSRF-Token'] = csrfToken;
+            }
+        });
+    </script>
+</body>
+</html>
