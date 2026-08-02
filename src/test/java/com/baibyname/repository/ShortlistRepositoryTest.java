@@ -57,14 +57,14 @@ class ShortlistRepositoryTest {
     void setUp() {
         // Setup account with unique email
         account = new Account();
-        account.setEmail("test" + System.currentTimeMillis() + "@example.com");
+        account.setEmail("test" + System.nanoTime() + "@example.com");
         account.setPasswordHash("hash123");
         account.setCreatedAt(OffsetDateTime.now());
         accountRepository.save(account);
 
         // Setup shortlist
         shortlist = new Shortlist();
-        shortlist.setName("Our Baby Names" + System.currentTimeMillis());
+        shortlist.setName("Our Baby Names" + System.nanoTime());
         shortlist.setCreatedAt(OffsetDateTime.now());
         shortlistRepository.save(shortlist);
 
@@ -77,12 +77,12 @@ class ShortlistRepositoryTest {
 
         // Setup given names
         givenName1 = new GivenName();
-        givenName1.setName("Elsa" + System.currentTimeMillis());
+        givenName1.setName("Elsa" + System.nanoTime());
         givenName1.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName1);
 
         givenName2 = new GivenName();
-        givenName2.setName("Marie" + System.currentTimeMillis());
+        givenName2.setName("Marie" + System.nanoTime());
         givenName2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName2);
 
@@ -164,7 +164,7 @@ class ShortlistRepositoryTest {
     void crossAccountCannotAccessOtherShortlist() {
         // Setup: create a second account and their shortlist
         var otherAccount = new Account();
-        otherAccount.setEmail("other" + System.currentTimeMillis() + "@example.com");
+        otherAccount.setEmail("other" + System.nanoTime() + "@example.com");
         otherAccount.setPasswordHash("hash456");
         otherAccount.setCreatedAt(OffsetDateTime.now());
         accountRepository.save(otherAccount);
