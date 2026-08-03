@@ -7,11 +7,13 @@ import com.baibyname.repository.CountryRepository;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
 import com.baibyname.service.FilterStateService;
+import com.baibyname.service.RankerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -34,6 +36,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -68,6 +71,9 @@ class BrowseControllerTest {
 
     @Autowired
     private FilterStateService filterStateService;
+
+    @MockBean
+    private RankerService rankerService;
 
     private Country sweden;
     private Country norway;
@@ -560,5 +566,36 @@ class BrowseControllerTest {
         mockMvc.perform(get("/browse"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("disabled")));
+    }
+
+    /**
+     * Verify that a plain /browse request does NOT call the ranker service.
+     * This is important for the fallback behavior - re-ranking should only happen
+     * on explicit user request, not on initial page load.
+     */
+    @Test
+    void plainBrowseDoesNotCallRanker() throws Exception {
+        // Setup: Create a name with stats so candidate list renders
+        GivenName testName = new GivenName();
+        testName.setName("TestName" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act: GET /browse - this is NOT a re-rank request
+        mockMvc.perform(get("/browse"))
+                .andExpect(status().isOk());
+
+        // Verify: rankerService was NOT called
+        verifyNoInteractions(rankerService);
     }
 }

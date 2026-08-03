@@ -23,6 +23,7 @@ public class FilterState {
     private final Set<String> countries = ConcurrentHashMap.newKeySet();
     private Boolean celebrityFilter;  // null = no filter, true = only with celebrities, false = only without
     private String popularityFilter;  // null = no filter, "common_lately" or "uncommon_lately"
+    private String tasteNotes;  // LLM-generated taste summary from the Interview
 
     public FilterState() {
     }
@@ -51,6 +52,14 @@ public class FilterState {
         this.popularityFilter = popularityFilter;
     }
 
+    public String getTasteNotes() {
+        return tasteNotes;
+    }
+
+    public void setTasteNotes(String tasteNotes) {
+        this.tasteNotes = tasteNotes;
+    }
+
     public boolean hasAnyFilter() {
         return !sexes.isEmpty() || !countries.isEmpty()
                 || celebrityFilter != null || popularityFilter != null;
@@ -61,6 +70,7 @@ public class FilterState {
         countries.clear();
         celebrityFilter = null;
         popularityFilter = null;
+        tasteNotes = null;
     }
 
     public FilterState copy() {
@@ -69,6 +79,7 @@ public class FilterState {
         copy.countries.addAll(this.countries);
         copy.celebrityFilter = this.celebrityFilter;
         copy.popularityFilter = this.popularityFilter;
+        copy.tasteNotes = this.tasteNotes;
         return copy;
     }
 
