@@ -53,9 +53,14 @@ public record CountryStat(
         }
 
         // Determine sex: check if name appears with both Boy and Girl
+        // Sum the counts (registrations) for each sex, not just count entries
         Map<String, Long> sexCount = stats.stream()
-                .map(com.baibyname.domain.NameStat::getSex)
-                .collect(java.util.stream.Collectors.groupingBy(s -> s, java.util.stream.Collectors.counting()));
+                .collect(java.util.stream.Collectors.groupingBy(
+                        com.baibyname.domain.NameStat::getSex,
+                        java.util.stream.Collectors.summingLong(
+                                stat -> (long) stat.getCount()
+                        )
+                ));
 
         String sex;
         if (sexCount.size() == 2) {
