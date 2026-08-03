@@ -291,17 +291,22 @@
                 </div>
             </th:block>
 
+            <!-- Ad Slot Between Browse Pages -->
+            <div class="mt-8">
+                <th:block th:insert="~{layout :: ad-slot-between-browse-pages()}"/>
+            </div>
+
+            <!-- Ad Slot Below Filter Panel -->
+            <div class="mt-8">
+                <th:block th:insert="~{layout :: ad-slot-below-filter-panel()}"/>
+            </div>
+
             <!-- Placeholder slots for future features -->
             <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Shortlist Actions Slot -->
                 <div class="bg-gray-100 rounded-xl p-6 border-2 border-dashed border-gray-300">
                     <h3 class="text-sm font-medium text-gray-500 mb-2">Shortlist Actions</h3>
                     <p class="text-xs text-gray-400">Slot for shortlist management controls</p>
-                </div>
-                <!-- Ad Slot -->
-                <div class="bg-gray-100 rounded-xl p-6 border-2 border-dashed border-gray-300">
-                    <h3 class="text-sm font-medium text-gray-500 mb-2">Ad Slot</h3>
-                    <p class="text-xs text-gray-400">Slot for advertising content</p>
                 </div>
                 <!-- Chat Panel Slot -->
                 <div class="bg-gray-100 rounded-xl p-6 border-2 border-dashed border-gray-300">

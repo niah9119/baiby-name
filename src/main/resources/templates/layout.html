@@ -36,6 +36,19 @@
         .consent-banner-content {
             @apply max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8;
         }
+        /* Ad slot styles - reserved dimensions to prevent layout shift */
+        .ad-slot {
+            @apply w-full bg-gray-50 rounded-lg border border-gray-200 overflow-hidden;
+        }
+        .ad-slot-empty {
+            @apply w-full h-24 flex items-center justify-center text-sm text-gray-400;
+        }
+        .ad-slot-content {
+            @apply w-full h-auto;
+        }
+        .ad-label {
+            @apply text-[10px] uppercase tracking-wider text-gray-400 font-semibold px-2 py-1;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -170,5 +183,51 @@
             });
         });
     </script>
+
+    <!-- Ad Slot Fragment - for reuse across pages -->
+    <th:block th:fragment="ad-slot(placement, showLabel=true)">
+        <th:block th:with="
+            slotId=${@adService.getSlotIdOrNull(placement)},
+            accountId=${#authentication != null and #authentication.principal instanceof com.baibyname.domain.Account ? #authentication.principal.id : null},
+            hasSlot=${@adService.hasAdSlot(placement)},
+            hasConsent=${@adService.hasSlotWithConsent(placement, accountId)},
+            hasSlotWithConsent=${hasSlot and hasConsent}">
+            <div th:if="${hasSlotWithConsent}" class="ad-slot mb-6">
+                <div class="ad-label" th:if="${showLabel}" th:text="#{ad.label}">Advertisement</div>
+                <div class="p-4">
+                    <!-- AdSense script will be loaded via HTMX or deferred JS -->
+                    <ins class="adsbygoogle"
+                         th:attr="data-ad-client=${@adService.publisherId}, data-ad-slot=${slotId}, data-ad-layout-key=${'-' + slotId + '+d+e+x'}"
+                         style="display:block"></ins>
+                    <script th:if="${@adService.isPublisherConfigured()}">
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    </script>
+                </div>
+            </div>
+            <div th:if="${hasSlot and not hasConsent}" class="ad-slot-empty">
+                <!-- User has declined consent -->
+                <span th:text="#{ad.consent.required}">Consent required for ads</span>
+            </div>
+            <div th:if="${not hasSlot}" class="ad-slot-empty">
+                <!-- No slot configured for this placement -->
+                <span th:text="#{ad.slot.notconfigured}">Ad slot not configured</span>
+            </div>
+        </th:block>
+    </th:block>
+
+    <!-- Ad Slot Below Filter Panel (with label) -->
+    <th:block th:fragment="ad-slot-below-filter-panel()">
+        <th:block th:insert="~{:: ad-slot('belowFilterPanel', true)}"/>
+    </th:block>
+
+    <!-- Ad Slot Between Browse Pages (no label for cleaner separation) -->
+    <th:block th:fragment="ad-slot-between-browse-pages()">
+        <th:block th:insert="~{:: ad-slot('betweenBrowsePages', false)}"/>
+    </th:block>
+
+    <!-- Ad Slot on Name Landing Page -->
+    <th:block th:fragment="ad-slot-name-landing-page()">
+        <th:block th:insert="~{:: ad-slot('onNameLandingPage', true)}"/>
+    </th:block>
 </body>
 </html>
