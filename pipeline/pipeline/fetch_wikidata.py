@@ -228,6 +228,7 @@ def fetch_for_country_and_subcategory(
     country_code: str,
     country_qid: str,
     occupations: list[str],
+    subcategory: str,
     force: bool = False,
 ) -> list[dict]:
     """Fetch famous bearers for a specific country and occupation set.
@@ -236,19 +237,20 @@ def fetch_for_country_and_subcategory(
         country_code: ISO country code (e.g., "US", "SE")
         country_qid: Wikidata QID for the country
         occupations: List of Wikidata QIDs for occupations
+        subcategory: The subcategory (ROYALTY, MOVIE_STAR, SPORTS_STAR)
         force: Re-download even if local copy exists.
 
     Returns:
         List of dictionaries with bearer data.
     """
-    filename = f"wikidata_{country_code}_{occupations[0].replace('wd:', '')}.csv"
+    filename = f"wikidata_{country_code}_{subcategory}_{occupations[0].replace('wd:', '')}.csv"
     target_path = WIKIDATA_RAW_DIR / filename
 
     if not force and target_path.exists() and target_path.stat().st_size > 0:
         print(f"Using cached data: {target_path}")
         return read_csv_response(target_path)
 
-    print(f"Fetching {country_code} {occupations[0]} data from Wikidata...")
+    print(f"Fetching {country_code} {subcategory} ({occupations[0]}) data from Wikidata...")
 
     # Step 1: Get all person QIDs for this country and occupation
     person_qids = fetch_people_qids(country_qid, occupations)
@@ -281,6 +283,8 @@ def fetch_for_country_and_subcategory(
             "personLabel": person_label,
             "givenNames": ";".join(given_names) if given_names else "",
             "aliases": ";".join(aliases) if aliases else "",
+            "subcategory": subcategory,
+            "country": country_code,
         }
         raw_data.append(row)
 
@@ -396,20 +400,19 @@ def process_wikidata_data(raw_data: list[dict], name_universe: set[str]) -> tupl
                 seen.add(name)
                 unique_given_names.append(name)
 
-        # Determine subcategory based on occupation QID in the person URL
-        subcategory = infer_subcategory(row)
+        # Use pre-stored subcategory and country (set during fetch)
+        subcategory = row.get("subcategory", "").strip().upper()
+        if subcategory not in ("ROYALTY", "MOVIE_STAR", "SPORTS_STAR"):
+            continue
 
-        if not subcategory:
+        country = row.get("country", "").strip().upper()
+        if country not in ("US", "GB", "SE", "NO", "DK"):
             continue
 
         # Extract Wikidata ID from the person URL
         wikidata_id = extract_wikidata_id(row.get("person", ""))
-
         if not wikidata_id:
             continue
-
-        # Extract country from the row URL (parse the country QID from the response)
-        country = infer_country_from_row(row)
 
         processed.append({
             "public_name": public_name,
@@ -533,7 +536,7 @@ def download_wikidata_data(force: bool = False) -> list[dict]:
     for country_code, country_qid in COUNTRIES.items():
         for subcategory, occupations in SUBCATEGORY_MAPPINGS.items():
             dataset = fetch_for_country_and_subcategory(
-                country_code, country_qid, occupations, force
+                country_code, country_qid, occupations, subcategory, force
             )
             all_data.extend(dataset)
 
