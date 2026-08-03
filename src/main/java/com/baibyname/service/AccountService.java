@@ -1,10 +1,12 @@
 package com.baibyname.service;
 
 import com.baibyname.domain.Account;
+import com.baibyname.domain.FamilyName;
 import com.baibyname.domain.Shortlist;
 import com.baibyname.domain.ShortlistEntry;
 import com.baibyname.domain.ShortlistMember;
 import com.baibyname.repository.AccountRepository;
+import com.baibyname.repository.FamilyNameRepository;
 import com.baibyname.repository.ShortlistEntryRepository;
 import com.baibyname.repository.ShortlistMemberRepository;
 import com.baibyname.repository.ShortlistRepository;
@@ -22,18 +24,21 @@ public class AccountService {
     private final ShortlistMemberRepository shortlistMemberRepository;
     private final ShortlistRepository shortlistRepository;
     private final ShortlistEntryRepository shortlistEntryRepository;
+    private final FamilyNameRepository familyNameRepository;
 
     public AccountService(
             AccountRepository accountRepository,
             PasswordEncoder passwordEncoder,
             ShortlistMemberRepository shortlistMemberRepository,
             ShortlistRepository shortlistRepository,
-            ShortlistEntryRepository shortlistEntryRepository) {
+            ShortlistEntryRepository shortlistEntryRepository,
+            FamilyNameRepository familyNameRepository) {
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
         this.shortlistMemberRepository = shortlistMemberRepository;
         this.shortlistRepository = shortlistRepository;
         this.shortlistEntryRepository = shortlistEntryRepository;
+        this.familyNameRepository = familyNameRepository;
     }
 
     /**
@@ -73,7 +78,7 @@ public class AccountService {
     }
 
     /**
-     * Delete an account and all its dependent data (shortlist, members, entries).
+     * Delete an account and all its dependent data (shortlist, members, entries, family name).
      * This implements GDPR right to erasure.
      *
      * @param accountId the ID of the account to delete
@@ -83,6 +88,11 @@ public class AccountService {
         // Verify account exists before deleting
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Account not found with id: " + accountId));
+
+        // Delete the family name for this account
+        if (account.getFamilyName() != null) {
+            familyNameRepository.delete(account.getFamilyName());
+        }
 
         // Delete all shortlist entries for this account
         shortlistEntryRepository.deleteAllByAccountId(accountId);
