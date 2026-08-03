@@ -12,17 +12,20 @@ import com.baibyname.llm.ChatMessage;
 import com.baibyname.llm.LlmGateway;
 import com.baibyname.repository.AccountRepository;
 import com.baibyname.repository.FamilyNameRepository;
+import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.ShortlistEntryRepository;
 import com.baibyname.repository.ShortlistMemberRepository;
 import com.baibyname.repository.ShortlistRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,9 +40,11 @@ class FullNameAdviceServiceTest {
     private LlmGateway llmGateway;
     private AccountRepository accountRepository;
     private FamilyNameRepository familyNameRepository;
+    private GivenNameRepository givenNameRepository;
     private ShortlistRepository shortlistRepository;
     private ShortlistEntryRepository shortlistEntryRepository;
     private ShortlistMemberRepository shortlistMemberRepository;
+    private MessageSource messageSource;
     private FullNameAdviceService adviceService;
 
     @BeforeEach
@@ -47,12 +52,25 @@ class FullNameAdviceServiceTest {
         llmGateway = mock(LlmGateway.class);
         accountRepository = mock(AccountRepository.class);
         familyNameRepository = mock(FamilyNameRepository.class);
+        givenNameRepository = mock(GivenNameRepository.class);
         shortlistRepository = mock(ShortlistRepository.class);
         shortlistEntryRepository = mock(ShortlistEntryRepository.class);
         shortlistMemberRepository = mock(ShortlistMemberRepository.class);
+        messageSource = mock(MessageSource.class);
+        // Stub messageSource to return message containing the key for tests
+        // For Swedish, return a message containing "inte tillgänglig"; for others, "unavailable"
+        when(messageSource.getMessage(eq("advice.unavailable"), any(), any()))
+                .thenAnswer(invocation -> {
+                    Locale locale = invocation.getArgument(2, Locale.class);
+                    if ("sv".equals(locale.getLanguage())) {
+                        return "Tjänsten är inte tillgänglig";
+                    }
+                    return "The service is unavailable";
+                });
         adviceService = new FullNameAdviceService(
                 llmGateway, accountRepository, familyNameRepository,
-                shortlistRepository, shortlistEntryRepository, shortlistMemberRepository);
+                givenNameRepository, shortlistRepository, shortlistEntryRepository,
+                shortlistMemberRepository, messageSource);
     }
 
     private void mockAuthenticatedUser() {

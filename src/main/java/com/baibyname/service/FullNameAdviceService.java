@@ -7,16 +7,23 @@ import com.baibyname.domain.ShortlistEntry;
 import com.baibyname.llm.*;
 import com.baibyname.repository.AccountRepository;
 import com.baibyname.repository.FamilyNameRepository;
+import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.ShortlistEntryRepository;
 import com.baibyname.repository.ShortlistMemberRepository;
 import com.baibyname.repository.ShortlistRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service for generating full-name advice.
@@ -28,30 +35,52 @@ import java.util.Optional;
  * to a friendly busy message.</p>
  *
  * <p>Per ADR 0001, the LLM only provides prose advice - it never suggests
- * alternative names or generates new data.</p>
+ * alternative names or generates new data. A code-side validation checks the
+ * advice for hallucinated names and strips them if found.</p>
  */
 @Service
 public class FullNameAdviceService {
 
+    private static final Logger logger = LoggerFactory.getLogger(FullNameAdviceService.class);
+
     private final LlmGateway llmGateway;
     private final AccountRepository accountRepository;
     private final FamilyNameRepository familyNameRepository;
+    private final GivenNameRepository givenNameRepository;
     private final ShortlistRepository shortlistRepository;
     private final ShortlistEntryRepository shortlistEntryRepository;
     private final ShortlistMemberRepository shortlistMemberRepository;
+    private final MessageSource messageSource;
 
     public FullNameAdviceService(LlmGateway llmGateway,
                                   AccountRepository accountRepository,
                                   FamilyNameRepository familyNameRepository,
+                                  GivenNameRepository givenNameRepository,
                                   ShortlistRepository shortlistRepository,
                                   ShortlistEntryRepository shortlistEntryRepository,
-                                  ShortlistMemberRepository shortlistMemberRepository) {
+                                  ShortlistMemberRepository shortlistMemberRepository,
+                                  MessageSource messageSource) {
         this.llmGateway = llmGateway;
         this.accountRepository = accountRepository;
         this.familyNameRepository = familyNameRepository;
+        this.givenNameRepository = givenNameRepository;
         this.shortlistRepository = shortlistRepository;
         this.shortlistEntryRepository = shortlistEntryRepository;
         this.shortlistMemberRepository = shortlistMemberRepository;
+        this.messageSource = messageSource;
+    }
+
+    /**
+     * Convert a language code to a Locale.
+     *
+     * @param languageCode the language code (e.g., "en", "sv")
+     * @return the Locale
+     */
+    private Locale getLocale(String languageCode) {
+        if ("sv".equals(languageCode)) {
+            return new Locale("sv");
+        }
+        return Locale.ENGLISH;
     }
 
     /**
@@ -132,11 +161,7 @@ public class FullNameAdviceService {
     public String generateAdvice(String familyName, List<String> givenNames, List<String> countries, String language) {
         // Check LLM availability first - per ADR 0002, degrade gracefully
         if (!llmGateway.isAvailable()) {
-            if ("sv".equals(language)) {
-                return "Tjänsten är för tillfället inte tillgänglig. Försök igen senare.";
-            } else {
-                return "The service is currently unavailable. Please try again later.";
-            }
+            return messageSource.getMessage("advice.unavailable", null, getLocale(language));
         }
 
         // Build the prompt for the LLM
@@ -154,11 +179,14 @@ public class FullNameAdviceService {
         try {
             ChatCompletionResponse response = llmGateway.chatCompletion(request);
             if (response.getChoices() != null && !response.getChoices().isEmpty()) {
-                return response.getChoices().get(0).getMessage().getContent();
+                String advice = response.getChoices().get(0).getMessage().getContent();
+                // Validate that advice doesn't contain hallucinated names - per ADR 0001
+                String validatedAdvice = validateAdviceForHallucinatedNames(advice, givenNames, language);
+                return validatedAdvice;
             }
-            return getUnavailableMessage(language);
+            return messageSource.getMessage("advice.unavailable", null, getLocale(language));
         } catch (LlmGateway.LlmUnavailableException e) {
-            return getUnavailableMessage(language);
+            return messageSource.getMessage("advice.unavailable", null, getLocale(language));
         }
     }
 
@@ -209,17 +237,79 @@ public class FullNameAdviceService {
     }
 
     /**
+     * Validate that advice doesn't contain hallucinated given names.
+     *
+     * <p>Per ADR 0001, the LLM only provides prose advice - it never suggests
+     * alternative names. This method scans the advice for known given names
+     * from the database that are NOT in the selected set, and strips them.
+     *
+     * <p>Approach: We query the database for all known names that appear in
+     * the advice text. Any name that is found in the database but not in the
+     * selected set is considered a hallucination and is stripped from the
+     * advice. The stripping is done by removing the name from the text.
+     * This is a simple v1 approach with the following limits:
+     * <ul>
+     *   <li>Only detects names that exist in the database</li>
+     *   <li>Strips the name but keeps surrounding context (could leave awkward phrasing)</li>
+     *   <li>Case-sensitive matching for database names</li>
+     *   <li>Does not detect misspelled or altered names</li>
+     * </ul>
+     *
+     * @param advice the advice text from the LLM
+     * @param givenNames the selected given names
+     * @param language the UI language
+     * @return the validated advice with hallucinated names stripped, or the original advice if valid
+     */
+    private String validateAdviceForHallucinatedNames(String advice, List<String> givenNames, String language) {
+        // Get the set of selected names for comparison
+        Set<String> selectedNames = new HashSet<>(givenNames);
+
+        // Query the database for any names that appear in the advice
+        List<String> namesInAdvice = findNamesInAdvice(advice, givenNames);
+
+        // Check for hallucinated names (names in advice that are NOT in selected set)
+        for (String name : namesInAdvice) {
+            if (!selectedNames.contains(name)) {
+                logger.warn("Detected hallucinated name '{}' in advice. Selected names: {}. Stripping from advice.",
+                        name, givenNames);
+                // Strip the name from advice
+                advice = advice.replace(name, "[name redacted]");
+            }
+        }
+
+        return advice;
+    }
+
+    /**
+     * Find known given names from the database that appear in the advice text.
+     *
+     * @param advice the advice text
+     * @param givenNames the originally selected names (to limit DB queries)
+     * @return list of known names found in advice
+     */
+    private List<String> findNamesInAdvice(String advice, List<String> givenNames) {
+        // Get all names from the database - this is expensive but necessary for validation
+        // In production, we could optimize by only checking names that appear in the text
+        List<GivenName> allNames = givenNameRepository.findAll();
+
+        List<String> foundNames = new ArrayList<>();
+        for (GivenName name : allNames) {
+            if (advice.contains(name.getName())) {
+                foundNames.add(name.getName());
+            }
+        }
+
+        return foundNames;
+    }
+
+    /**
      * Get the unavailable message for the specified language.
      *
      * @param language the language code
      * @return the unavailable message
      */
     private String getUnavailableMessage(String language) {
-        if ("sv".equals(language)) {
-            return "Tjänsten är för tillfället inte tillgänglig. Försök igen senare.";
-        } else {
-            return "The service is currently unavailable. Please try again later.";
-        }
+        return messageSource.getMessage("advice.unavailable", null, getLocale(language));
     }
 
     /**
