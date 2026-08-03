@@ -363,4 +363,66 @@ class FullNameAdviceServiceTest {
         // Then
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void generateAdvice_stripsHallucinatedNames_whenLLMsuggestsUnknownName() throws Exception {
+        // Given - selected names are John and Michael, but LLM suggests Astrid (a known name in DB)
+        mockAuthenticatedUser();
+        when(llmGateway.isAvailable()).thenReturn(true);
+
+        // Mock the database to contain "Astrid" as a known name
+        GivenName astrid = new GivenName();
+        astrid.setId(1L);
+        astrid.setName("Astrid");
+        when(givenNameRepository.findAll()).thenReturn(List.of(astrid));
+
+        // The LLM returns advice that includes Astrid (a hallucinated name)
+        ChatCompletionResponse response = new ChatCompletionResponse();
+        ChatCompletionResponse.Choice choice = new ChatCompletionResponse.Choice();
+        ChatMessage message = new ChatMessage(ChatMessage.Role.ASSISTANT,
+                "The names John and Michael flow well together. You might also consider Astrid for a girl's name.");
+        choice.setMessage(message);
+        response.setChoices(List.of(choice));
+
+        when(llmGateway.chatCompletion(any(ChatCompletionRequest.class))).thenReturn(response);
+
+        // When
+        String result = adviceService.generateAdvice("Smith", List.of("John", "Michael"), List.of("US"), "en");
+
+        // Then - Astrid should be stripped and replaced with [name redacted]
+        assertThat(result).doesNotContain("Astrid");
+        assertThat(result).contains("John and Michael flow well together.");
+        assertThat(result).contains("[name redacted] for a girl's name.");
+        verify(givenNameRepository).findAll();
+    }
+
+    @Test
+    void generateAdvice_returnsAdviceUnchanged_whenLLMdoesNothallucinate() throws Exception {
+        // Given - selected names are John and Michael, no known names in DB that appear in advice
+        mockAuthenticatedUser();
+        when(llmGateway.isAvailable()).thenReturn(true);
+
+        // Mock the database - no known names appear in the advice
+        GivenName otherName = new GivenName();
+        otherName.setId(1L);
+        otherName.setName("Olivia");
+        when(givenNameRepository.findAll()).thenReturn(List.of(otherName));
+
+        // The LLM returns advice that doesn't mention any names from the DB (except the selected ones)
+        ChatCompletionResponse response = new ChatCompletionResponse();
+        ChatCompletionResponse.Choice choice = new ChatCompletionResponse.Choice();
+        ChatMessage message = new ChatMessage(ChatMessage.Role.ASSISTANT,
+                "The names John and Michael flow well together with Smith.");
+        choice.setMessage(message);
+        response.setChoices(List.of(choice));
+
+        when(llmGateway.chatCompletion(any(ChatCompletionRequest.class))).thenReturn(response);
+
+        // When
+        String result = adviceService.generateAdvice("Smith", List.of("John", "Michael"), List.of("US"), "en");
+
+        // Then - advice should be unchanged (Olivia is not mentioned, John/Michael are selected)
+        assertThat(result).contains("John and Michael flow well together with Smith.");
+        verify(givenNameRepository).findAll();
+    }
 }
