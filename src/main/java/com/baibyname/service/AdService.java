@@ -33,20 +33,13 @@ public class AdService {
      * <p>
      * For logged-in users, checks the database consent record.
      * For anonymous users, checks localStorage (handled client-side).
+     * <p>
+     * DEPRECATED: This method now returns false for all users. Use
+     * {@link #shouldShowAd(String, Long)} instead which properly checks consent.
      *
-     * @return true if user has given consent, false otherwise
+     * @return false for all users - use shouldShowAd with accountId instead
      */
     public boolean hasUserConsent() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() &&
-                !"anonymousUser".equals(authentication.getPrincipal())) {
-            // User is logged in - check database consent
-            // Note: We can't get the accountId here without changing the signature,
-            // so return false for authenticated users (they should use shouldShowAd with accountId)
-            return false;
-        }
-        // Anonymous user - consent is client-side via localStorage
-        // We'll pass this from the template based on cookie/localStorage state
         return false;
     }
 
@@ -108,6 +101,23 @@ public class AdService {
      */
     public boolean hasAdSlot(String placement) {
         return hasSlotConfigured(placement);
+    }
+
+    /**
+     * Check if an ad slot exists AND the user has consent to view ads.
+     * <p>
+     * This is the method to use in templates - it returns false if:
+     * - Ads are disabled
+     * - No slot is configured for the placement
+     * - The user has not given full consent (for logged-in users)
+     * - The user is anonymous (consent is client-side only)
+     *
+     * @param placement the placement name
+     * @param accountId the account ID (null for anonymous users)
+     * @return true if ads should be shown, false otherwise
+     */
+    public boolean hasSlotWithConsent(String placement, Long accountId) {
+        return shouldShowAd(placement, accountId);
     }
 
     /**
