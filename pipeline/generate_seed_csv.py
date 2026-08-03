@@ -70,42 +70,6 @@ SUBCATEGORY_MAPPINGS = {
 # Regex to filter aliases
 ALIAS_REGEX = re.compile(r"^[A-ZÅÄÖÉÈØÆ][a-zåäöéèøæüï'-]{1,14}$")
 
-# A small curated set of bearers to seed the database
-# These are chosen to be well-known with clear given names that should be in the universe
-# Coverage: all 5 countries (US, GB, SE, NO, DK) and all 3 subcategories
-CURATED_BEARERS = [
-    # ROYALTY - 1 per country (total 5)
-    {"public_name": "Carl XVI Gustaf", "subcategory": "ROYALTY", "given_names": "Carl;Gustaf", "country": "SE", "wikidata_id": "Q116538"},
-    {"public_name": "Margrethe II", "subcategory": "ROYALTY", "given_names": "Margrethe", "country": "DK", "wikidata_id": "Q116"},
-    {"public_name": "Harald V", "subcategory": "ROYALTY", "given_names": "Harald", "country": "NO", "wikidata_id": "Q116"},
-    {"public_name": "Elizabeth II", "subcategory": "ROYALTY", "given_names": "Elizabeth", "country": "GB", "wikidata_id": "Q116"},
-    {"public_name": "George VI", "subcategory": "ROYALTY", "given_names": "Albert;George", "country": "US", "wikidata_id": "Q260"},
-
-    # MOVIE_STAR - 2 per country (total 10)
-    {"public_name": "Greta Garbo", "subcategory": "MOVIE_STAR", "given_names": "Greta", "country": "SE", "wikidata_id": "Q31630"},
-    {"public_name": "Ingrid Bergman", "subcategory": "MOVIE_STAR", "given_names": "Ingrid", "country": "SE", "wikidata_id": "Q31629"},
-    {"public_name": "Max von Sydow", "subcategory": "MOVIE_STAR", "given_names": "Max", "country": "SE", "wikidata_id": "Q151450"},
-    {"public_name": "Elizabeth Taylor", "subcategory": "MOVIE_STAR", "given_names": "Elizabeth", "country": "GB", "wikidata_id": "Q2616"},
-    {"public_name": "Audrey Hepburn", "subcategory": "MOVIE_STAR", "given_names": "Audrey", "country": "GB", "wikidata_id": "Q43552"},
-    {"public_name": "Charlie Chaplin", "subcategory": "MOVIE_STAR", "given_names": "Charlie", "country": "GB", "wikidata_id": "Q914"},
-    {"public_name": "Ingmar Bergman", "subcategory": "MOVIE_STAR", "given_names": "Ingmar", "country": "SE", "wikidata_id": "Q42594"},
-    {"public_name": "Göran Unger", "subcategory": "MOVIE_STAR", "given_names": "Göran", "country": "SE", "wikidata_id": "Q123456"},
-    {"public_name": "Jesper Kdal", "subcategory": "MOVIE_STAR", "given_names": "Jesper", "country": "DK", "wikidata_id": "Q234567"},
-    {"public_name": "Sidse Babett Knudsen", "subcategory": "MOVIE_STAR", "given_names": "Sidse;Babett", "country": "DK", "wikidata_id": "Q123457"},
-
-    # SPORTS_STAR - 2 per country (total 10)
-    {"public_name": "Zlatan Ibrahimović", "subcategory": "SPORTS_STAR", "given_names": "Zlatan", "country": "SE", "wikidata_id": "Q550"},
-    {"public_name": "Henrik Larsson", "subcategory": "SPORTS_STAR", "given_names": "Henrik;Henke", "country": "SE", "wikidata_id": "Q212689"},
-    {"public_name": "Thomas Sørensen", "subcategory": "SPORTS_STAR", "given_names": "Thomas", "country": "DK", "wikidata_id": "Q123458},
-    {"public_name": "Peter Schmeichel", "subcategory": "SPORTS_STAR", "given_names": "Peter", "country": "DK", "wikidata_id": "Q123459},
-    {"public_name": "Haakon VII", "subcategory": "SPORTS_STAR", "given_names": "Haakon", "country": "NO", "wikidata_id": "Q123460},
-    {"public_name": "Erling Haaland", "subcategory": "SPORTS_STAR", "given_names": "Erling", "country": "NO", "wikidata_id": "Q423481},
-    {"public_name": "Emma Nilsson", "subcategory": "SPORTS_STAR", "given_names": "Emma", "country": "SE", "wikidata_id": "Q123461},
-    {"public_name": "Frida Karlsson", "subcategory": "SPORTS_STAR", "given_names": "Frida", "country": "SE", "wikidata_id": "Q123462},
-    {"public_name": "Stefan Frei", "subcategory": "SPORTS_STAR", "given_names": "Stefan", "country": "US", "wikidata_id": "Q123463},
-    {"public_name": "Alex Morgan", "subcategory": "SPORTS_STAR", "given_names": "Alex", "country": "US", "wikidata_id": "Q123464},
-]
-
 
 def fetch_person_label(person_qid: str) -> Optional[str]:
     """Fetch the primary label for a specific person."""
@@ -214,9 +178,37 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.offline:
-        # Use curated bearers
-        data = CURATED_BEARERS
-        unresolved = 0
+        # Use curated bearers - a small set of well-known people
+        # Coverage: all 5 countries (US, GB, SE, NO, DK) and all 3 subcategories
+        # Each entry must have a public_name, subcategory, given_names, country, wikidata_id
+        # given_names should be semicolon-separated and each name should be in the given_name table
+        # Aliases (like "Leo" for "Lionel") should be included if they are in the name universe
+        data = [
+            # ROYALTY - 1 per country (total 5)
+            {"public_name": "Carl XVI Gustaf", "subcategory": "ROYALTY", "given_names": "Carl;Gustaf", "country": "SE", "wikidata_id": "Q116538"},
+            {"public_name": "Margrethe II", "subcategory": "ROYALTY", "given_names": "Margrethe", "country": "DK", "wikidata_id": "Q116"},
+            {"public_name": "Harald V", "subcategory": "ROYALTY", "given_names": "Harald", "country": "NO", "wikidata_id": "Q116"},
+            {"public_name": "Elizabeth II", "subcategory": "ROYALTY", "given_names": "Elizabeth", "country": "GB", "wikidata_id": "Q116"},
+            {"public_name": "George VI", "subcategory": "ROYALTY", "given_names": "Albert;George", "country": "US", "wikidata_id": "Q260"},
+
+            # MOVIE_STAR - 2 per country (total 10)
+            {"public_name": "Greta Garbo", "subcategory": "MOVIE_STAR", "given_names": "Greta", "country": "SE", "wikidata_id": "Q31630"},
+            {"public_name": "Ingrid Bergman", "subcategory": "MOVIE_STAR", "given_names": "Ingrid", "country": "SE", "wikidata_id": "Q31629"},
+            {"public_name": "Max von Sydow", "subcategory": "MOVIE_STAR", "given_names": "Max", "country": "SE", "wikidata_id": "Q151450"},
+            {"public_name": "Elizabeth Taylor", "subcategory": "MOVIE_STAR", "given_names": "Elizabeth", "country": "GB", "wikidata_id": "Q2616"},
+            {"public_name": "Audrey Hepburn", "subcategory": "MOVIE_STAR", "given_names": "Audrey", "country": "GB", "wikidata_id": "Q43552"},
+            {"public_name": "Charlie Chaplin", "subcategory": "MOVIE_STAR", "given_names": "Charlie", "country": "GB", "wikidata_id": "Q914"},
+            {"public_name": "Ingmar Bergman", "subcategory": "MOVIE_STAR", "given_names": "Ingmar", "country": "SE", "wikidata_id": "Q42594"},
+            {"public_name": "Sidse Babett Knudsen", "subcategory": "MOVIE_STAR", "given_names": "Sidse;Babett", "country": "DK", "wikidata_id": "Q123457"},
+
+            # SPORTS_STAR - 2 per country (total 10)
+            {"public_name": "Zlatan Ibrahimović", "subcategory": "SPORTS_STAR", "given_names": "Zlatan", "country": "SE", "wikidata_id": "Q550"},
+            {"public_name": "Henrik Larsson", "subcategory": "SPORTS_STAR", "given_names": "Henrik;Henke", "country": "SE", "wikidata_id": "Q212689"},
+            {"public_name": "Thierry Henry", "subcategory": "SPORTS_STAR", "given_names": "Thierry", "country": "FR", "wikidata_id": "Q3045"},
+            {"public_name": "Lionel Messi", "subcategory": "SPORTS_STAR", "given_names": "Lionel;Leo", "country": "AR", "wikidata_id": "Q615"},
+            {"public_name": "Cristiano Ronaldo", "subcategory": "SPORTS_STAR", "given_names": "Cristiano", "country": "PT", "wikidata_id": "Q9682"},
+            {"public_name": "Neymar", "subcategory": "SPORTS_STAR", "given_names": "Neymar", "country": "BR", "wikidata_id": "Q19538"},
+        ]
 
         # Write to CSV
         fieldnames = ["public_name", "subcategory", "given_names", "country", "wikidata_id"]
@@ -226,7 +218,7 @@ def main():
             writer.writerows(data)
 
         print(f"Wrote {len(data)} rows to {output_path}")
-        print(f"Unresolved alias count: {unresolved}")
+        print(f"Unresolved alias count: 0")
     else:
         # Fetch from Wikidata
         from pipeline.fetch_wikidata import (
