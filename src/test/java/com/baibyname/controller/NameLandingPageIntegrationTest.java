@@ -175,8 +175,14 @@ class NameLandingPageIntegrationTest {
         testName2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName2);
 
-        // Act & Assert
+        // Act & Assert - sitemap.xml now returns an index referencing chunks
         mockMvc.perform(get("/sitemap.xml"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/xml;charset=UTF-8"))
+                .andExpect(content().string(Matchers.containsString("sitemap-0.xml")));
+
+        // Individual chunk should contain the names
+        mockMvc.perform(get("/sitemap-0.xml"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/xml;charset=UTF-8"))
                 .andExpect(content().string(Matchers.containsString("names/" + testName.getName())))
@@ -185,8 +191,16 @@ class NameLandingPageIntegrationTest {
 
     @Test
     void sitemapHasCorrectContentType() throws Exception {
-        // Act & Assert
+        // Act & Assert - test index content type
         mockMvc.perform(get("/sitemap.xml"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/xml;charset=UTF-8"));
+    }
+
+    @Test
+    void sitemapChunkHasCorrectContentType() throws Exception {
+        // Act & Assert - test chunk content type
+        mockMvc.perform(get("/sitemap-0.xml"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/xml;charset=UTF-8"));
     }
