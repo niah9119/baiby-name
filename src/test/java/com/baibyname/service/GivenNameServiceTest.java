@@ -3,6 +3,7 @@ package com.baibyname.service;
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
+import com.baibyname.dto.CountryStat;
 import com.baibyname.repository.CountryRepository;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
@@ -22,6 +23,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -405,6 +407,77 @@ class GivenNameServiceTest {
 
         // Assert
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getByNameReturnsAggregatedCountryStats() {
+        // Setup: create a name with stats across multiple years and countries
+        var name = new GivenName();
+        name.setName("AggregatedTest" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        // Sweden: Boy for 3 years
+        addNameStat(name, country1, "Boy", 2020, 100, 50);
+        addNameStat(name, country1, "Boy", 2021, 90, 45);
+        addNameStat(name, country1, "Boy", 2022, 80, 40);
+
+        // Norway: Girl for 2 years (mixed sex in different countries)
+        addNameStat(name, country2, "Girl", 2021, 60, 35);
+        addNameStat(name, country2, "Girl", 2022, 55, 30);
+
+        // Act
+        Optional<GivenNameService.NameDetails> result = givenNameService.getByName(name.getName());
+
+        // Assert
+        assertThat(result).isPresent();
+        GivenNameService.NameDetails details = result.get();
+
+        // Verify we have 2 countries in the stats map
+        Map<String, CountryStat> countryStats = details.countryStats();
+        assertThat(countryStats).hasSize(2);
+
+        // Verify Sweden stats are aggregated
+        CountryStat seStat = countryStats.get("SE");
+        assertThat(seStat).isNotNull();
+        assertThat(seStat.countryCode()).isEqualTo("SE");
+        assertThat(seStat.sex()).isEqualTo("Boy");  // All Boy
+        assertThat(seStat.yearRange()).isEqualTo("2020–2022");  // Min to max year
+        assertThat(seStat.highestRank()).isEqualTo(40);  // Best (lowest) rank
+        assertThat(seStat.totalCount()).isEqualTo(270);  // 100 + 90 + 80
+
+        // Verify Norway stats are aggregated
+        CountryStat noStat = countryStats.get("NO");
+        assertThat(noStat).isNotNull();
+        assertThat(noStat.countryCode()).isEqualTo("NO");
+        assertThat(noStat.sex()).isEqualTo("Girl");  // All Girl
+        assertThat(noStat.yearRange()).isEqualTo("2021–2022");
+        assertThat(noStat.highestRank()).isEqualTo(30);  // Best rank
+        assertThat(noStat.totalCount()).isEqualTo(115);  // 60 + 55
+    }
+
+    @Test
+    void getByNameHandlesMixedSexInOneCountry() {
+        // Setup: create a name with both Boy and Girl stats in one country
+        var name = new GivenName();
+        name.setName("MixedSexTest" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        // Sweden: mixed sex (Boy 60%, Girl 40% - should show "Boy / Girl")
+        addNameStat(name, country1, "Boy", 2020, 60, 50);
+        addNameStat(name, country1, "Boy", 2021, 60, 45);
+        addNameStat(name, country1, "Girl", 2020, 40, 60);
+        addNameStat(name, country1, "Girl", 2021, 40, 55);
+
+        // Act
+        Optional<GivenNameService.NameDetails> result = givenNameService.getByName(name.getName());
+
+        // Assert
+        assertThat(result).isPresent();
+        CountryStat seStat = result.get().countryStats().get("SE");
+        assertThat(seStat).isNotNull();
+        assertThat(seStat.sex()).isEqualTo("Boy / Girl");  // Mixed sex
     }
 
     // --- Tests for findSimilarNames ---
