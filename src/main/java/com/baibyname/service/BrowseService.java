@@ -1,5 +1,6 @@
 package com.baibyname.service;
 
+import com.baibyname.config.ReRankConfig;
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
 import com.baibyname.repository.CountryRepository;
@@ -30,18 +31,24 @@ public class BrowseService {
     private final CountryRepository countryRepository;
     private final FamousBearerRepository famousBearerRepository;
     private final FilterStateService filterStateService;
+    private final RankerService rankerService;
+    private final ReRankConfig reRankConfig;
 
     public BrowseService(
             GivenNameService givenNameService,
             GivenNameRepository givenNameRepository,
             CountryRepository countryRepository,
             FamousBearerRepository famousBearerRepository,
-            FilterStateService filterStateService) {
+            FilterStateService filterStateService,
+            RankerService rankerService,
+            ReRankConfig reRankConfig) {
         this.givenNameService = givenNameService;
         this.givenNameRepository = givenNameRepository;
         this.countryRepository = countryRepository;
         this.famousBearerRepository = famousBearerRepository;
         this.filterStateService = filterStateService;
+        this.rankerService = rankerService;
+        this.reRankConfig = reRankConfig;
     }
 
     /**
@@ -156,15 +163,82 @@ public class BrowseService {
     }
 
     /**
+     * Convert a page of GivenName entities to RankedName view objects.
+     * Used for plain browse views where re-ranking hasn't been triggered.
+     */
+    public Page<RankerService.RankedName> toRankedPage(Page<GivenName> givenNamePage) {
+        List<RankerService.RankedName> ranked = givenNamePage.getContent().stream()
+                .map(name -> new RankerService.RankedName(name.getName(), "", name))
+                .collect(Collectors.toList());
+        return new PageImpl<>(ranked, givenNamePage.getPageable(), givenNamePage.getTotalElements());
+    }
+
+    /**
      * Get re-ranked candidates using the LLM.
      *
      * <p>This method re-ranks the candidate list when the count is at or below
-     * the threshold. The LLM reorders names by fit with the user's taste and
-     * adds a one-line explanation per name. On LLM unavailability or invalid
-     * output, falls back silently to database ordering.</p>
+     * the threshold configured in application.yml. The LLM reorders names by fit
+     * with the user's taste and adds a one-line explanation per name. On LLM
+     * unavailability or invalid output, falls back silently to database ordering.</p>
+     *
+     * <p>For plain browse views (no explicit user request), use getCandidates()
+     * instead. This method should only be called when the user explicitly requests
+     * re-ranking.</p>
      *
      * @param pageable pagination parameters
-     * @param threshold the maximum candidate count for re-ranking (default 100)
+     * @param rankerService the ranker service for LLM re-ranking
+     * @return page of re-ranked names with explanations
+     */
+    @Transactional(readOnly = true)
+    public Page<RankerService.RankedName> getReRankedCandidates(Pageable pageable,
+            RankerService rankerService) {
+        // Get the configured threshold from configuration
+        int threshold = reRankConfig.getThreshold();
+
+        // First get the candidates
+        Page<GivenName> candidates = getCandidates(pageable);
+
+        // Only re-rank if candidate count is at or below threshold
+        if (candidates.getTotalElements() > threshold) {
+            // Return original candidates without explanations
+            List<RankerService.RankedName> ranked = candidates.getContent().stream()
+                    .map(name -> new RankerService.RankedName(name.getName(), "", name))
+                    .collect(Collectors.toList());
+            return new PageImpl<>(ranked, pageable, candidates.getTotalElements());
+        }
+
+        // Build taste notes from filter state
+        FilterState state = filterStateService.getState();
+        String tasteNotes = buildTasteNotes(state);
+
+        // Call the ranker service
+        List<RankerService.RankedName> rankedNames = rankerService.reRank(
+                candidates.getContent(), tasteNotes, threshold);
+
+        // If ranker returned nothing (fallback), use original order
+        if (rankedNames.isEmpty()) {
+            rankedNames = candidates.getContent().stream()
+                    .map(name -> new RankerService.RankedName(name.getName(), "", name))
+                    .collect(Collectors.toList());
+        }
+
+        return new PageImpl<>(rankedNames, pageable, candidates.getTotalElements());
+    }
+
+    /**
+     * Get re-ranked candidates using the LLM with a custom threshold.
+     *
+     * <p>This method re-ranks the candidate list when the count is at or below
+     * the provided threshold. The LLM reorders names by fit with the user's taste
+     * and adds a one-line explanation per name. On LLM unavailability or invalid
+     * output, falls back silently to database ordering.</p>
+     *
+     * <p>For plain browse views (no explicit user request), use getCandidates()
+     * instead. This method should only be called when the user explicitly requests
+     * re-ranking with a custom threshold.</p>
+     *
+     * @param pageable pagination parameters
+     * @param threshold the maximum candidate count for re-ranking
      * @param rankerService the ranker service for LLM re-ranking
      * @return page of re-ranked names with explanations
      */

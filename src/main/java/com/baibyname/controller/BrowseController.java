@@ -59,10 +59,9 @@ public class BrowseController {
         model.addAttribute("countries", browseService.getAllCountries());
         model.addAttribute("sexes", browseService.getSexes());
         model.addAttribute("filterState", filterStateService.getState());
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
-        model.addAttribute("page", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        model.addAttribute("page", browseService.toRankedPage(browseService.getCandidates(pageable)));
 
         return "browse";
     }
@@ -85,9 +84,8 @@ public class BrowseController {
                                   HttpSession session) {
         filterStateService.toggleSex(sex);
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }
@@ -110,9 +108,8 @@ public class BrowseController {
                                       HttpSession session) {
         filterStateService.toggleCountry(countryCode);
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }
@@ -137,9 +134,8 @@ public class BrowseController {
                                         HttpSession session) {
         filterStateService.setCelebrityFilter(withCelebrity);
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }
@@ -162,9 +158,8 @@ public class BrowseController {
                                          HttpSession session) {
         filterStateService.setPopularityFilter(filterType);
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }
@@ -185,9 +180,8 @@ public class BrowseController {
                                HttpSession session) {
         filterStateService.reset();
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }
@@ -205,10 +199,9 @@ public class BrowseController {
                              @RequestParam(defaultValue = "10") int pageSize,
                              Model model) {
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use re-ranked candidates (with fallback to plain candidates) so template has consistent structure
-        Page<RankerService.RankedName> candidates = browseService.getReRankedCandidates(pageable, 100, rankerService);
-        model.addAttribute("candidates", candidates);
-        model.addAttribute("page", candidates);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        model.addAttribute("page", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }

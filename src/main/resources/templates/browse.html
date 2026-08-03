@@ -271,6 +271,24 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Re-rank Button -->
+                <div th:if="${not candidates.empty}" class="mt-4 text-center">
+                    <button th:if="${hasExplanations == null or hasExplanations == false}"
+                            hx-post th:href="@{/browse/rerank(page=0)}"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+                            th:text="#{rerank.button}">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span th:text="#{rerank.button}">Rank these for me</span>
+                    </button>
+                    <button th:if="${hasExplanations != null and hasExplanations == true}"
+                            hx-post th:href="@{/browse/rerank(page=0)}"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700"
+                            th:text="#{rerank.rerank}">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span th:text="#{rerank.rerank}">Re-rank these</span>
+                    </button>
+                </div>
             </th:block>
 
             <!-- Placeholder slots for future features -->
