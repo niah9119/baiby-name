@@ -73,8 +73,24 @@ public class DefaultRankerService implements RankerService {
             // Parse the response
             List<RankedName> rankedNames = parseReRankResponse(response, names);
 
+            // If no names were parsed from the response, fall back to DB order
+            if (rankedNames.isEmpty()) {
+                logger.debug("Re-rank response contained no names, falling back to DB order");
+                return names.stream()
+                        .map(name -> new RankedName(name.getName(), "", name))
+                        .toList();
+            }
+
             // Validate that all returned names are from the input set
             List<RankedName> validated = validateAndFilter(rankedNames, names);
+
+            // If all names were hallucinated, fall back to DB order
+            if (validated.isEmpty()) {
+                logger.warn("All re-rank response names were hallucinated, falling back to DB order");
+                return names.stream()
+                        .map(name -> new RankedName(name.getName(), "", name))
+                        .toList();
+            }
 
             if (validated.size() != rankedNames.size()) {
                 logger.warn("Re-rank response contained {} hallucinated names, dropped and logged",
