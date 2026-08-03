@@ -21,10 +21,19 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     @Query("""
         SELECT gn FROM GivenName gn
         LEFT JOIN FETCH gn.famousBearers
-        LEFT JOIN FETCH gn.nameStats
         WHERE gn.name = :name
         """)
     Optional<GivenName> findByNameWithBearers(@Param("name") String name);
+
+    /**
+     * Find all name statistics for the given name, with country eagerly fetched.
+     */
+    @Query("""
+        SELECT ns FROM NameStat ns
+        LEFT JOIN FETCH ns.country
+        WHERE ns.givenName = :givenName
+        """)
+    List<NameStat> findNameStatsWithCountry(@Param("givenName") GivenName givenName);
 
     List<GivenName> findByNameContainingIgnoreCase(String name);
 

@@ -6,6 +6,7 @@ import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameFamousBearer;
 import com.baibyname.domain.NameStyle;
 import com.baibyname.domain.NameStat;
+import com.baibyname.dto.CountryStat;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
 import com.baibyname.repository.NameStyleRepository;
@@ -163,7 +164,7 @@ public class GivenNameService {
      */
     public Optional<NameDetails> getByName(String name) {
         return givenNameRepository.findByNameWithBearers(name)
-                .map(gn -> buildNameDetails(gn, gn.getId()));
+                .map(gn -> buildNameDetails(gn, gn.getId(), givenNameRepository.findNameStatsWithCountry(gn)));
     }
 
     /**
@@ -204,7 +205,21 @@ public class GivenNameService {
                 .toList();
     }
 
-    private NameDetails buildNameDetails(GivenName givenName, Long id) {
+    private NameDetails buildNameDetails(GivenName givenName, Long id, List<NameStat> stats) {
+        // Use the explicitly fetched stats instead of relying on the lazy collection
+        Map<String, List<NameStat>> countryStatsRaw = stats.stream()
+                .collect(Collectors.groupingBy(
+                        ns -> ns.getCountry().getCode(),
+                        Collectors.mapping(ns -> ns, Collectors.toList())
+                ));
+
+        // Build aggregated CountryStat objects for each country
+        Map<String, CountryStat> countryStats = countryStatsRaw.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> CountryStat.from(entry.getKey(), entry.getValue())
+                ));
+
         return new NameDetails(
                 givenName.getName(),
                 id,
@@ -213,11 +228,7 @@ public class GivenNameService {
                 givenName.getFamousBearers().stream()
                         .map(NameFamousBearer::getFamousBearer)
                         .collect(Collectors.toSet()),
-                givenName.getNameStats().stream()
-                        .collect(Collectors.groupingBy(
-                                ns -> ns.getCountry().getCode(),
-                                Collectors.mapping(ns -> ns, Collectors.toList())
-                        ))
+                countryStats
         );
     }
 
@@ -230,7 +241,7 @@ public class GivenNameService {
             OffsetDateTime createdAt,
             NameStyle style,
             Set<FamousBearer> famousBearers,
-            Map<String, List<NameStat>> countryStats
+            Map<String, CountryStat> countryStats
     ) {}
 
     private GivenName findByName(String name) {

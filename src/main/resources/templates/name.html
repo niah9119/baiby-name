@@ -153,26 +153,10 @@
                             <tbody class="divide-y divide-gray-200">
                                 <tr th:each="entry : ${nameDetails.countryStats}">
                                     <td class="px-4 py-2" th:text="${entry.key}">SE</td>
-                                    <td class="px-4 py-2">
-                                        <span th:each="stat : ${entry.value}">
-                                            <span class="badge badge-gray" th:text="${stat.sex}">Boy</span>
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-2">
-                                        <span th:each="stat : ${entry.value}">
-                                            <span th:text="${stat.year}">2023</span>
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-2 text-right">
-                                        <span th:each="stat : ${entry.value}">
-                                            <span th:text="${stat.rank}">50</span>
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-2 text-right">
-                                        <span th:each="stat : ${entry.value}">
-                                            <span th:text="${stat.count}">100</span>
-                                        </span>
-                                    </td>
+                                    <td class="px-4 py-2" th:text="${entry.value.sex}">Boy</td>
+                                    <td class="px-4 py-2" th:text="${entry.value.yearRange}">2023</td>
+                                    <td class="px-4 py-2 text-right" th:text="${entry.value.highestRank}">50</td>
+                                    <td class="px-4 py-2 text-right" th:text="${entry.value.totalCount}">100</td>
                                 </tr>
                             </tbody>
                         </table>
