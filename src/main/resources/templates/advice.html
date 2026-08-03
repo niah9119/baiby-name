@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="~{layout :: head}">
+    <title th:text="#{advice.title}">Full-Name Advice - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{advice.title}">
+                    Full-Name Advice
+                </h1>
+                <p class="text-gray-600" th:text="#{advice.description}">
+                    Get expert advice on how your chosen given names flow with your family name.
+                </p>
+            </div>
+
+            <!-- Family Name Section -->
+            <div class="card mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900" th:text="#{advice.familyName.title}">
+                        Family Name
+                    </h2>
+                    <span class="text-sm text-gray-500" th:if="${hasFamilyName}">
+                        <span th:text="${familyName}">Smith</span>
+                    </span>
+                </div>
+
+                <!-- Edit family name form -->
+                <form th:if="${not hasFamilyName}" th:action="@{/advice/family-name}" method="post" class="flex gap-3">
+                    <input type="text" name="familyName" id="familyName"
+                           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Enter family name"
+                           required
+                           th:placeholder="#{advice.familyName.placeholder}">
+                    <button type="submit" class="btn-primary">
+                        <i class="fa-solid fa-save mr-2"></i>
+                        <span th:text="#{advice.familyName.save}">Save</span>
+                    </button>
+                </form>
+
+                <!-- Family name already set -->
+                <div th:if="${hasFamilyName}" class="flex items-center gap-3">
+                    <span class="text-xl font-semibold text-gray-900" th:text="${familyName}">
+                        Smith
+                    </span>
+                    <button hx-post th:href="@{/advice/family-name/remove}"
+                            class="text-red-600 hover:text-red-800 text-sm font-medium"
+                            th:title="#{advice.familyName.remove}">
+                        <i class="fa-solid fa-xmark"></i>
+                        <span th:text="#{advice.familyName.remove}">Remove</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Shortlist Section -->
+            <div class="card mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900" th:text="#{advice.shortlist.title}">
+                        Your Shortlist
+                    </h2>
+                    <span class="text-sm text-gray-500">
+                        <span th:text="${entries.size()}">0</span> names selected
+                    </span>
+                </div>
+
+                <!-- Empty shortlist -->
+                <th:block th:if="${not hasEntries}">
+                    <div class="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <i class="fa-solid fa-list-heart text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-600" th:text="#{advice.shortlist.empty}">
+                            Your shortlist is empty. Browse names and add the ones you like.
+                        </p>
+                        <a th:href="@{/browse}" class="btn-primary mt-4 inline-block" th:text="#{nav.browse}">
+                            Browse Names
+                        </a>
+                    </div>
+                </th:block>
+
+                <!-- Shortlist entries -->
+                <th:block th:unless="${not hasEntries}">
+                    <div class="space-y-3">
+                        <th:block th:each="entry, iterStat : ${entries}">
+                            <div class="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 font-semibold text-sm"
+                                          th:text="${iterStat.count}">
+                                        1
+                                    </span>
+                                    <span class="font-medium text-gray-900" th:text="${entry.givenName.name}">
+                                        Name
+                                    </span>
+                                </div>
+                                <button th:data-given-name-id="${entry.givenName.id}"
+                                        hx-post th:href="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
+                                        class="text-red-500 hover:text-red-700 px-2 py-1"
+                                        th:title="#{shortlist.remove}">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </th:block>
+                    </div>
+                </th:block>
+            </div>
+
+            <!-- Generate Advice Section -->
+            <div class="card mb-8">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4" th:text="#{advice.generate.title}">
+                    Get Advice
+                </h2>
+
+                <form id="adviceForm" th:action="@{/advice/generate}" method="post" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{advice.select.names}">
+                            Select names to analyze
+                        </label>
+                        <p class="text-sm text-gray-600 mb-3" th:text="#{advice.select.names.hint}">
+                            Choose 1-3 names from your shortlist in order of preference.
+                        </p>
+
+                        <!-- Selected names display -->
+                        <div id="selectedNames" class="flex flex-wrap gap-2 mb-3">
+                            <th:block th:each="entry : ${entries}">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                    <span th:text="${entry.givenName.name}">Name</span>
+                                    <button type="button" class="ml-2 text-blue-600 hover:text-blue-800"
+                                            th:data-given-name="${entry.givenName.name}">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </span>
+                            </th:block>
+                        </div>
+
+                        <!-- Hidden input for selected names -->
+                        <input type="hidden" name="givenNames" id="givenNamesInput" value="">
+
+                        <button type="button" id="addNameBtn"
+                                class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                th:text="#{advice.select.addMore}">
+                            + Add more names
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{filter.country.label}">
+                            Countries
+                        </label>
+                        <p class="text-sm text-gray-600 mb-2" th:text="#{advice.countries.hint}">
+                            Select the countries where the child will live or be spoken to.
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            <th:block th:each="entry : ${entries}">
+                                <th:block th:each="stat : ${entry.givenName.nameStats}">
+                                    <button type="button" class="btn-secondary px-3 py-1 rounded-lg text-sm"
+                                            th:text="${stat.country?.name}"
+                                            th:data-country="${stat.country?.code}">
+                                        SE
+                                    </button>
+                                </th:block>
+                            </th:block>
+                        </div>
+                        <!-- Hidden input for countries -->
+                        <input type="hidden" name="countries" id="countriesInput" value="">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{advice.language.label}">
+                            Language
+                        </label>
+                        <select name="language" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="en" th:selected="true">English</option>
+                            <option value="sv">Svenska</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full py-3 text-lg" th:text="#{advice.generate.button}">
+                        Generate Advice
+                    </button>
+                </form>
+
+                <!-- Advice result (shown after submission) -->
+                <div id="adviceResult" class="hidden mt-6 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3" th:text="#{advice.result.title}">
+                        Advice
+                    </h3>
+                    <div id="adviceText" class="text-gray-800 leading-relaxed">
+                        <!-- Advice will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript for client-side behavior -->
+    <script th:if="${hasEntries}">
+        // Track selected names
+        let selectedNames = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add name button - for future implementation
+            const addNameBtn = document.getElementById('addNameBtn');
+            if (addNameBtn) {
+                addNameBtn.addEventListener('click', function() {
+                    window.location.href = '/browse';
+                });
+            }
+
+            // Remove name from selection
+            document.querySelectorAll('#selectedNames .fa-xmark').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const nameSpan = this.parentElement;
+                    const name = nameSpan.querySelector('span:not(.fa-xmark)').textContent;
+                    selectedNames = selectedNames.filter(n => n !== name);
+                    nameSpan.remove();
+                    updateHiddenInputs();
+                });
+            });
+
+            // Update hidden inputs
+            function updateHiddenInputs() {
+                document.getElementById('givenNamesInput').value = selectedNames.join(',');
+                // For countries, we could collect from visible buttons or use default
+                const countryBtns = document.querySelectorAll('[th\\:data-country]');
+                const countries = Array.from(countryBtns).map(btn => btn.dataset.country);
+                document.getElementById('countriesInput').value = countries.join(',');
+            }
+
+            // Handle form submission via HTMX
+            const adviceForm = document.getElementById('adviceForm');
+            adviceForm.addEventListener('htmx:configRequest', function(evt) {
+                const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+                if (csrfToken) {
+                    evt.detail.headers['X-CSRF-Token'] = csrfToken;
+                }
+            });
+        });
+    </script>
+
+    <script>
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+            if (csrfToken) {
+                evt.detail.headers['X-CSRF-Token'] = csrfToken;
+            }
+        });
+    </script>
+</body>
+</html>
