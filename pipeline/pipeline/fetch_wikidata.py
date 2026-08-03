@@ -543,6 +543,47 @@ def download_wikidata_data(force: bool = False) -> list[dict]:
     return all_data
 
 
+def generate_canonical_csv(
+    raw_data: list[dict],
+    name_universe: Optional[set[str]] = None,
+    output_dir: Optional[Path] = None,
+) -> tuple[Path, int]:
+    """Generate canonical CSV from raw Wikidata data.
+
+    Args:
+        raw_data: Raw CSV data from Wikidata fetch.
+        name_universe: Set of names that exist in the given_name table.
+                      If None, aliases won't be resolved.
+        output_dir: Output directory. Defaults to WIKIDATA_CSV_DIR.
+
+    Returns:
+        Tuple of (output_path, unresolved_count) where unresolved_count is the
+        number of aliases that didn't match any name in the universe.
+    """
+    output_dir = output_dir or WIKIDATA_CSV_DIR
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Process the raw data
+    if name_universe is None:
+        name_universe = set()
+
+    processed_data, unresolved_count = process_wikidata_data(raw_data, name_universe)
+
+    # Write to canonical CSV format
+    output_path = output_dir / "famous_bearers.csv"
+    fieldnames = ["public_name", "subcategory", "given_names", "country", "wikidata_id"]
+
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(processed_data)
+
+    print(f"Wrote {len(processed_data)} rows to {output_path}")
+    print(f"Unresolved alias count: {unresolved_count}")
+
+    return output_path, unresolved_count
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -557,11 +598,32 @@ if __name__ == "__main__":
         type=str,
         help="Directory to write the CSV file into",
     )
+    parser.add_argument(
+        "--database-url",
+        type=str,
+        help="Database URL to load name universe from (for alias resolution)",
+    )
     args = parser.parse_args()
 
     # Fetch data
     raw_data = download_wikidata_data(force=args.force)
 
-    # Process and write CSV
-    output_path = write_csv(raw_data, output_dir=Path(args.output_dir) if args.output_dir else None)
+    # Load name universe if database URL provided
+    name_universe = None
+    if args.database_url:
+        import os
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine(args.database_url)
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT name FROM given_name"))
+            name_universe = {row[0] for row in result}
+
+    # Process and write canonical CSV
+    output_path, unresolved = generate_canonical_csv(
+        raw_data,
+        name_universe=name_universe,
+        output_dir=Path(args.output_dir) if args.output_dir else None,
+    )
     print(f"Done. Output written to {output_path}")
+    print(f"Unresolved aliases: {unresolved}")
