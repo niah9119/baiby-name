@@ -1,10 +1,12 @@
 package com.baibyname.service;
 
 import com.baibyname.domain.Account;
+import com.baibyname.domain.FamilyName;
 import com.baibyname.domain.Shortlist;
 import com.baibyname.domain.ShortlistEntry;
 import com.baibyname.domain.ShortlistMember;
 import com.baibyname.repository.AccountRepository;
+import com.baibyname.repository.FamilyNameRepository;
 import com.baibyname.repository.ShortlistEntryRepository;
 import com.baibyname.repository.ShortlistMemberRepository;
 import com.baibyname.repository.ShortlistRepository;
@@ -28,6 +30,7 @@ class AccountServiceTest {
     private ShortlistMemberRepository shortlistMemberRepository;
     private ShortlistRepository shortlistRepository;
     private ShortlistEntryRepository shortlistEntryRepository;
+    private FamilyNameRepository familyNameRepository;
     private AccountService accountService;
 
     @BeforeEach
@@ -37,9 +40,11 @@ class AccountServiceTest {
         shortlistMemberRepository = mock(ShortlistMemberRepository.class);
         shortlistRepository = mock(ShortlistRepository.class);
         shortlistEntryRepository = mock(ShortlistEntryRepository.class);
+        familyNameRepository = mock(FamilyNameRepository.class);
         accountService = new AccountService(
                 accountRepository, passwordEncoder,
-                shortlistMemberRepository, shortlistRepository, shortlistEntryRepository);
+                shortlistMemberRepository, shortlistRepository, shortlistEntryRepository,
+                familyNameRepository);
     }
 
     @Test
@@ -131,6 +136,10 @@ class AccountServiceTest {
         Account account = new Account();
         account.setId(accountId);
 
+        FamilyName familyName = new FamilyName();
+        familyName.setId(1L);
+        account.setFamilyName(familyName);
+
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
 
         // When
@@ -138,6 +147,29 @@ class AccountServiceTest {
 
         // Then - verify the repositories were called in the correct order
         verify(accountRepository).findById(accountId);
+        verify(familyNameRepository).delete(familyName);
+        verify(shortlistEntryRepository).deleteAllByAccountId(accountId);
+        verify(shortlistRepository).deleteAllByAccountId(accountId);
+        verify(shortlistMemberRepository).deleteAllByAccountId(accountId);
+        verify(accountRepository).delete(account);
+    }
+
+    @Test
+    void deleteAccountHandlesMissingFamilyName() {
+        // Given
+        Long accountId = 1L;
+        Account account = new Account();
+        account.setId(accountId);
+        account.setFamilyName(null);
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+
+        // When
+        accountService.deleteAccount(accountId);
+
+        // Then - familyNameRepository.delete should not be called when familyName is null
+        verify(accountRepository).findById(accountId);
+        verify(familyNameRepository, never()).delete(any());
         verify(shortlistEntryRepository).deleteAllByAccountId(accountId);
         verify(shortlistRepository).deleteAllByAccountId(accountId);
         verify(shortlistMemberRepository).deleteAllByAccountId(accountId);

@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -31,6 +32,9 @@ public class Account {
 
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ShortlistMember> shortlistMembers = new HashSet<>();
+
+    @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
+    private FamilyName familyName;
 
     public Long getId() {
         return id;
@@ -70,5 +74,13 @@ public class Account {
 
     public void setShortlistMembers(Set<ShortlistMember> shortlistMembers) {
         this.shortlistMembers = shortlistMembers;
+    }
+
+    public FamilyName getFamilyName() {
+        return familyName;
+    }
+
+    public void setFamilyName(FamilyName familyName) {
+        this.familyName = familyName;
     }
 }
