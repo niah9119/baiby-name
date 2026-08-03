@@ -209,15 +209,22 @@
                                             <span th:text="${stat.sex}">Boy</span>
                                         </span>
                                     </div>
-                                    <div class="mt-2 text-sm text-gray-600">
-                                        <span th:if="${filterState.popularityFilter == 'common_lately'}"
-                                              th:text="#{namecard.popularity.common}">
-                                            Common
-                                        </span>
-                                        <span th:if="${filterState.popularityFilter == 'uncommon_lately'}"
-                                              th:text="#{namecard.popularity.uncommon}">
-                                            Uncommon
-                                        </span>
+                                    <div class="mt-2">
+                                        <p th:if="${candidate.explanation != null and candidate.explanation != ''}"
+                                           class="text-sm text-blue-600 italic"
+                                           th:text="${candidate.explanation}">
+                                            Explanation
+                                        </p>
+                                        <div th:unless="${candidate.explanation != null and candidate.explanation != ''}" class="text-sm text-gray-600">
+                                            <span th:if="${filterState.popularityFilter == 'common_lately'}"
+                                                  th:text="#{namecard.popularity.common}">
+                                                Common
+                                            </span>
+                                            <span th:if="${filterState.popularityFilter == 'uncommon_lately'}"
+                                                  th:text="#{namecard.popularity.uncommon}">
+                                                Uncommon
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="flex gap-2" th:if="${authenticated}">

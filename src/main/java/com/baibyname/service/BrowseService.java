@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Year;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service for the browse and filter functionality.
@@ -152,5 +153,86 @@ public class BrowseService {
                 .map(code -> countryRepository.findByCode(code).orElse(null))
                 .filter(java.util.Objects::nonNull)
                 .toList();
+    }
+
+    /**
+     * Get re-ranked candidates using the LLM.
+     *
+     * <p>This method re-ranks the candidate list when the count is at or below
+     * the threshold. The LLM reorders names by fit with the user's taste and
+     * adds a one-line explanation per name. On LLM unavailability or invalid
+     * output, falls back silently to database ordering.</p>
+     *
+     * @param pageable pagination parameters
+     * @param threshold the maximum candidate count for re-ranking (default 100)
+     * @param rankerService the ranker service for LLM re-ranking
+     * @return page of re-ranked names with explanations
+     */
+    @Transactional(readOnly = true)
+    public Page<RankerService.RankedName> getReRankedCandidates(Pageable pageable, int threshold,
+            RankerService rankerService) {
+        // First get the candidates
+        Page<GivenName> candidates = getCandidates(pageable);
+
+        // Only re-rank if candidate count is at or below threshold
+        if (candidates.getTotalElements() > threshold) {
+            // Return original candidates without explanations
+            List<RankerService.RankedName> ranked = candidates.getContent().stream()
+                    .map(name -> new RankerService.RankedName(name.getName(), "", name))
+                    .collect(Collectors.toList());
+            return new PageImpl<>(ranked, pageable, candidates.getTotalElements());
+        }
+
+        // Build taste notes from filter state
+        FilterState state = filterStateService.getState();
+        String tasteNotes = buildTasteNotes(state);
+
+        // Call the ranker service
+        List<RankerService.RankedName> rankedNames = rankerService.reRank(
+                candidates.getContent(), tasteNotes, threshold);
+
+        // If ranker returned nothing (fallback), use original order
+        if (rankedNames.isEmpty()) {
+            rankedNames = candidates.getContent().stream()
+                    .map(name -> new RankerService.RankedName(name.getName(), "", name))
+                    .collect(Collectors.toList());
+        }
+
+        return new PageImpl<>(rankedNames, pageable, candidates.getTotalElements());
+    }
+
+    /**
+     * Build taste notes from the filter state for re-ranking.
+     */
+    private String buildTasteNotes(FilterState state) {
+        StringBuilder notes = new StringBuilder();
+        boolean hasAny = false;
+
+        if (!state.getSexes().isEmpty()) {
+            notes.append("Sex: ").append(state.getSexes()).append("\n");
+            hasAny = true;
+        }
+        if (!state.getCountries().isEmpty()) {
+            notes.append("Countries: ").append(state.getCountries()).append("\n");
+            hasAny = true;
+        }
+        if (state.getPopularityFilter() != null) {
+            notes.append("Popularity: ").append(state.getPopularityFilter()).append("\n");
+            hasAny = true;
+        }
+        if (state.getCelebrityFilter() != null) {
+            notes.append("Celebrity: ").append(state.getCelebrityFilter() ? "with celebrities" : "without celebrities").append("\n");
+            hasAny = true;
+        }
+        if (state.getTasteNotes() != null && !state.getTasteNotes().isEmpty()) {
+            notes.append("Additional preferences: ").append(state.getTasteNotes()).append("\n");
+            hasAny = true;
+        }
+
+        if (!hasAny) {
+            notes.append("No specific preferences - show all names");
+        }
+
+        return notes.toString();
     }
 }

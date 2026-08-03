@@ -5,6 +5,8 @@ import com.baibyname.domain.GivenName;
 import com.baibyname.service.BrowseService;
 import com.baibyname.service.FilterState;
 import com.baibyname.service.FilterStateService;
+import com.baibyname.service.RankerService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +15,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
+import java.util.Map;
 
 /**
  * Controller for the browse and filter UI.
@@ -36,6 +39,9 @@ public class BrowseController {
         this.browseService = browseService;
         this.filterStateService = filterStateService;
     }
+
+    @Autowired
+    private RankerService rankerService;
 
     /**
      * Show the browse page with filters and initial candidate list.
@@ -203,5 +209,59 @@ public class BrowseController {
     @ResponseBody
     public FilterState getFilterState(HttpSession session) {
         return filterStateService.getState();
+    }
+
+    /**
+     * Re-rank the candidate list using the LLM and return the updated view.
+     *
+     * @param page the page number
+     * @param pageSize the page size
+     * @param threshold the maximum candidate count for re-ranking (default 100)
+     * @param model the model for template rendering
+     * @param session the HTTP session
+     * @return the candidate list fragment
+     */
+    @PostMapping("/rerank")
+    public String reRank(@RequestParam(defaultValue = "0") int page,
+                         @RequestParam(defaultValue = "10") int pageSize,
+                         @RequestParam(defaultValue = "100") int threshold,
+                         Model model,
+                         HttpSession session) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+
+        // Get the current filter state first (for the taste notes)
+        FilterState currentState = filterStateService.getState();
+
+        // Call the browse service for re-ranked candidates
+        Page<RankerService.RankedName> rankedCandidates = browseService.getReRankedCandidates(
+                pageable, threshold, rankerService);
+
+        model.addAttribute("candidates", rankedCandidates);
+        model.addAttribute("filterState", currentState);
+        model.addAttribute("hasExplanations", true);
+        return "browse :: candidate-list";
+    }
+
+    /**
+     * Get the re-ranked candidates as JSON.
+     * This endpoint is used for AJAX requests to fetch re-ranked results.
+     *
+     * @param threshold the maximum candidate count for re-ranking (default 100)
+     * @param session the HTTP session
+     * @return the re-ranked list as JSON
+     */
+    @GetMapping(value = "/rerank", produces = "application/json")
+    @ResponseBody
+    public Object getReRankedCandidatesJson(@RequestParam(defaultValue = "100") int threshold,
+                                             HttpSession session) {
+        Pageable pageable = PageRequest.of(0, threshold);
+        Page<RankerService.RankedName> ranked = browseService.getReRankedCandidates(
+                pageable, threshold, rankerService);
+
+        return Map.of(
+                "candidates", ranked.getContent(),
+                "total", ranked.getTotalElements(),
+                "threshold", threshold
+        );
     }
 }
