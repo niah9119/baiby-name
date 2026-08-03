@@ -129,6 +129,24 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Subcategory Filter -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2" th:text="#{filter.subcategory.label}">
+                        Category
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        <button th:each="subcategory : ${subcategories}"
+                                th:class="${filterState.subcategories.contains(subcategory)} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:text="#{${'filter.subcategory.' + subcategory.name().toLowerCase()}}"
+                                hx-post th:href="@{/browse/filter/subcategory/{subcategory}(htmx=true,page=0,subcategory=${subcategory.name()})}"
+                                hx-swap="none"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                                th:data-filter-type="subcategory"
+                                th:data-filter-value="${subcategory.name()}">
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Active Filters Display -->
@@ -174,6 +192,16 @@
                         <button th:attr="data-filter-type=popularity, data-filter-value=clear"
                                 hx-post th:href="@{/browse/filter/popularity(htmx=true,page=0)}"
                                 class="ml-2 text-orange-600 hover:text-orange-800">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <span th:each="subcategory : ${filterState.subcategories}"
+                          class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                        <span th:text="#{filter.subcategory.label}">Category</span>:
+                        <span th:text="#{${'filter.subcategory.' + subcategory.name().toLowerCase()}}">Royalty</span>
+                        <button th:attr="data-filter-type=subcategory, data-filter-value=${subcategory.name()}"
+                                hx-post th:href="@{/browse/filter/subcategory/{subcategory}(htmx=true,page=0,subcategory=${subcategory.name()})}"
+                                class="ml-2 text-indigo-600 hover:text-indigo-800">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </span>

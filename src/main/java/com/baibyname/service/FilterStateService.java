@@ -112,6 +112,15 @@ public class FilterStateService {
     }
 
     /**
+     * Toggle a subcategory filter.
+     *
+     * @param subcategory the subcategory to toggle (ROYALTY, MOVIE_STAR, SPORTS_STAR)
+     */
+    public void toggleSubcategory(com.baibyname.domain.FamousBearer.Subcategory subcategory) {
+        this.state.toggleSubcategory(subcategory);
+    }
+
+    /**
      * Set the celebrity filter.
      *
      * @param withCelebrity true to show only names with celebrities,
