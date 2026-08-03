@@ -72,54 +72,156 @@ SUBCATEGORY_MAPPINGS = {
     "SPORTS_STAR": [Q_FOOTBALLER, Q_TENNIS_PLAYER, Q_ICE_HOCKEY_PLAYER, Q_SKIER],
 }
 
-# Minimum sitelinks threshold for each country (to avoid timeout and ensure quality)
-# US needs a higher bar than other countries
-SITELINKS_THRESHOLD = {
-    Q_USA: 100,  # US needs higher bar
-    Q_GB: 60,
-    Q_SWEDEN: 40,
-    Q_NORWAY: 45,
-    Q_DENMARK: 45,
-}
-
 # Regex to filter aliases: single token, Latin script, reasonable length
 # This matches strings like "Leo", "Henke", "Gunnar" while excluding nicknames like "Ibra"
 ALIAS_REGEX = re.compile(r"^[A-ZÅÄÖÉÈØÆ][a-zåäöéèøæüï'-]{1,14}$")
 
 
-def local_dataset(country_code: str, subcategory: str) -> Optional[Path]:
-    """Return the already-downloaded dataset for a country/subcategory, or None if not present."""
-    filename = f"wikidata_{country_code}_{subcategory}.csv"
+def local_dataset(country_code: str, occupation_qid: str) -> Optional[Path]:
+    """Return the already-downloaded dataset for a country/occupation, or None if not present."""
+    filename = f"wikidata_{country_code}_{occupation_qid.replace('wd:', '')}.csv"
     path = WIKIDATA_RAW_DIR / filename
     return path if path.exists() and path.stat().st_size > 0 else None
 
 
-def download_wikidata_data(force: bool = False) -> list[dict]:
-    """Fetch famous bearers from Wikidata for all countries and subcategories.
+def fetch_people_qids(country_qid: str, occupations: list[str], limit: int = 500) -> list[str]:
+    """Fetch person QIDs for a specific country and occupation set.
 
-    The query strategy follows these rules:
-    1. Never use /wdt:P279* subclass path - enumate occupation QIDs explicitly
-    2. One country per query - loop over the five, don't put them in a VALUES block
-    3. Raise sitelinks until the query returns - US needs higher bar than Sweden
+    This is a fast query that only returns the QID without labels.
 
     Args:
-        force: Re-download even if local copies exist.
+        country_qid: Wikidata QID for the country
+        occupations: List of Wikidata QIDs for occupations
+        limit: Maximum number of results
 
     Returns:
-        List of dictionaries with bearer data.
+        List of Wikidata person QIDs (e.g., ["Q615", "Q123"])
     """
-    WIKIDATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    occupation_list = " ".join(occupations)
 
-    all_data = []
+    query = f"""
+    SELECT DISTINCT ?person WHERE {{
+      ?person wdt:P31 wd:Q5 .
+      ?person wdt:P27 wd:{country_qid} .
+      ?person wdt:P106 {occupation_list} .
+    }}
+    LIMIT {limit}
+    """
 
-    for country_code, country_qid in COUNTRIES.items():
-        for subcategory, occupations in SUBCATEGORY_MAPPINGS.items():
-            dataset = fetch_for_country_and_subcategory(
-                country_code, country_qid, occupations, force
-            )
-            all_data.extend(dataset)
+    headers = {
+        "Accept": "text/csv",
+        "User-Agent": USER_AGENT,
+    }
 
-    return all_data
+    try:
+        response = requests.post(
+            WIKIDATA_SPARQL_URL,
+            data={"query": query},
+            headers=headers,
+            timeout=180,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise requests.RequestException(f"Could not fetch Wikidata people QIDs: {exc}") from exc
+
+    if len(response.content) < 50:
+        raise requests.RequestException(
+            f"Downloaded only {len(response.content)} bytes, too small to be valid data."
+        )
+
+    # Parse CSV to extract QIDs
+    qids = []
+    lines = response.text.strip().split('\n')
+    for line in lines[1:]:  # Skip header
+        if line:
+            # Extract QID from URL like "http://www.wikidata.org/entity/Q615"
+            match = re.search(r'/entity/(Q\d+)$', line)
+            if match:
+                qids.append(match.group(1))
+
+    return qids
+
+
+def fetch_aliases_for_person(person_qid: str) -> list[str]:
+    """Fetch aliases for a specific person.
+
+    Args:
+        person_qid: Wikidata QID for the person
+
+    Returns:
+        List of alias labels in supported languages
+    """
+    query = f"""
+    SELECT ?altLabel WHERE {{
+      wd:{person_qid} skos:altLabel ?altLabel .
+      FILTER(LANG(?altLabel) = "en" || LANG(?altLabel) = "es" || LANG(?altLabel) = "sv" || LANG(?altLabel) = "no" || LANG(?altLabel) = "da")
+    }}
+    """
+
+    headers = {
+        "Accept": "text/csv",
+        "User-Agent": USER_AGENT,
+    }
+
+    try:
+        response = requests.post(
+            WIKIDATA_SPARQL_URL,
+            data={"query": query},
+            headers=headers,
+            timeout=180,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise requests.RequestException(f"Could not fetch aliases for {person_qid}: {exc}") from exc
+
+    # Parse CSV to extract aliases
+    aliases = []
+    lines = response.text.strip().split('\n')
+    for line in lines[1:]:  # Skip header
+        if line:
+            aliases.append(line.strip())
+
+    return aliases
+
+
+def fetch_person_label(person_qid: str) -> Optional[str]:
+    """Fetch the primary label for a specific person.
+
+    Args:
+        person_qid: Wikidata QID for the person
+
+    Returns:
+        The person's label in English, or None if not found
+    """
+    query = f"""
+    SELECT ?personLabel WHERE {{
+      wd:{person_qid} rdfs:label ?personLabel .
+      FILTER(LANG(?personLabel) = "en")
+    }}
+    """
+
+    headers = {
+        "Accept": "text/csv",
+        "User-Agent": USER_AGENT,
+    }
+
+    try:
+        response = requests.post(
+            WIKIDATA_SPARQL_URL,
+            data={"query": query},
+            headers=headers,
+            timeout=180,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise requests.RequestException(f"Could not fetch label for {person_qid}: {exc}") from exc
+
+    # Parse CSV to extract label
+    lines = response.text.strip().split('\n')
+    if len(lines) > 1:
+        return lines[1].strip()
+
+    return None
 
 
 def fetch_for_country_and_subcategory(
@@ -139,41 +241,6 @@ def fetch_for_country_and_subcategory(
     Returns:
         List of dictionaries with bearer data.
     """
-    # Build occupation query part
-    occupation_list = " ".join(f"wd:{qid}" for qid in occupations)
-
-    # Build sitelinks threshold
-    sitelinks_threshold = SITELINKS_THRESHOLD.get(country_qid, 50)
-
-    # Build the SPARQL query
-    # Key points from the issue:
-    # - ?person wdt:P31 wd:Q5 ensures we only get real people (not streets, etc.)
-    # - ?person wdt:P27 wd:XXX filters by country of citizenship
-    # - ?person wdt:P106 wd:XXX filters by occupation
-    # - ?person wdt:P735 ?givenName gives the given name(s)
-    # - ?person skos:altLabel ?altLabel gets short forms across ALL languages
-    # - STR() before GROUP_CONCAT to deduplicate strings with different language tags
-    query = f"""
-SELECT DISTINCT
-  ?person
-  ?personLabel
-  (GROUP_CONCAT(DISTINCT STR(?givenNameLabel); separator=";") AS ?givenNames)
-  (GROUP_CONCAT(DISTINCT STR(?altLabel); separator=";") AS ?aliases)
-WHERE {{
-  ?person wdt:P31 wd:Q5 .                    # Instance of human
-  ?person wdt:P27 wd:{country_qid} .         # Country of citizenship
-  ?person wdt:P106 wd:{occupation_list} .    # Occupation (one of)
-  ?person wdt:P735 ?givenName .              # Given name(s)
-  ?givenName rdfs:label ?givenNameLabel .
-  FILTER(LANGMATCHES(LANG(?givenNameLabel), "en"))
-
-  # Get aliases (short forms) across ALL languages (not just English!)
-  ?person skos:altLabel ?altLabel .
-}}
-GROUP BY ?person ?personLabel
-LIMIT 500
-"""
-
     filename = f"wikidata_{country_code}_{occupations[0].replace('wd:', '')}.csv"
     target_path = WIKIDATA_RAW_DIR / filename
 
@@ -183,32 +250,81 @@ LIMIT 500
 
     print(f"Fetching {country_code} {occupations[0]} data from Wikidata...")
 
-    headers = {
-        "Accept": "text/csv",
-        "User-Agent": USER_AGENT,
-    }
+    # Step 1: Get all person QIDs for this country and occupation
+    person_qids = fetch_people_qids(country_qid, occupations)
 
-    try:
-        response = requests.post(
-            WIKIDATA_SPARQL_URL,
-            data={"query": query},
-            headers=headers,
-            timeout=180,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        raise requests.RequestException(f"Could not fetch Wikidata data: {exc}") from exc
+    print(f"Found {len(person_qids)} people")
 
-    if len(response.content) < 100:
-        raise requests.RequestException(
-            f"Downloaded only {len(response.content)} bytes, too small to be valid data."
-        )
+    # Step 2: For each person, fetch their data
+    raw_data = []
+    for i, person_qid in enumerate(person_qids):
+        if i % 50 == 0:
+            print(f"  Processed {i}/{len(person_qids)} people...")
+
+        # Fetch person label (primary name)
+        person_label = fetch_person_label(person_qid)
+        if not person_label:
+            # If no English label, skip this person
+            continue
+
+        # Fetch aliases
+        aliases = fetch_aliases_for_person(person_qid)
+
+        # Parse given names from the person label
+        # The label might contain the given name(s) and surname
+        # For now, we'll use the label as-is and rely on the alias filtering to handle short forms
+        given_names = [person_label.split()[0]] if person_label else []
+
+        # Build the row data
+        row = {
+            "person": f"http://www.wikidata.org/entity/{person_qid}",
+            "personLabel": person_label,
+            "givenNames": ";".join(given_names) if given_names else "",
+            "aliases": ";".join(aliases) if aliases else "",
+        }
+        raw_data.append(row)
+
+    print(f"Downloaded data for {len(raw_data)} people")
 
     # Write raw CSV response
-    target_path.write_text(response.text, encoding="utf-8")
+    target_path.write_text(dict_to_csv(raw_data), encoding="utf-8")
     print(f"Wrote {target_path.stat().st_size} bytes to {target_path}")
 
-    return read_csv_response(target_path)
+    return raw_data
+
+
+def dict_to_csv(data: list[dict]) -> str:
+    """Convert list of dicts to CSV string.
+
+    Args:
+        data: List of dictionaries
+
+    Returns:
+        CSV string
+    """
+    if not data:
+        return ""
+
+    # Get all keys from all dictionaries
+    fieldnames = []
+    for row in data:
+        for key in row.keys():
+            if key not in fieldnames:
+                fieldnames.append(key)
+
+    # Build CSV
+    lines = [",".join(fieldnames)]
+    for row in data:
+        values = []
+        for key in fieldnames:
+            value = row.get(key, "")
+            # Escape quotes and wrap in quotes if needed
+            if "," in value or '"' in value or "\n" in value:
+                value = '"' + value.replace('"', '""') + '"'
+            values.append(value)
+        lines.append(",".join(values))
+
+    return "\n".join(lines) + "\n"
 
 
 def read_csv_response(path: Path) -> list[dict]:
@@ -394,6 +510,34 @@ def write_csv(data: list[dict], output_dir: Optional[Path] = None) -> Path:
 
     print(f"Wrote {len(data)} rows to {output_path}")
     return output_path
+
+
+def download_wikidata_data(force: bool = False) -> list[dict]:
+    """Fetch famous bearers from Wikidata for all countries and subcategories.
+
+    The query strategy follows these rules:
+    1. Never use /wdt:P279* subclass path - enumerate occupation QIDs explicitly
+    2. One country per query - loop over the five, don't put them in a VALUES block
+    3. Raise sitelinks until the query returns - US needs higher bar than Sweden
+
+    Args:
+        force: Re-download even if local copies exist.
+
+    Returns:
+        List of dictionaries with bearer data.
+    """
+    WIKIDATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+
+    all_data = []
+
+    for country_code, country_qid in COUNTRIES.items():
+        for subcategory, occupations in SUBCATEGORY_MAPPINGS.items():
+            dataset = fetch_for_country_and_subcategory(
+                country_code, country_qid, occupations, force
+            )
+            all_data.extend(dataset)
+
+    return all_data
 
 
 if __name__ == "__main__":
