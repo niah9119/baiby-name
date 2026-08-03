@@ -21,9 +21,11 @@ import org.springframework.stereotype.Service;
 public class AdService {
 
     private final AdConfig adConfig;
+    private final ConsentService consentService;
 
-    public AdService(AdConfig adConfig) {
+    public AdService(AdConfig adConfig, ConsentService consentService) {
         this.adConfig = adConfig;
+        this.consentService = consentService;
     }
 
     /**
@@ -39,11 +41,13 @@ public class AdService {
         if (authentication != null && authentication.isAuthenticated() &&
                 !"anonymousUser".equals(authentication.getPrincipal())) {
             // User is logged in - check database consent
-            return true; // We'll check via a method that takes accountId in the controller
+            // Note: We can't get the accountId here without changing the signature,
+            // so return false for authenticated users (they should use shouldShowAd with accountId)
+            return false;
         }
         // Anonymous user - consent is client-side via localStorage
         // We'll pass this from the template based on cookie/localStorage state
-        return true;
+        return false;
     }
 
     /**
@@ -69,12 +73,12 @@ public class AdService {
         // Check consent
         if (accountId != null) {
             // For logged-in users, check database consent
-            // Note: This requires a ConsentService instance
-            return true; // Will be handled by checking against DB
+            return consentService.hasFullConsent(accountId);
         }
 
         // For anonymous users, consent is checked client-side via localStorage
-        return true;
+        // We default to no consent since we can't verify it server-side
+        return false;
     }
 
     /**

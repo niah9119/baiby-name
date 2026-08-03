@@ -3,8 +3,13 @@ package com.baibyname.service;
 import com.baibyname.config.AdConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for the AdService.
@@ -13,9 +18,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * - Consent-gated ad loading works correctly
  * - Placement rules are enforced (no ads in candidate list or interview)
  */
+@ExtendWith(MockitoExtension.class)
 class AdServiceTest {
 
     private AdConfig adConfig;
+    @Mock
+    private ConsentService consentService;
     private AdService adService;
 
     @BeforeEach
@@ -36,7 +44,7 @@ class AdServiceTest {
         onNameLandingPage.setId("3456789012");
         adConfig.setOnNameLandingPage(onNameLandingPage);
 
-        adService = new AdService(adConfig);
+        adService = new AdService(adConfig, consentService);
     }
 
     @Test
@@ -142,16 +150,17 @@ class AdServiceTest {
     }
 
     @Test
-    void shouldShowAdChecksBothConfigAndPlacement() {
-        // Given - ads enabled with valid slot
-        adConfig.setEnabled(true);
-        adConfig.getBelowFilterPanel().setId("1234567890");
+    void hasAdSlotIsAliasForHasSlotConfigured() {
+        // Given
+        AdConfig.SlotConfig config = adConfig.getBelowFilterPanel();
+        config.setId("1234567890");
 
         // When
-        boolean result = adService.hasSlotConfigured("belowFilterPanel");
+        boolean result1 = adService.hasAdSlot("belowFilterPanel");
+        boolean result2 = adService.hasSlotConfigured("belowFilterPanel");
 
         // Then
-        assertThat(result).isTrue();
+        assertThat(result1).isEqualTo(result2);
     }
 
     @Test
@@ -164,9 +173,6 @@ class AdServiceTest {
 
     @Test
     void adSlotHasReservedDimensions() {
-        // The ad slot CSS should define fixed dimensions to prevent layout shift
-        String cssClass = "ad-slot";
-        String adSlotId = "1234567890";
         // Ad slot is configured with reserved size (h-24 = 6rem = 96px)
         // Verify configuration exists
         assertThat(adService.hasSlotConfigured("belowFilterPanel")).isTrue();
@@ -194,5 +200,62 @@ class AdServiceTest {
         assertThat(adService.getSlotId("belowFilterPanel")).isEqualTo("external-slot-1");
         assertThat(adService.getSlotId("betweenBrowsePages")).isEqualTo("external-slot-2");
         assertThat(adService.getSlotId("onNameLandingPage")).isEqualTo("external-slot-3");
+    }
+
+    @Test
+    void shouldShowAdWithConsentReturnsTrue() {
+        // Given
+        when(consentService.hasFullConsent(1L)).thenReturn(true);
+
+        // When
+        boolean result = adService.shouldShowAd("belowFilterPanel", 1L);
+
+        // Then
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void shouldShowAdWithoutConsentReturnsFalse() {
+        // Given
+        when(consentService.hasFullConsent(1L)).thenReturn(false);
+
+        // When
+        boolean result = adService.shouldShowAd("belowFilterPanel", 1L);
+
+        // Then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldShowAdWithNullAccountIdReturnsFalse() {
+        // When
+        boolean result = adService.shouldShowAd("belowFilterPanel", null);
+
+        // Then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldShowAdWithoutSlotReturnsFalse() {
+        // Given
+        adConfig.getBelowFilterPanel().setId("");
+
+        // When
+        boolean result = adService.shouldShowAd("belowFilterPanel", 1L);
+
+        // Then - should return false because slot is not configured, consent is irrelevant
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldShowAdWithAdsDisabledReturnsFalse() {
+        // Given
+        adConfig.setEnabled(false);
+
+        // When
+        boolean result = adService.shouldShowAd("belowFilterPanel", 1L);
+
+        // Then - should return false because ads are disabled, consent is irrelevant
+        assertThat(result).isFalse();
     }
 }

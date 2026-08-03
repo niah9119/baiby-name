@@ -185,24 +185,24 @@
 
     <!-- Ad Slot Fragment - for reuse across pages -->
     <th:block th:fragment="ad-slot(placement, showLabel=true)">
-        <div th:if="${@adService.hasAdSlot(placement)}"
-             th:with="slotId=${@adService.getSlotIdOrNull(placement)}"
-             class="ad-slot mb-6">
-            <div class="ad-label" th:if="${showLabel}" th:text="#{ad.label}">Advertisement</div>
-            <div class="p-4">
-                <!-- AdSense script will be loaded via HTMX or deferred JS -->
-                <ins class="adsbygoogle"
-                     th:attr="data-ad-client=${@adService.publisherId}, data-ad-slot=${slotId}, data-ad-layout-key=${'-' + slotId + '+d+e+x'}"
-                     style="display:block"></ins>
-                <script th:if="${@adService.isPublisherConfigured()}">
-                    (adsbygoogle = window.adsbygoogle || []).push({});
-                </script>
+        <th:block th:with="slotId=${@adService.getSlotIdOrNull(placement)}, hasSlot=${@adService.hasAdSlot(placement)}">
+            <div th:if="${hasSlot}" class="ad-slot mb-6">
+                <div class="ad-label" th:if="${showLabel}" th:text="#{ad.label}">Advertisement</div>
+                <div class="p-4">
+                    <!-- AdSense script will be loaded via HTMX or deferred JS -->
+                    <ins class="adsbygoogle"
+                         th:attr="data-ad-client=${@adService.publisherId}, data-ad-slot=${slotId}, data-ad-layout-key=${'-' + slotId + '+d+e+x'}"
+                         style="display:block"></ins>
+                    <script th:if="${@adService.isPublisherConfigured()}">
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    </script>
+                </div>
             </div>
-        </div>
-        <div th:if="${not @adService.hasAdSlot(placement)}" class="ad-slot-empty">
-            <!-- Consent not given or ads disabled -->
-            <span th:text="#{ad.consent.required}">Consent required for ads</span>
-        </div>
+            <div th:if="${not hasSlot}" class="ad-slot-empty">
+                <!-- No slot configured for this placement -->
+                <span th:text="#{ad.slot.notconfigured}">Ad slot not configured</span>
+            </div>
+        </th:block>
     </th:block>
 
     <!-- Ad Slot Below Filter Panel (with label) -->
