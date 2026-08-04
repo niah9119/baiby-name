@@ -622,8 +622,14 @@ class BrowseControllerTest {
         stat.setCreatedAt(OffsetDateTime.now());
         nameStatRepository.save(stat);
 
+        // Create a session FIRST - this is the session that will be used throughout
+        // The CSRF token is stored in the session, so we need to use the same session
+        // for both the GET (to render the page with the token) and the POST (to use it)
+        MockHttpSession session = new MockHttpSession();
+
         // First, render the browse page and extract the CSRF token from the HTML
-        String responseHtml = mockMvc.perform(get("/browse"))
+        // Use the same session for the GET request
+        String responseHtml = mockMvc.perform(get("/browse").session(session))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
@@ -636,11 +642,8 @@ class BrowseControllerTest {
         String csrfHeaderName = extractCsrfHeaderName(responseHtml);
         assertThat(csrfHeaderName).isNotNull().isNotEmpty();
 
-        // Use the extracted token and header name to make a POST request (simulating HTMX behavior)
-        // This uses the SAME mechanism a real browser would use
-        MockHttpSession session = new MockHttpSession();
-
-        // POST with the extracted token and header name - NOT using .with(csrf())
+        // POST with the extracted token and header name using the SAME session
+        // This simulates real browser behavior where the session is maintained
         mockMvc.perform(post("/browse/filter/sex/Boy")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header(csrfHeaderName, csrfToken)
