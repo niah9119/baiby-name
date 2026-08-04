@@ -24,7 +24,8 @@ public class SecurityConfig {
                 // Public by design: browsing and SEO pages must work with no account
                 // (ADR 0002, and #11's own criteria). Without these the landing pages and
                 // sitemap 302 to login, which would silently delist the site.
-                .requestMatchers("/names/**", "/name/**", "/browse/**", "/interview/**", "/sitemap.xml", "/sitemap-*.xml", "/robots.txt").permitAll()
+                // Shortlist access is also public for anonymous users to save names without logging in
+                .requestMatchers("/names/**", "/name/**", "/browse/**", "/interview/**", "/shortlist/**", "/sitemap.xml", "/sitemap-*.xml", "/robots.txt").permitAll()
                 .requestMatchers("/account/**", "/gdpr/**").authenticated()
                 .anyRequest().authenticated()
             )

@@ -44,6 +44,17 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
         SELECT se FROM ShortlistEntry se
         JOIN FETCH se.givenName
         WHERE se.shortlist = :shortlist
+        AND se.member.sessionToken = :sessionToken
+        ORDER BY se.addedAt DESC
+        """)
+    List<ShortlistEntry> findEntriesByShortlistAndSessionToken(
+        @Param("shortlist") Shortlist shortlist,
+        @Param("sessionToken") String sessionToken);
+
+    @Query("""
+        SELECT se FROM ShortlistEntry se
+        JOIN FETCH se.givenName
+        WHERE se.shortlist = :shortlist
         ORDER BY se.addedAt DESC
         """)
     List<ShortlistEntry> findEntriesByShortlist(@Param("shortlist") Shortlist shortlist);

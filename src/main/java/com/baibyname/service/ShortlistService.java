@@ -244,7 +244,7 @@ public class ShortlistService {
         if (owner.account != null) {
             memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, owner.account);
         } else {
-            memberOpt = shortlistMemberRepository.findBySessionToken(owner.sessionToken);
+            memberOpt = shortlistMemberRepository.findByShortlistAndSessionToken(shortlist, owner.sessionToken);
         }
         if (memberOpt.isEmpty()) {
             return false;
@@ -392,7 +392,7 @@ public class ShortlistService {
         if (owner.account != null) {
             memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, owner.account);
         } else {
-            memberOpt = shortlistMemberRepository.findBySessionToken(owner.sessionToken);
+            memberOpt = shortlistMemberRepository.findByShortlistAndSessionToken(shortlist, owner.sessionToken);
         }
 
         if (memberOpt.isEmpty()) {
@@ -510,7 +510,7 @@ public class ShortlistService {
         }
 
         // Merge session entries into account's shortlist
-        List<ShortlistEntry> sessionEntries = shortlistEntryRepository.findEntriesByShortlist(sessionShortlist);
+        List<ShortlistEntry> sessionEntries = shortlistEntryRepository.findEntriesByShortlistAndSessionToken(sessionShortlist, sessionToken);
 
         for (ShortlistEntry sessionEntry : sessionEntries) {
             // Check if this entry already exists in account's shortlist
@@ -528,9 +528,9 @@ public class ShortlistService {
             }
         }
 
-        // Clean up: delete session member (entries will be orphaned and need cleanup)
-        // Actually, we should not delete the session entries yet - they might be accessed
-        // Let's just remove the session link by clearing the session_token
+        // Clean up: convert session member to account member by setting account_id
+        // and clearing session_token (the CHECK constraint requires exactly one)
+        sessionMember.setAccount(account);
         sessionMember.setSessionToken(null);
         shortlistMemberRepository.save(sessionMember);
 

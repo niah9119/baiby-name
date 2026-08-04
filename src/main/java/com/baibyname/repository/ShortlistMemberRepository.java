@@ -42,4 +42,6 @@ public interface ShortlistMemberRepository extends JpaRepository<ShortlistMember
     void deleteAllByShortlist(@Param("shortlist") Shortlist shortlist);
 
     long countByShortlist(Shortlist shortlist);
+
+    Optional<ShortlistMember> findByShortlistAndSessionToken(Shortlist shortlist, String sessionToken);
 }

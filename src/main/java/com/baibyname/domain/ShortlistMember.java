@@ -23,7 +23,7 @@ public class ShortlistMember {
     private Shortlist shortlist;
 
     @ManyToOne
-    @JoinColumn(name = "account_id")
+    @JoinColumn(name = "account_id", nullable = true)
     private Account account;
 
     @Column(name = "session_token")
