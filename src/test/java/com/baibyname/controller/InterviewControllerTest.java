@@ -106,17 +106,24 @@ class InterviewControllerTest {
         when(llmGateway.isAvailable()).thenReturn(true);
         when(llmGateway.chatCompletionStream(any())).thenReturn(Flux.empty());
 
-        // Act: Start the async request
+        // Act: Start and wait for async completion
+        // Use asyncDispatch but read from the result, not the original mvcResult
+        // This avoids the race condition in LinkedCaseInsensitiveMap
         MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
                 .param("message", "I want boy names"))
                 .andExpect(status().isOk())
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        // Wait for async processing to complete
-        mockMvc.perform(asyncDispatch(mvcResult))
+        // Use asyncDispatch to read from its result, not from mvcResult
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch(mvcResult))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/event-stream"));
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
+                .andReturn();
+
+        // Read from the asyncDispatch result, not the original mvcResult
+        String response = mvcResult.getResponse().getContentAsString();
+        assertThat(response).contains("data:{\"type\":\"done\"");
     }
 
     @Test
