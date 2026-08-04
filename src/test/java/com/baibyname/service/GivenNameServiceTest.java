@@ -705,4 +705,177 @@ class GivenNameServiceTest {
 
         return name;
     }
+
+    // --- Tests for findBySexShareInAllCountries (share threshold filtering) ---
+
+    @Test
+    void findBySexShareInAllCountries_KimScenario() {
+        // Setup: Create "Kim" with 20% Boy share in both countries (45,066 Boy vs 181,023 Girl)
+        // This should appear under both Boy and Girl filters
+        var kimName = new GivenName();
+        kimName.setName("Kim");
+        kimName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(kimName);
+
+        // Boy in Sweden: 45,066 out of 226,089 total = ~20%
+        addNameStat(kimName, country1, "Boy", 2023, 45066, 20);
+        // Girl in Sweden: 181,023 out of 226,089 total = ~80%
+        addNameStat(kimName, country1, "Girl", 2023, 181023, 15);
+
+        // Boy in Norway: 1000 out of 5000 total = 20%
+        addNameStat(kimName, country2, "Boy", 2023, 1000, 30);
+        // Girl in Norway: 4000 out of 5000 total = 80%
+        addNameStat(kimName, country2, "Girl", 2023, 4000, 25);
+
+        // Act: Find Boy names in all countries with 10% threshold
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1, country2), "Boy", PageRequest.of(0, 10));
+
+        // Assert: Kim should appear because 20% >= 10%
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(kimName.getName());
+
+        // Act: Find Girl names in all countries with 10% threshold
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1, country2), "Girl", PageRequest.of(0, 10));
+
+        // Assert: Kim should also appear because 80% >= 10%
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(kimName.getName());
+    }
+
+    @Test
+    void findBySexShareInAllCountries_WalterScenario() {
+        // Setup: Create "Walter" with 0.6% Girl share (3,632 Girl out of 641,457 total)
+        // This should only appear under Boy filter, NOT Girl
+        var walterName = new GivenName();
+        walterName.setName("Walter");
+        walterName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(walterName);
+
+        // Boy in Sweden: 637,825 out of 641,457 total = ~99.4%
+        addNameStat(walterName, country1, "Boy", 2023, 637825, 5);
+        // Girl in Sweden: 3,632 out of 641,457 total = ~0.6%
+        addNameStat(walterName, country1, "Girl", 2023, 3632, 150);
+
+        // Act: Find Boy names in all countries with 10% threshold
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+
+        // Assert: Walter should appear because 99.4% >= 10%
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(walterName.getName());
+
+        // Act: Find Girl names in all countries with 10% threshold
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+
+        // Assert: Walter should NOT appear because 0.6% < 10%
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(walterName.getName());
+    }
+
+    @Test
+    void findBySexShareInAllCountries_AliceScenario() {
+        // Setup: Create "Alice" with 0.3% Boy share
+        // This should only appear under Girl filter, NOT Boy
+        var aliceName = new GivenName();
+        aliceName.setName("Alice");
+        aliceName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(aliceName);
+
+        // Boy in Sweden: 1,959 out of 657,405 total = ~0.3%
+        addNameStat(aliceName, country1, "Boy", 2023, 1959, 200);
+        // Girl in Sweden: 655,446 out of 657,405 total = ~99.7%
+        addNameStat(aliceName, country1, "Girl", 2023, 655446, 2);
+
+        // Act: Find Boy names in all countries with 10% threshold
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+
+        // Assert: Alice should NOT appear because 0.3% < 10%
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(aliceName.getName());
+
+        // Act: Find Girl names in all countries with 10% threshold
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+
+        // Assert: Alice should appear because 99.7% >= 10%
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(aliceName.getName());
+    }
+
+    @Test
+    void findBySexShareInAllCountries_FolkeScenario() {
+        // Setup: Create "Folke" with 100% Boy share
+        // This should only appear under Boy filter, NOT Girl
+        var folkeName = new GivenName();
+        folkeName.setName("Folke");
+        folkeName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(folkeName);
+
+        // Boy in Sweden: 100%
+        addNameStat(folkeName, country1, "Boy", 2023, 1000, 50);
+        addNameStat(folkeName, country1, "Boy", 2022, 900, 55);
+
+        // Girl in Sweden: 0% (no stats)
+        // (We don't add any Girl stats for Folke)
+
+        // Act: Find Boy names in all countries with 10% threshold
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+
+        // Assert: Folke should appear because 100% >= 10%
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(folkeName.getName());
+
+        // Act: Find Girl names in all countries with 10% threshold
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+
+        // Assert: Folke should NOT appear because 0% < 10%
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(folkeName.getName());
+    }
+
+    @Test
+    void findBySexShareGlobally() {
+        // Setup: Create names with different global sex distributions
+        var unisexName = new GivenName();
+        unisexName.setName("UnisexName" + System.nanoTime());
+        unisexName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(unisexName);
+
+        // Boy: 10,000 out of 50,000 total = 20% globally
+        addNameStat(unisexName, country1, "Boy", 2023, 10000, 50);
+        // Girl: 40,000 out of 50,000 total = 80% globally
+        addNameStat(unisexName, country1, "Girl", 2023, 40000, 10);
+
+        var boyOnlyName = new GivenName();
+        boyOnlyName.setName("BoyOnlyName" + System.nanoTime());
+        boyOnlyName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(boyOnlyName);
+
+        // Boy: 5,000 out of 5,000 total = 100% globally
+        addNameStat(boyOnlyName, country1, "Boy", 2023, 5000, 20);
+
+        // Act: Find Boy names globally with 10% threshold
+        var boyResult = givenNameService.findBySexShareGlobally("Boy", PageRequest.of(0, 10));
+
+        // Assert: Both names should appear (20% and 100% >= 10%)
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(unisexName.getName());
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(boyOnlyName.getName());
+
+        // Act: Find Girl names globally with 10% threshold
+        var girlResult = givenNameService.findBySexShareGlobally("Girl", PageRequest.of(0, 10));
+
+        // Assert: Only unisexName should appear (80% >= 10%)
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(unisexName.getName());
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(boyOnlyName.getName());
+    }
 }

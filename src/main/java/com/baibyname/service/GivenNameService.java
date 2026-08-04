@@ -92,6 +92,36 @@ public class GivenNameService {
     }
 
     /**
+     * Find names by sex with share threshold filtering.
+     *
+     * A name appears under a sex when that sex accounts for at least 10% of the name's
+     * total recorded usage in each selected country.
+     *
+     * @param countries the list of countries to search across
+     * @param sex       the sex to filter by (Boy or Girl)
+     * @param pageable  pagination parameters
+     * @return page of names where the specified sex has >= 10% share in all countries
+     */
+    public Page<GivenName> findBySexShareInAllCountries(List<Country> countries, String sex, Pageable pageable) {
+        int countryCount = countries.size();
+        return givenNameRepository.findBySexShareInAllCountries(countries, sex, countryCount, BrowseService.SHARE_THRESHOLD, pageable);
+    }
+
+    /**
+     * Find names by sex with share threshold filtering across all countries (global).
+     *
+     * A name appears under a sex when that sex accounts for at least 10% of the name's
+     * total recorded usage globally.
+     *
+     * @param sex      the sex to filter by (Boy or Girl)
+     * @param pageable pagination parameters
+     * @return page of names where the specified sex has >= 10% share globally
+     */
+    public Page<GivenName> findBySexShareGlobally(String sex, Pageable pageable) {
+        return givenNameRepository.findBySexShareGlobally(sex, BrowseService.SHARE_THRESHOLD, pageable);
+    }
+
+    /**
      * Find names that are Common Lately (rank &lt;= 100 in any of last 5 years) in all given countries.
      *
      * @param countries the list of countries to search across
