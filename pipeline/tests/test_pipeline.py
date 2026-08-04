@@ -61,14 +61,14 @@ class TestNormalize:
             assert list(df.columns) == ["name", "country", "sex", "year", "count", "rank"]
             assert len(df) == 3
 
-            # Check values
+            # Check values - SSA M/F should be normalized to Boy/Girl
             assert df["country"].iloc[0] == USA_COUNTRY_CODE
             assert df["year"].iloc[0] == 2023
             assert df["name"].iloc[0] == "Alice"
-            assert df["sex"].iloc[0] == "F"
+            assert df["sex"].iloc[0] == "Girl"
             assert df["count"].iloc[0] == 1000
 
-            # Check rank (Alice should be rank 1 for F)
+            # Check rank (Alice should be rank 1 for Girl)
             assert df["rank"].iloc[0] == 1
 
     def test_normalize_ssa_file_ranking(self):
@@ -86,17 +86,22 @@ class TestNormalize:
             df = normalize_ssa_file(ssa_file)
 
             # Sort by count to verify ranking
-            females = df[df["sex"] == "F"].sort_values("count", ascending=False)
+            # Note: SSA M/F normalized to Boy/Girl
+            girls = df[df["sex"] == "Girl"].sort_values("count", ascending=False)
+            boys = df[df["sex"] == "Boy"].sort_values("count", ascending=False)
 
             # Alice (3000) should be rank 1
-            assert females[females["name"] == "Alice"]["rank"].iloc[0] == 1
+            assert girls[girls["name"] == "Alice"]["rank"].iloc[0] == 1
 
             # Diana (2500) should be rank 2
-            assert females[females["name"] == "Diana"]["rank"].iloc[0] == 2
+            assert girls[girls["name"] == "Diana"]["rank"].iloc[0] == 2
 
             # Charlie and Eve both have 2000 and 1000 respectively, sequential ranks
-            assert females[females["name"] == "Charlie"]["rank"].iloc[0] == 3
-            assert females[females["name"] == "Eve"]["rank"].iloc[0] == 4
+            assert girls[girls["name"] == "Charlie"]["rank"].iloc[0] == 3
+            assert girls[girls["name"] == "Eve"]["rank"].iloc[0] == 4
+
+            # Bob (2000) should be rank 1 for boys
+            assert boys[boys["name"] == "Bob"]["rank"].iloc[0] == 1
 
     def test_normalize_ssa_file_tied_ranking(self):
         """Test that tied ranks work correctly within sex groups."""
@@ -113,18 +118,23 @@ class TestNormalize:
             df = normalize_ssa_file(ssa_file)
 
             # Sort by count to verify ranking
-            females = df[df["sex"] == "F"].sort_values("count", ascending=False)
+            # Note: SSA M/F normalized to Boy/Girl
+            girls = df[df["sex"] == "Girl"].sort_values("count", ascending=False)
 
             # Alice (3000) should be rank 1
-            assert females[females["name"] == "Alice"]["rank"].iloc[0] == 1
+            assert girls[girls["name"] == "Alice"]["rank"].iloc[0] == 1
 
             # Charlie and Diana both have 2000, should both get rank 2 (min method)
             # (Alice took rank 1, next rank is 2 for the tied group)
-            assert females[females["name"] == "Charlie"]["rank"].iloc[0] == 2
-            assert females[females["name"] == "Diana"]["rank"].iloc[0] == 2
+            assert girls[girls["name"] == "Charlie"]["rank"].iloc[0] == 2
+            assert girls[girls["name"] == "Diana"]["rank"].iloc[0] == 2
 
             # Eve should be rank 4 (next after tie)
-            assert females[females["name"] == "Eve"]["rank"].iloc[0] == 4
+            assert girls[girls["name"] == "Eve"]["rank"].iloc[0] == 4
+
+            # Bob (2000) should be rank 1 for boys
+            boys = df[df["sex"] == "Boy"].sort_values("count", ascending=False)
+            assert boys[boys["name"] == "Bob"]["rank"].iloc[0] == 1
 
 
 class TestFetch:
@@ -161,12 +171,12 @@ class TestLoad:
 
         from testcontainers.community.postgres import PostgresContainer
 
-        # Create a temporary CSV file
+        # Create a temporary CSV file with canonical sex values
         csv_path = tmp_path / "names_canonical.csv"
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["name", "country", "sex", "year", "count", "rank"])
-            writer.writerow(["TestName", "US", "F", "2023", "100", "1"])
+            writer.writerow(["TestName", "US", "Girl", "2023", "100", "1"])
 
         # Start a PostgreSQL container for testing
         with PostgresContainer("postgres:15-alpine") as postgres:
@@ -212,14 +222,15 @@ class TestLoad:
         from testcontainers.community.postgres import PostgresContainer
 
         # Create a temporary CSV file with a duplicate row
+        # Use canonical sex values (Boy/Girl instead of M/F)
         csv_path = tmp_path / "names_canonical.csv"
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["name", "country", "sex", "year", "count", "rank"])
-            writer.writerow(["Alice", "US", "F", "2023", "100", "1"])
-            writer.writerow(["Bob", "US", "M", "2023", "50", "2"])
-            writer.writerow(["Alice", "US", "F", "2023", "100", "1"])  # Duplicate of row 1
-            writer.writerow(["Charlie", "US", "F", "2023", "75", "3"])
+            writer.writerow(["Alice", "US", "Girl", "2023", "100", "1"])
+            writer.writerow(["Bob", "US", "Boy", "2023", "50", "2"])
+            writer.writerow(["Alice", "US", "Girl", "2023", "100", "1"])  # Duplicate of row 1
+            writer.writerow(["Charlie", "US", "Girl", "2023", "75", "3"])
 
         # Start a PostgreSQL container for testing
         with PostgresContainer("postgres:15-alpine") as postgres:
@@ -245,6 +256,32 @@ class TestLoad:
                 count = result.scalar()
                 assert count == 3
 
+    def test_rejects_invalid_sex_values(self, tmp_path):
+        """Test that the loader rejects rows with invalid sex values."""
+        import sqlalchemy
+        from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Create a temporary CSV file with an invalid sex value
+        csv_path = tmp_path / "names_canonical.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "country", "sex", "year", "count", "rank"])
+            writer.writerow(["TestName", "US", "M", "2023", "100", "1"])  # Invalid - should be 'Boy'
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
+
+            # Load the CSV - should raise ValueError
+            with pytest.raises(ValueError, match="Invalid sex value 'M'"):
+                load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
 
 @pytest.fixture
 def sample_csv_file(tmp_path):
@@ -253,7 +290,7 @@ def sample_csv_file(tmp_path):
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["name", "country", "sex", "year", "count", "rank"])
-        writer.writerow(["TestName", "US", "F", "2023", "100", "1"])
+        writer.writerow(["TestName", "US", "Girl", "2023", "100", "1"])
     return csv_path
 
 
@@ -280,7 +317,8 @@ class TestIntegration:
         assert len(df) == 5
         assert df["country"].iloc[0] == USA_COUNTRY_CODE
         assert df["year"].iloc[0] == 2023
-        assert set(df["sex"].unique()) == {"F", "M"}
+        # SSA M/F normalized to Boy/Girl
+        assert set(df["sex"].unique()) == {"Boy", "Girl"}
 
     @pytest.mark.integration
     def test_load_integration(self, sample_csv_file, tmp_path):
@@ -364,14 +402,15 @@ class TestIntegration:
             rows = list(reader)
             assert len(rows) == 2
 
-        # Bob (1500) should have rank 1, Alice (1000) should have rank 1 (for F)
         # Output is sorted by country, sex, year, rank
-        assert rows[0]["name"] == "Alice"  # Alice comes first alphabetically
+        # Note: SSA M/F normalized to Boy/Girl
+        # Since "Boy" > "Girl" alphabetically, Bob comes first
+        assert rows[0]["name"] == "Bob"
         assert rows[0]["rank"] == "1"
-        assert rows[0]["sex"] == "F"
-        assert rows[0]["count"] == "1000"
+        assert rows[0]["sex"] == "Boy"
+        assert rows[0]["count"] == "1500"
 
-        assert rows[1]["name"] == "Bob"
+        assert rows[1]["name"] == "Alice"
         assert rows[1]["rank"] == "1"
-        assert rows[1]["sex"] == "M"
-        assert rows[1]["count"] == "1500"
+        assert rows[1]["sex"] == "Girl"
+        assert rows[1]["count"] == "1000"
