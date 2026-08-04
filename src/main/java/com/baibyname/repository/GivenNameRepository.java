@@ -229,6 +229,16 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     List<String> findDistinctSexes();
 
     /**
+     * Find names by exact name match from a collection of names.
+     * Used to efficiently look up known names that appear in text
+     * without loading the entire table into memory.
+     *
+     * @param names the collection of names to search for
+     * @return list of GivenName entities whose name matches one in the collection
+     */
+    List<GivenName> findByNameIn(List<String> names);
+
+    /**
      * Find all NameStats for the given GivenName IDs.
      * Used to eagerly load nameStats after the main query.
      */

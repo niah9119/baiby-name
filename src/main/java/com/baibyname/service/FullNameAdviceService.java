@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Service for generating full-name advice.
@@ -283,20 +284,37 @@ public class FullNameAdviceService {
     /**
      * Find known given names from the database that appear in the advice text.
      *
+     * <p>This method tokenizes the advice text to find candidate words that
+     * look like names (capitalized, reasonable length), then queries the
+     * database only for those candidates. This avoids loading the entire
+     * given_name table into memory.
+     *
      * @param advice the advice text
      * @param givenNames the originally selected names (to limit DB queries)
      * @return list of known names found in advice
      */
     private List<String> findNamesInAdvice(String advice, List<String> givenNames) {
-        // Get all names from the database - this is expensive but necessary for validation
-        // In production, we could optimize by only checking names that appear in the text
-        List<GivenName> allNames = givenNameRepository.findAll();
+        // Extract candidate words that look like names (capitalized, reasonable length)
+        // Use a pattern: starts with uppercase letter, followed by letters or digits
+        // Length between 2 and 30 characters to avoid false positives
+        Pattern namePattern = Pattern.compile("^[A-Z][a-zA-Z0-9]{1,29}$");
 
-        List<String> foundNames = new ArrayList<>();
-        for (GivenName name : allNames) {
-            if (advice.contains(name.getName())) {
-                foundNames.add(name.getName());
+        Set<String> candidates = new HashSet<>();
+        // Simple tokenization: split on non-letter, non-digit characters
+        String[] tokens = advice.split("[^a-zA-Z0-9]+");
+        for (String token : tokens) {
+            if (namePattern.matcher(token).matches()) {
+                candidates.add(token);
             }
+        }
+
+        // Query the database only for the candidate names
+        List<GivenName> foundNamesEntities = givenNameRepository.findByNameIn(new ArrayList<>(candidates));
+
+        // Extract just the names from the entities
+        List<String> foundNames = new ArrayList<>();
+        for (GivenName name : foundNamesEntities) {
+            foundNames.add(name.getName());
         }
 
         return foundNames;

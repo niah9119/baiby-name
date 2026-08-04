@@ -24,6 +24,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -374,7 +375,7 @@ class FullNameAdviceServiceTest {
         GivenName astrid = new GivenName();
         astrid.setId(1L);
         astrid.setName("Astrid");
-        when(givenNameRepository.findAll()).thenReturn(List.of(astrid));
+        when(givenNameRepository.findByNameIn(any(List.class))).thenReturn(List.of(astrid));
 
         // The LLM returns advice that includes Astrid (a hallucinated name)
         ChatCompletionResponse response = new ChatCompletionResponse();
@@ -393,7 +394,7 @@ class FullNameAdviceServiceTest {
         assertThat(result).doesNotContain("Astrid");
         assertThat(result).contains("John and Michael flow well together.");
         assertThat(result).contains("[name redacted] for a girl's name.");
-        verify(givenNameRepository).findAll();
+        verify(givenNameRepository).findByNameIn(any(List.class));
     }
 
     @Test
@@ -402,11 +403,11 @@ class FullNameAdviceServiceTest {
         mockAuthenticatedUser();
         when(llmGateway.isAvailable()).thenReturn(true);
 
-        // Mock the database - no known names appear in the advice
+        // Mock the database - Olivia is in DB but doesn't appear in advice (and John/Michael are selected)
         GivenName otherName = new GivenName();
         otherName.setId(1L);
         otherName.setName("Olivia");
-        when(givenNameRepository.findAll()).thenReturn(List.of(otherName));
+        when(givenNameRepository.findByNameIn(any(List.class))).thenReturn(List.of(otherName));
 
         // The LLM returns advice that doesn't mention any names from the DB (except the selected ones)
         ChatCompletionResponse response = new ChatCompletionResponse();
@@ -423,6 +424,59 @@ class FullNameAdviceServiceTest {
 
         // Then - advice should be unchanged (Olivia is not mentioned, John/Michael are selected)
         assertThat(result).contains("John and Michael flow well together with Smith.");
-        verify(givenNameRepository).findAll();
+        verify(givenNameRepository).findByNameIn(any(List.class));
+    }
+
+    @Test
+    void generateAdvice_usesBoundedQuery_withRealisticNameCount() throws Exception {
+        // Given - create a realistic number of names (a few thousand)
+        mockAuthenticatedUser();
+        when(llmGateway.isAvailable()).thenReturn(true);
+
+        // Create 3000 names to simulate a realistic database
+        int nameCount = 3000;
+        List<GivenName> allNames = new ArrayList<>();
+        for (int i = 0; i < nameCount; i++) {
+            GivenName name = new GivenName();
+            name.setId((long) i);
+            name.setName("Name" + i);
+            allNames.add(name);
+        }
+
+        // The advice mentions only "Name100" and "Name2000" (both in DB)
+        // but not all 3000 names - the bounded query should only look for candidates
+        when(givenNameRepository.findByNameIn(any(List.class)))
+                .thenAnswer(invocation -> {
+                    // Verify that only a small number of candidates are queried (bounded)
+                    List<String> candidates = invocation.getArgument(0);
+                    // With tokenization we expect ~5-10 candidates, not 3000
+                    assertThat(candidates.size()).isLessThan(100);
+                    // Verify the candidates are actual name-like words from the advice
+                    assertThat(candidates).contains("Name100");
+                    assertThat(candidates).contains("Name2000");
+                    // Filter to only those that actually exist in the DB
+                    return allNames.stream()
+                            .filter(n -> candidates.contains(n.getName()))
+                            .toList();
+                });
+
+        // The LLM returns advice mentioning specific names from the DB
+        ChatCompletionResponse response = new ChatCompletionResponse();
+        ChatCompletionResponse.Choice choice = new ChatCompletionResponse.Choice();
+        ChatMessage message = new ChatMessage(ChatMessage.Role.ASSISTANT,
+                "The names John and Name100 flow well together. Name2000 is also a good choice.");
+        choice.setMessage(message);
+        response.setChoices(List.of(choice));
+
+        when(llmGateway.chatCompletion(any(ChatCompletionRequest.class))).thenReturn(response);
+
+        // When
+        String result = adviceService.generateAdvice("Smith", List.of("John"), List.of("US"), "en");
+
+        // Then - Name100 and Name2000 are not in selected names (only John), so they are hallucinations
+        // and should be stripped. The bounded query was used (verified in the mock answer).
+        assertThat(result).contains("[name redacted]");
+        // Verify the bounded query was used
+        verify(givenNameRepository).findByNameIn(any(List.class));
     }
 }
