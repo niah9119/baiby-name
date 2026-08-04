@@ -250,7 +250,9 @@
                     </div>
 
                     <!-- Pagination -->
-                    <div th:if="${not candidates.empty}" class="mt-6 flex items-center justify-center gap-2">
+                    <div th:if="${not candidates.empty}" class="mt-6 flex items-center justify-center gap-2"
+                         hx-target="#candidate-list"
+                         hx-swap="innerHTML">
                         <button th:if="${candidates.hasPrevious()}"
                                 th:hx-get="@{/browse/page(page=${candidates.number - 1}, pageSize=${candidates.size})}"
                                 class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -260,8 +262,8 @@
                         </button>
 
                         <span class="px-4 py-2 text-sm text-gray-600"
-                              th:text="#{pagination.of} + ' ' + ${candidates.number + 1} + ' ' + #{pagination.of} + ' ' + ${candidates.totalPages}">
-                            1 of 10
+                              th:text="#{pagination.page(${candidates.number + 1}, ${candidates.totalPages})}">
+                            Page 1 of 10
                         </span>
 
                         <button th:if="${candidates.hasNext()}"
