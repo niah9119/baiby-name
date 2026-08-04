@@ -163,6 +163,27 @@ into whatever branch it is on, and `git add -A` in the rescue step would sweep t
 PR. Agents do use `git stash` — #57's round used it twice. If a PR ever shows changes to
 files unrelated to its issue, check this list first.
 
+
+## Flyway migration numbers collide across branches (2026-08-04)
+
+`main` has V1-V4. Two open branches each added a **V5**:
+
+| branch | migration |
+|---|---|
+| `issue-61` | `V5__sex_canonical_constraint.sql` |
+| `issue-19` | `V5__famous_bearer_wikidata_id.sql` |
+
+Flyway refuses to start with two migrations at the same version, so whichever merges second
+breaks application startup — and it surfaces at boot, looking unrelated to the merge.
+
+**Before merging a branch that adds a migration**, check whether another open branch claims
+the same number, and renumber the later one. Nothing in the harness allocates versions, so
+every agent independently takes "the next number after main", which is correct in isolation
+and wrong whenever two branches are open at once.
+
+Worth considering a timestamp-based naming scheme (`V20260804120000__...`), which is the
+standard answer to exactly this and removes the coordination problem entirely.
+
 ## Running the loop
 
     ./scripts/ralph/agent-loop.sh --max 1 --scope ""
