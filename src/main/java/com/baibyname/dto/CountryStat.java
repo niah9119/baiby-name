@@ -38,7 +38,13 @@ public record CountryStat(
         /**
          * The sum of counts across all years.
          */
-        int totalCount
+        int totalCount,
+
+        /**
+         * The number of years the name appeared in the top 100.
+         * null if no stats have a rank.
+         */
+        Integer yearsInTop100
 ) {
     /**
      * Build a CountryStat from a list of NameStat entries for one country.
@@ -49,7 +55,7 @@ public record CountryStat(
      */
     public static CountryStat from(String countryCode, List<com.baibyname.domain.NameStat> stats) {
         if (stats == null || stats.isEmpty()) {
-            return new CountryStat(countryCode, "", "", null, 0);
+            return new CountryStat(countryCode, "", "", null, 0, null);
         }
 
         // Determine sex: check if name appears with both Boy and Girl
@@ -97,11 +103,21 @@ public record CountryStat(
                 .min(Integer::compareTo)
                 .orElse(null);
 
+        // Count years in top 100 (rank <= 100)
+        // Count distinct years where rank is not null and rank <= 100
+        long yearsInTop100Count = stats.stream()
+                .filter(ns -> ns.getRank() != null && ns.getRank() > 0 && ns.getRank() <= 100)
+                .map(com.baibyname.domain.NameStat::getYear)
+                .distinct()
+                .count();
+
+        Integer yearsInTop100 = yearsInTop100Count > 0 ? (int) yearsInTop100Count : null;
+
         // Sum counts
         int totalCount = stats.stream()
                 .mapToInt(com.baibyname.domain.NameStat::getCount)
                 .sum();
 
-        return new CountryStat(countryCode, sex, yearRange, highestRank, totalCount);
+        return new CountryStat(countryCode, sex, yearRange, highestRank, totalCount, yearsInTop100);
     }
 }
