@@ -14,10 +14,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Service for managing shortlists.
@@ -32,6 +35,7 @@ import java.util.Optional;
  *   <li>Entries record which member added them</li>
  *   <li>Implicit creation: an account gets a shortlist on first add</li>
  *   <li>Cascade delete: when an account is deleted, its shortlist and entries are removed</li>
+ *   <li>Anonymous sessions: a shortlist can exist without an account, tied to a session token</li>
  * </ul>
  */
 @Service
@@ -56,18 +60,48 @@ public class ShortlistService {
     }
 
     /**
-     * Get the current authenticated user's shortlist.
+     * Get the owner (account or session token) for the current request.
+     * Anonymous users get a session token; authenticated users get their account.
      *
-     * @return the shortlist for the authenticated account, or empty if none exists
+     * @return an owner object containing either an account or a session token
+     */
+    private Owner resolveOwner() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            String username = authentication.getName();
+            Account account = accountRepository.findByEmail(username).orElse(null);
+            if (account != null) {
+                return new Owner(account);
+            }
+        }
+        // Try to get session token from RequestAttributes (Spring's way of accessing session)
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes != null) {
+            String sessionToken = (String) requestAttributes.getAttribute("baibyname.session.token", RequestAttributes.SCOPE_SESSION);
+            if (sessionToken == null) {
+                // Generate a new session token if none exists
+                sessionToken = UUID.randomUUID().toString();
+                requestAttributes.setAttribute("baibyname.session.token", sessionToken, RequestAttributes.SCOPE_SESSION);
+            }
+            return new Owner(sessionToken);
+        }
+        return null;
+    }
+
+    /**
+     * Get the current user's shortlist (for authenticated users) or session shortlist (for anonymous).
+     *
+     * @return the shortlist for the current user/session, or empty if none exists
      */
     public Optional<Shortlist> getCurrentUserShortlist() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        Owner owner = resolveOwner();
+        if (owner == null) {
             return Optional.empty();
         }
-        String username = authentication.getName();
-        return accountRepository.findByEmail(username)
-                .flatMap(this::getShortlistForAccount);
+        if (owner.account != null) {
+            return getShortlistForAccount(owner.account);
+        }
+        return getShortlistForSession(owner.sessionToken);
     }
 
     /**
@@ -84,31 +118,39 @@ public class ShortlistService {
     }
 
     /**
+     * Get the shortlist for a session token.
+     *
+     * @param sessionToken the session token
+     * @return the shortlist for the session, or empty if none exists
+     */
+    public Optional<Shortlist> getShortlistForSession(String sessionToken) {
+        return shortlistMemberRepository.findBySessionToken(sessionToken)
+                .map(ShortlistMember::getShortlist);
+    }
+
+    /**
      * Add a given name to the current user's shortlist.
-     * Creates a shortlist implicitly if the user doesn't have one.
-     * Validates that the user's shortlist has fewer than one member (v1 cap).
+     * Creates a shortlist implicitly if the user/session doesn't have one.
+     * Validates that the shortlist has fewer than one member (v1 cap).
      *
      * @param givenNameId the ID of the given name to add
      * @return true if added successfully, false if the shortlist is at capacity
      */
     @Transactional
     public boolean addToShortlist(Long givenNameId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        Owner owner = resolveOwner();
+        if (owner == null) {
             return false;
         }
 
-        String username = authentication.getName();
-        Optional<Account> accountOpt = accountRepository.findByEmail(username);
-
-        if (accountOpt.isEmpty()) {
-            return false;
+        // Get or create shortlist for this owner
+        Optional<Shortlist> shortlistOpt;
+        if (owner.account != null) {
+            shortlistOpt = getShortlistForAccount(owner.account);
+        } else {
+            shortlistOpt = getShortlistForSession(owner.sessionToken);
         }
 
-        Account account = accountOpt.get();
-
-        // Get or create shortlist for this account
-        Optional<Shortlist> shortlistOpt = getShortlistForAccount(account);
         Shortlist shortlist = shortlistOpt.orElseGet(() -> {
             Shortlist s = new Shortlist();
             s.setName("My Shortlist");
@@ -116,26 +158,31 @@ public class ShortlistService {
             return shortlistRepository.save(s);
         });
 
-        // Get the member for this account (or create if not exists)
-        ShortlistMember member = shortlistMemberRepository.findByShortlistAndAccount(shortlist, account)
-                .orElseGet(() -> {
-                    // Validate the member cap: v1 enforces one member per shortlist
-                    // Only check when creating a new member (i.e., someone else trying to join)
-                    long memberCount = shortlistMemberRepository.countByShortlist(shortlist);
-                    if (memberCount >= 1) {
-                        // At capacity - no more members allowed in v1
-                        return null;
-                    }
-                    ShortlistMember m = new ShortlistMember();
-                    m.setShortlist(shortlist);
-                    m.setAccount(account);
-                    m.setCreatedAt(OffsetDateTime.now());
-                    return shortlistMemberRepository.save(m);
-                });
+        // Get or create the member for this owner (account or session)
+        ShortlistMember member = null;
+        if (owner.account != null) {
+            member = shortlistMemberRepository.findByShortlistAndAccount(shortlist, owner.account)
+                    .orElse(null);
+        } else {
+            member = shortlistMemberRepository.findBySessionToken(owner.sessionToken)
+                    .orElse(null);
+        }
 
         if (member == null) {
-            // Someone else owns this shortlist; v1 allows one member
-            return false;
+            // Create new member - validate the member cap first
+            long memberCount = shortlistMemberRepository.countByShortlist(shortlist);
+            if (memberCount >= 1) {
+                // At capacity - no more members allowed in v1
+                return false;
+            }
+            member = new ShortlistMember();
+            member.setShortlist(shortlist);
+            if (owner.account != null) {
+                member.setAccount(owner.account);
+            }
+            member.setSessionToken(owner.sessionToken);
+            member.setCreatedAt(OffsetDateTime.now());
+            member = shortlistMemberRepository.save(member);
         }
 
         // Check if the name is already in the shortlist
@@ -174,30 +221,31 @@ public class ShortlistService {
      */
     @Transactional
     public boolean removeFromShortlist(Long givenNameId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        Owner owner = resolveOwner();
+        if (owner == null) {
             return false;
         }
 
-        String username = authentication.getName();
-        Optional<Account> accountOpt = accountRepository.findByEmail(username);
-
-        if (accountOpt.isEmpty()) {
-            return false;
+        // Find the user's/session's shortlist
+        Optional<Shortlist> shortlistOpt;
+        if (owner.account != null) {
+            shortlistOpt = getShortlistForAccount(owner.account);
+        } else {
+            shortlistOpt = getShortlistForSession(owner.sessionToken);
         }
-
-        Account account = accountOpt.get();
-
-        // Find the user's shortlist
-        Optional<Shortlist> shortlistOpt = getShortlistForAccount(account);
         if (shortlistOpt.isEmpty()) {
             return false;
         }
 
         Shortlist shortlist = shortlistOpt.get();
 
-        // Find the member
-        Optional<ShortlistMember> memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, account);
+        // Find the member (account or session-based)
+        Optional<ShortlistMember> memberOpt;
+        if (owner.account != null) {
+            memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, owner.account);
+        } else {
+            memberOpt = shortlistMemberRepository.findBySessionToken(owner.sessionToken);
+        }
         if (memberOpt.isEmpty()) {
             return false;
         }
@@ -260,7 +308,7 @@ public class ShortlistService {
     }
 
     /**
-     * Get all entries in the current user's shortlist.
+     * Get all entries in the current user's shortlist (or session shortlist for anonymous).
      *
      * @return list of entries, or empty list if no shortlist exists
      */
@@ -315,26 +363,24 @@ public class ShortlistService {
     }
 
     /**
-     * Check if a given name is in the current user's shortlist.
+     * Check if a given name is in the current user's shortlist (or session shortlist for anonymous).
      *
      * @param givenNameId the ID of the given name
      * @return true if the name is in the shortlist
      */
     public boolean isNameInShortlist(Long givenNameId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        Owner owner = resolveOwner();
+        if (owner == null) {
             return false;
         }
 
-        String username = authentication.getName();
-        Optional<Account> accountOpt = accountRepository.findByEmail(username);
-
-        if (accountOpt.isEmpty()) {
-            return false;
+        // Find the user's/session's shortlist
+        Optional<Shortlist> shortlistOpt;
+        if (owner.account != null) {
+            shortlistOpt = getShortlistForAccount(owner.account);
+        } else {
+            shortlistOpt = getShortlistForSession(owner.sessionToken);
         }
-
-        Account account = accountOpt.get();
-        Optional<Shortlist> shortlistOpt = getShortlistForAccount(account);
 
         if (shortlistOpt.isEmpty()) {
             return false;
@@ -342,14 +388,27 @@ public class ShortlistService {
 
         Shortlist shortlist = shortlistOpt.get();
 
-        Optional<ShortlistMember> memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, account);
+        Optional<ShortlistMember> memberOpt;
+        if (owner.account != null) {
+            memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, owner.account);
+        } else {
+            memberOpt = shortlistMemberRepository.findBySessionToken(owner.sessionToken);
+        }
 
         if (memberOpt.isEmpty()) {
             return false;
         }
 
-        return shortlistEntryRepository.findByShortlistAndGivenNameIdAndMember(shortlist, givenNameId, memberOpt.get())
-                .isPresent();
+        ShortlistMember member = memberOpt.get();
+        if (member.getAccount() != null) {
+            // Account-based lookup
+            return shortlistEntryRepository.findByShortlistAndGivenNameIdAndMember(shortlist, givenNameId, member)
+                    .isPresent();
+        } else {
+            // Session-based lookup
+            return shortlistEntryRepository.findByShortlistAndGivenNameIdAndSessionToken(shortlist, givenNameId, member.getSessionToken())
+                    .isPresent();
+        }
     }
 
     /**
@@ -403,5 +462,104 @@ public class ShortlistService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /**
+     * Adopt an anonymous session shortlist into an account's shortlist.
+     * This is called when an anonymous visitor logs in.
+     * If the account already has a shortlist, the session entries are merged.
+     *
+     * @param accountId the account ID to adopt into
+     * @param sessionToken the session token to adopt from
+     * @return true if adoption was successful
+     */
+    @Transactional
+    public boolean adoptSessionShortlist(Long accountId, String sessionToken) {
+        Account account = accountRepository.findById(accountId).orElse(null);
+        if (account == null) {
+            return false;
+        }
+
+        // Get the session shortlist member
+        Optional<ShortlistMember> sessionMemberOpt = shortlistMemberRepository.findBySessionToken(sessionToken);
+        if (sessionMemberOpt.isEmpty()) {
+            // No session shortlist to adopt
+            return true;
+        }
+
+        ShortlistMember sessionMember = sessionMemberOpt.get();
+        Shortlist sessionShortlist = sessionMember.getShortlist();
+
+        // Get or create account's shortlist
+        Optional<Shortlist> accountShortlistOpt = getShortlistForAccount(account);
+        Shortlist accountShortlist;
+        if (accountShortlistOpt.isPresent()) {
+            accountShortlist = accountShortlistOpt.get();
+        } else {
+            accountShortlist = new Shortlist();
+            accountShortlist.setName("My Shortlist");
+            accountShortlist.setCreatedAt(OffsetDateTime.now());
+            accountShortlist = shortlistRepository.save(accountShortlist);
+
+            // Create account member
+            ShortlistMember accountMember = new ShortlistMember();
+            accountMember.setShortlist(accountShortlist);
+            accountMember.setAccount(account);
+            accountMember.setCreatedAt(OffsetDateTime.now());
+            shortlistMemberRepository.save(accountMember);
+        }
+
+        // Merge session entries into account's shortlist
+        List<ShortlistEntry> sessionEntries = shortlistEntryRepository.findEntriesByShortlist(sessionShortlist);
+
+        for (ShortlistEntry sessionEntry : sessionEntries) {
+            // Check if this entry already exists in account's shortlist
+            Optional<ShortlistEntry> existingEntry = shortlistEntryRepository
+                    .findByShortlistAndGivenNameAndMember(accountShortlist, sessionEntry.getGivenName(), sessionMember);
+
+            if (existingEntry.isEmpty()) {
+                // Create new entry in account's shortlist
+                ShortlistEntry newEntry = new ShortlistEntry();
+                newEntry.setShortlist(accountShortlist);
+                newEntry.setGivenName(sessionEntry.getGivenName());
+                newEntry.setMember(sessionMember);
+                newEntry.setAddedAt(OffsetDateTime.now());
+                shortlistEntryRepository.save(newEntry);
+            }
+        }
+
+        // Clean up: delete session member (entries will be orphaned and need cleanup)
+        // Actually, we should not delete the session entries yet - they might be accessed
+        // Let's just remove the session link by clearing the session_token
+        sessionMember.setSessionToken(null);
+        shortlistMemberRepository.save(sessionMember);
+
+        return true;
+    }
+
+    /**
+     * Internal class representing an owner - either an account or a session token.
+     */
+    private static class Owner {
+        final Account account;
+        final String sessionToken;
+
+        Owner(Account account) {
+            this.account = account;
+            this.sessionToken = null;
+        }
+
+        Owner(String sessionToken) {
+            this.account = null;
+            this.sessionToken = sessionToken;
+        }
+
+        boolean isAccountOwner() {
+            return account != null;
+        }
+
+        boolean isSessionOwner() {
+            return sessionToken != null;
+        }
     }
 }

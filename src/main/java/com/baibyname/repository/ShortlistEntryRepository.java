@@ -3,6 +3,7 @@ package com.baibyname.repository;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.Shortlist;
 import com.baibyname.domain.ShortlistEntry;
+import com.baibyname.domain.ShortlistMember;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,7 +16,7 @@ import java.util.Optional;
 public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, Long> {
 
     Optional<ShortlistEntry> findByShortlistAndGivenNameAndMember(
-        Shortlist shortlist, GivenName givenName, com.baibyname.domain.ShortlistMember member);
+        Shortlist shortlist, GivenName givenName, ShortlistMember member);
 
     @Query("""
         SELECT se FROM ShortlistEntry se
@@ -26,7 +27,18 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
     Optional<ShortlistEntry> findByShortlistAndGivenNameIdAndMember(
         @Param("shortlist") Shortlist shortlist,
         @Param("givenNameId") Long givenNameId,
-        @Param("member") com.baibyname.domain.ShortlistMember member);
+        @Param("member") ShortlistMember member);
+
+    @Query("""
+        SELECT se FROM ShortlistEntry se
+        WHERE se.shortlist = :shortlist
+        AND se.givenName.id = :givenNameId
+        AND se.member.sessionToken = :sessionToken
+        """)
+    Optional<ShortlistEntry> findByShortlistAndGivenNameIdAndSessionToken(
+        @Param("shortlist") Shortlist shortlist,
+        @Param("givenNameId") Long givenNameId,
+        @Param("sessionToken") String sessionToken);
 
     @Query("""
         SELECT se FROM ShortlistEntry se
@@ -41,7 +53,7 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
         JOIN FETCH se.shortlist
         WHERE se.member = :member
         """)
-    List<ShortlistEntry> findEntriesByMember(@Param("member") com.baibyname.domain.ShortlistMember member);
+    List<ShortlistEntry> findEntriesByMember(@Param("member") ShortlistMember member);
 
     @Modifying
     @Query("DELETE FROM ShortlistEntry se WHERE se.member.account.id = :accountId")

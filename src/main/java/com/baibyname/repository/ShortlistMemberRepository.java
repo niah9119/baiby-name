@@ -30,6 +30,9 @@ public interface ShortlistMemberRepository extends JpaRepository<ShortlistMember
         """)
     List<ShortlistMember> findMembersByAccount(@Param("account") Account account);
 
+    @Query("SELECT sm FROM ShortlistMember sm WHERE sm.sessionToken = :sessionToken")
+    Optional<ShortlistMember> findBySessionToken(@Param("sessionToken") String sessionToken);
+
     @Modifying
     @Query("DELETE FROM ShortlistMember sm WHERE sm.account.id = :accountId")
     void deleteAllByAccountId(@Param("accountId") Long accountId);

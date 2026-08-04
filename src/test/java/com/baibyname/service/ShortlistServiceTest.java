@@ -333,6 +333,7 @@ class ShortlistServiceTest {
         ShortlistMember member = new ShortlistMember();
         member.setId(1L);
         member.setShortlist(shortlist);
+        member.setAccount(account);
 
         GivenName givenName = new GivenName();
         givenName.setId(givenNameId);

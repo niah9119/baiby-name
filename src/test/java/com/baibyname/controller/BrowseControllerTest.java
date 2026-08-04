@@ -542,7 +542,7 @@ class BrowseControllerTest {
     }
 
     @Test
-    void anonymousUser_seesLoginRequiredButton() throws Exception {
+    void anonymousUser_seesShortlistButton() throws Exception {
         // Clear authentication for anonymous access
         SecurityContextHolder.clearContext();
 
@@ -562,10 +562,11 @@ class BrowseControllerTest {
         stat.setCreatedAt(OffsetDateTime.now());
         nameStatRepository.save(stat);
 
-        // Act
+        // Act: anonymous users should now see an enabled shortlist button
         mockMvc.perform(get("/browse"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("disabled")));
+                .andExpect(content().string(containsString("hx-post=\"/shortlist/add/")))
+                .andExpect(content().string(containsString("data-given-name-id")));
     }
 
     /**
