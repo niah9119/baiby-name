@@ -194,4 +194,11 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
         AND gn.id != :id
         """)
     List<GivenName> findSimilarBySharedCountries(@Param("id") Long id, Pageable pageable);
+
+    /**
+     * Find a chunk of all names for sitemap pagination.
+     * Used to split sitemap into multiple files under the 50k URL limit.
+     */
+    @Query("SELECT gn.name FROM GivenName gn ORDER BY gn.name ASC")
+    List<String> findAllChunk(Pageable pageable);
 }
