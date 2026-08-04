@@ -25,6 +25,12 @@ public class FilterStateService {
     private FilterState state = new FilterState();
 
     /**
+     * Version counter that increments when any filter changes.
+     * Used to invalidate cached ranked candidates.
+     */
+    private int filterVersion = 0;
+
+    /**
      * Get the current filter state for this session.
      *
      * @return the current filter state (never null)
@@ -34,12 +40,31 @@ public class FilterStateService {
     }
 
     /**
+     * Get the current filter version.
+     * This increments whenever any filter is modified.
+     *
+     * @return the current filter version
+     */
+    public int getFilterVersion() {
+        return filterVersion;
+    }
+
+    /**
+     * Increment the filter version.
+     * Call this whenever any filter is modified.
+     */
+    private void incrementFilterVersion() {
+        this.filterVersion++;
+    }
+
+    /**
      * Update the filter state with a new state.
      *
      * @param newState the new filter state to apply
      */
     public void updateState(FilterState newState) {
         this.state = newState;
+        incrementFilterVersion();
     }
 
     /**
@@ -47,6 +72,7 @@ public class FilterStateService {
      */
     public void reset() {
         this.state = new FilterState();
+        incrementFilterVersion();
     }
 
     /**
@@ -56,6 +82,7 @@ public class FilterStateService {
      */
     public void addSex(String sex) {
         this.state.getSexes().add(sex);
+        incrementFilterVersion();
     }
 
     /**
@@ -65,6 +92,7 @@ public class FilterStateService {
      */
     public void removeSex(String sex) {
         this.state.getSexes().remove(sex);
+        incrementFilterVersion();
     }
 
     /**
@@ -87,6 +115,7 @@ public class FilterStateService {
      */
     public void addCountry(String country) {
         this.state.getCountries().add(country);
+        incrementFilterVersion();
     }
 
     /**
@@ -96,6 +125,7 @@ public class FilterStateService {
      */
     public void removeCountry(String country) {
         this.state.getCountries().remove(country);
+        incrementFilterVersion();
     }
 
     /**
@@ -120,6 +150,7 @@ public class FilterStateService {
      */
     public void setCelebrityFilter(Boolean withCelebrity) {
         this.state.setCelebrityFilter(withCelebrity);
+        incrementFilterVersion();
     }
 
     /**
@@ -131,6 +162,7 @@ public class FilterStateService {
      */
     public void setPopularityFilter(String filterType) {
         this.state.setPopularityFilter(filterType);
+        incrementFilterVersion();
     }
 
     /**
