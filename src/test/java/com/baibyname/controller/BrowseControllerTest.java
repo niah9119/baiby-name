@@ -598,4 +598,85 @@ class BrowseControllerTest {
         // Verify: rankerService was NOT called
         verifyNoInteractions(rankerService);
     }
+
+    /**
+     * End-to-end test that verifies CSRF token is properly rendered in the HTML
+     * and can be used for state-changing requests without using MockMvc's .with(csrf()).
+     * This test exercises the real browser wiring that would be used by HTMX.
+     */
+    @Test
+    void csrfTokenIsRenderedAndWorksForFiltering() throws Exception {
+        // Setup: create a name with stats so candidate list renders
+        GivenName testName = new GivenName();
+        testName.setName("CSRFTestName" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Create a session FIRST - this is the session that will be used throughout
+        // The CSRF token is stored in the session, so we need to use the same session
+        // for both the GET (to render the page with the token) and the POST (to use it)
+        MockHttpSession session = new MockHttpSession();
+
+        // First, render the browse page and extract the CSRF token from the HTML
+        // Use the same session for the GET request
+        String responseHtml = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Extract CSRF token and header name from meta tags - this is what JavaScript would do
+        String csrfToken = extractCsrfToken(responseHtml);
+        assertThat(csrfToken).isNotNull().isNotEmpty();
+
+        String csrfHeaderName = extractCsrfHeaderName(responseHtml);
+        assertThat(csrfHeaderName).isNotNull().isNotEmpty();
+
+        // POST with the extracted token and header name using the SAME session
+        // This simulates real browser behavior where the session is maintained
+        mockMvc.perform(post("/browse/filter/sex/Boy")
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("CSRFTestName")));
+    }
+
+    /**
+     * Extracts the CSRF token from the HTML meta tag using a simple regex pattern.
+     * This simulates what JavaScript does with document.querySelector('meta[name="_csrf"]').
+     */
+    private String extractCsrfToken(String html) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "<meta[^>]+name=[\"']_csrf[\"'][^>]+content=[\"']([^\"']+)[\"']");
+        java.util.regex.Matcher matcher = pattern.matcher(html);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    /**
+     * Extracts the CSRF header name from the HTML meta tag using a simple regex pattern.
+     * This simulates what JavaScript does with document.querySelector('meta[name="_csrf_header"]').
+     */
+    private String extractCsrfHeaderName(String html) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "<meta[^>]+name=[\"']_csrf_header[\"'][^>]+content=[\"']([^\"']+)[\"']");
+        java.util.regex.Matcher matcher = pattern.matcher(html);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
 }
