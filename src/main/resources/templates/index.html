@@ -5,6 +5,42 @@
     <meta name="description" content="Find the perfect baby name for your child. Browse thousands of names, filter by country and popularity.">
 </head>
 <body>
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/" class="font-bold text-xl text-blue-600">
+                            <i class="fa-solid fa-child-reaching mr-2"></i>BaibyName
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a th:href="@{/browse}" class="nav-link" th:text="#{nav.browse}">Browse</a>
+                        <a th:href="@{/interview}" class="nav-link" th:text="#{nav.interview}">Interview</a>
+                        <a th:href="@{/shortlist}" class="nav-link" th:text="#{nav.shortlist}">Shortlist</a>
+                        <a th:href="@{/advice}" class="nav-link" th:text="#{nav.advice}">Advice</a>
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                    <div class="ml-3 relative" th:unless="${authenticated}">
+                        <a th:href="@{/login}" class="btn-secondary" th:text="#{nav.login}">
+                            <i class="fa-solid fa-user mr-2"></i>Log in
+                        </a>
+                    </div>
+                    <div class="ml-3 relative" th:if="${authenticated}">
+                        <span class="text-gray-600 px-3 py-2 text-sm" th:text="#{nav.hello}">
+                            Hello,
+                        </span>
+                        <a th:href="@{/account}" class="btn-secondary" th:text="#{nav.account}">
+                            <i class="fa-solid fa-user mr-2"></i>Account
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
     <main class="flex-grow">
         <!-- Hero Section -->
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -16,10 +52,10 @@
                     Browse thousands of names, filter by country and popularity, and get LLM-powered advice on name combinations.
                 </p>
                 <div class="mt-8 flex justify-center gap-4">
-                    <a href="#" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-block" th:text="#{index.cta.browse}">
+                    <a th:href="@{/browse}" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-block" th:text="#{index.cta.browse}">
                         Browse Names
                     </a>
-                    <a href="#" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-block" th:text="#{index.cta.interview}">
+                    <a th:href="@{/interview}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-block" th:text="#{index.cta.interview}">
                         Start Interview
                     </a>
                 </div>
@@ -62,7 +98,7 @@
                 <p class="text-blue-100 text-lg mb-6" th:text="#{index.signup.subtitle}">
                     Join thousands of expecting parents finding the perfect name for their baby.
                 </p>
-                <a href="#" class="inline-block bg-white text-blue-600 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors" th:text="#{index.signup.cta}">
+                <a th:href="@{/login}" class="inline-block bg-white text-blue-600 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors" th:text="#{index.signup.cta}">
                     Get Started Now
                 </a>
             </div>
