@@ -80,7 +80,7 @@ class NameLandingPageIntegrationTest {
         sweden = countryRepository.findByCode("SE").orElseThrow();
 
         testName = new GivenName();
-        testName.setName("Elsa" + System.currentTimeMillis());
+        testName.setName("Elsa" + System.nanoTime());
         testName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName);
 
@@ -110,7 +110,7 @@ class NameLandingPageIntegrationTest {
     @Test
     void landingPageReturns404ForUnknownName() throws Exception {
         // Act & Assert
-        mockMvc.perform(get("/names/NonExistentName" + System.currentTimeMillis()))
+        mockMvc.perform(get("/names/NonExistentName" + System.nanoTime()))
                 .andExpect(status().isNotFound());
     }
 
@@ -118,7 +118,7 @@ class NameLandingPageIntegrationTest {
     void landingPageShowsNameAndStats() throws Exception {
         // Setup - use a different name to avoid duplicate stats
         GivenName testName2 = new GivenName();
-        testName2.setName("Oliver" + System.currentTimeMillis());
+        testName2.setName("Oliver" + System.nanoTime());
         testName2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName2);
 
@@ -144,7 +144,7 @@ class NameLandingPageIntegrationTest {
     void landingPageShowsFamousBearers() throws Exception {
         // Setup - create name and bearer separately
         GivenName testName2 = new GivenName();
-        testName2.setName("Leo" + System.currentTimeMillis());
+        testName2.setName("Leo" + System.nanoTime());
         testName2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName2);
 
@@ -171,7 +171,7 @@ class NameLandingPageIntegrationTest {
     void sitemapListsAllNames() throws Exception {
         // Setup - create another name
         GivenName testName2 = new GivenName();
-        testName2.setName("Oliver" + System.currentTimeMillis());
+        testName2.setName("Oliver" + System.nanoTime());
         testName2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(testName2);
 
@@ -209,7 +209,7 @@ class NameLandingPageIntegrationTest {
     void nonAsciiNameUrlRoundTrips() throws Exception {
         // Setup
         GivenName specialName = new GivenName();
-        specialName.setName("Åke" + System.currentTimeMillis());
+        specialName.setName("Åke" + System.nanoTime());
         specialName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(specialName);
 

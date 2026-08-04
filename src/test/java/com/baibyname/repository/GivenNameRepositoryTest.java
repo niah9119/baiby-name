@@ -57,7 +57,7 @@ class GivenNameRepositoryTest {
     void findByGivenNameReturnsCorrectName() {
         // Setup
         var givenName = new GivenName();
-        givenName.setName("Elsa" + System.currentTimeMillis());
+        givenName.setName("Elsa" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName);
 
@@ -72,7 +72,7 @@ class GivenNameRepositoryTest {
     @Test
     void findByGivenNameNotFoundReturnsEmpty() {
         // Act
-        var result = givenNameRepository.findByName("NonExistent" + System.currentTimeMillis());
+        var result = givenNameRepository.findByName("NonExistent" + System.nanoTime());
 
         // Assert
         assertThat(result).isEmpty();
@@ -82,7 +82,7 @@ class GivenNameRepositoryTest {
     void findSexesForGivenNameAndCountry() {
         // Setup
         var givenName = new GivenName();
-        givenName.setName("SexesName" + System.currentTimeMillis());
+        givenName.setName("SexesName" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName);
 
@@ -107,7 +107,7 @@ class GivenNameRepositoryTest {
     void findSexesForGivenNameAndCountryReturnsEmptyWhenNoStats() {
         // Setup: create a new given name without stats
         var givenNameWithoutStats = new GivenName();
-        givenNameWithoutStats.setName("NoStats" + System.currentTimeMillis());
+        givenNameWithoutStats.setName("NoStats" + System.nanoTime());
         givenNameWithoutStats.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenNameWithoutStats);
 
@@ -122,7 +122,7 @@ class GivenNameRepositoryTest {
     void findStatsForGivenNameAndCountries() {
         // Setup
         var givenName = new GivenName();
-        givenName.setName("StatsName" + System.currentTimeMillis());
+        givenName.setName("StatsName" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName);
 
@@ -152,7 +152,7 @@ class GivenNameRepositoryTest {
     void findByNameKnownInAllCountriesReturnsNamesInAllCountries() {
         // Setup: create a name with stats in both countries
         var nameInBoth = new GivenName();
-        nameInBoth.setName("NameInBoth" + System.currentTimeMillis());
+        nameInBoth.setName("NameInBoth" + System.nanoTime());
         nameInBoth.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(nameInBoth);
 
@@ -193,7 +193,7 @@ class GivenNameRepositoryTest {
     void findByNameKnownInAllCountriesExcludesNamesInOnlySomeCountries() {
         // Setup: create a name with stats only in country1
         var nameOnlyInCountry1 = new GivenName();
-        nameOnlyInCountry1.setName("NameOnlyInSE" + System.currentTimeMillis());
+        nameOnlyInCountry1.setName("NameOnlyInSE" + System.nanoTime());
         nameOnlyInCountry1.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(nameOnlyInCountry1);
 
@@ -222,7 +222,7 @@ class GivenNameRepositoryTest {
         int count = 3;
         for (int i = 0; i < count; i++) {
             var name = new GivenName();
-            name.setName("CountTest" + i + System.currentTimeMillis());
+            name.setName("CountTest" + i + System.nanoTime());
             name.setCreatedAt(OffsetDateTime.now());
             givenNameRepository.save(name);
 
@@ -261,7 +261,7 @@ class GivenNameRepositoryTest {
     void findBySexInAllCountries() {
         // Setup: create names with different sex distributions
         var boyName = new GivenName();
-        boyName.setName("BoyName" + System.currentTimeMillis());
+        boyName.setName("BoyName" + System.nanoTime());
         boyName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(boyName);
 
@@ -270,7 +270,7 @@ class GivenNameRepositoryTest {
         addNameStat(boyName, country2, "Boy", 2023, 50, 30);
 
         var girlName = new GivenName();
-        girlName.setName("GirlName" + System.currentTimeMillis());
+        girlName.setName("GirlName" + System.nanoTime());
         girlName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(girlName);
 
@@ -295,7 +295,7 @@ class GivenNameRepositoryTest {
         int count = 2;
         for (int i = 0; i < count; i++) {
             var name = new GivenName();
-            name.setName("BoyCountTest" + i + System.currentTimeMillis());
+            name.setName("BoyCountTest" + i + System.nanoTime());
             name.setCreatedAt(OffsetDateTime.now());
             givenNameRepository.save(name);
 
@@ -315,7 +315,7 @@ class GivenNameRepositoryTest {
     void findCommonLatelyInAllCountries() {
         // Setup: create a name that is common lately (rank <= 100 in last 5 years)
         var commonName = new GivenName();
-        commonName.setName("CommonLately" + System.currentTimeMillis());
+        commonName.setName("CommonLately" + System.nanoTime());
         commonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(commonName);
 
@@ -337,7 +337,7 @@ class GivenNameRepositoryTest {
     void findCommonLatelyInAllCountriesExcludesUncommonNames() {
         // Setup: create a name that is NOT common lately (rank > 100)
         var uncommonName = new GivenName();
-        uncommonName.setName("UncommonLately" + System.currentTimeMillis());
+        uncommonName.setName("UncommonLately" + System.nanoTime());
         uncommonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(uncommonName);
 
@@ -361,7 +361,7 @@ class GivenNameRepositoryTest {
         int count = 2;
         for (int i = 0; i < count; i++) {
             var name = new GivenName();
-            name.setName("CommonCount" + i + System.currentTimeMillis());
+            name.setName("CommonCount" + i + System.nanoTime());
             name.setCreatedAt(OffsetDateTime.now());
             givenNameRepository.save(name);
 
@@ -381,7 +381,7 @@ class GivenNameRepositoryTest {
     void findUncommonLatelyInCountries() {
         // Setup: create names that are known but NOT common lately
         var uncommonName = new GivenName();
-        uncommonName.setName("UncommonName" + System.currentTimeMillis());
+        uncommonName.setName("UncommonName" + System.nanoTime());
         uncommonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(uncommonName);
 
@@ -403,7 +403,7 @@ class GivenNameRepositoryTest {
     void findUncommonLatelyInCountriesExcludesCommonNames() {
         // Setup: create a name that IS common lately
         var commonName = new GivenName();
-        commonName.setName("CommonName" + System.currentTimeMillis());
+        commonName.setName("CommonName" + System.nanoTime());
         commonName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(commonName);
 
@@ -425,7 +425,7 @@ class GivenNameRepositoryTest {
     void isCommonLately() {
         // Setup: create a name with stats
         var name = new GivenName();
-        name.setName("IsCommonName" + System.currentTimeMillis());
+        name.setName("IsCommonName" + System.nanoTime());
         name.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name);
 
@@ -443,7 +443,7 @@ class GivenNameRepositoryTest {
     void isCommonLatelyReturnsFalseForUncommon() {
         // Setup: create a name with stats outside top 100
         var name = new GivenName();
-        name.setName("IsUncommonName" + System.currentTimeMillis());
+        name.setName("IsUncommonName" + System.nanoTime());
         name.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name);
 
@@ -475,17 +475,17 @@ class GivenNameRepositoryTest {
     void findSimilarByNameStartingWithReturnsNamesStartingWithSameLetter() {
         // Setup
         var nameA = new GivenName();
-        nameA.setName("Adam" + System.currentTimeMillis());
+        nameA.setName("Adam" + System.nanoTime());
         nameA.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(nameA);
 
         var nameB = new GivenName();
-        nameB.setName("Anna" + System.currentTimeMillis());
+        nameB.setName("Anna" + System.nanoTime());
         nameB.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(nameB);
 
         var nameC = new GivenName();
-        nameC.setName("Bertil" + System.currentTimeMillis());
+        nameC.setName("Bertil" + System.nanoTime());
         nameC.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(nameC);
 
@@ -505,7 +505,7 @@ class GivenNameRepositoryTest {
     void findSimilarByNameStartingWithExcludesOriginalName() {
         // Setup - create a name and search for it
         var givenName = new GivenName();
-        givenName.setName("TestName" + System.currentTimeMillis());
+        givenName.setName("TestName" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName);
 
@@ -522,17 +522,17 @@ class GivenNameRepositoryTest {
     void findSimilarBySharedCountriesReturnsNamesInSameCountries() {
         // Setup
         var name1 = new GivenName();
-        name1.setName("Name1Shared" + System.currentTimeMillis());
+        name1.setName("Name1Shared" + System.nanoTime());
         name1.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name1);
 
         var name2 = new GivenName();
-        name2.setName("Name2Shared" + System.currentTimeMillis());
+        name2.setName("Name2Shared" + System.nanoTime());
         name2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name2);
 
         var name3 = new GivenName();
-        name3.setName("Name3OnlySE" + System.currentTimeMillis());
+        name3.setName("Name3OnlySE" + System.nanoTime());
         name3.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(name3);
 
@@ -556,7 +556,7 @@ class GivenNameRepositoryTest {
     void findSimilarBySharedCountriesExcludesOriginalName() {
         // Setup
         var givenName = new GivenName();
-        givenName.setName("OriginalName" + System.currentTimeMillis());
+        givenName.setName("OriginalName" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName);
 
