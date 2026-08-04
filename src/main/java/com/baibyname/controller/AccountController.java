@@ -29,9 +29,13 @@ public class AccountController {
         this.consentService = consentService;
     }
 
+    @ModelAttribute("registrationForm")
+    public RegistrationForm getRegistrationForm() {
+        return new RegistrationForm();
+    }
+
     @GetMapping("/register")
-    public String showRegistrationForm(Model model) {
-        model.addAttribute("registrationForm", new RegistrationForm());
+    public String showRegistrationForm() {
         return "registration";
     }
 
@@ -60,15 +64,14 @@ public class AccountController {
         return "login";
     }
 
-    @GetMapping("/login")
-    public String showLoginForm(Model model) {
-        model.addAttribute("loginForm", new LoginForm());
-        return "login";
-    }
-
     @ModelAttribute("loginForm")
     public LoginForm getLoginForm() {
         return new LoginForm();
+    }
+
+    @GetMapping("/login")
+    public String showLoginForm() {
+        return "login";
     }
 
     @GetMapping("/logout")

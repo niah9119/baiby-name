@@ -117,10 +117,10 @@ class AccountWebMvcTest {
                 .andExpect(view().name("login"));
 
         // Login with the registered user using Spring Security's formLogin
-        // formLogin uses 'username' and 'password' parameters
+        // formLogin now uses 'email' and 'password' parameters (configured in SecurityConfig)
         MockHttpSession session = new MockHttpSession();
         mockMvc.perform(post("/login")
-                .param("username", email)
+                .param("email", email)
                 .param("password", password)
                 .with(csrf())
                 .session(session))
@@ -162,7 +162,7 @@ class AccountWebMvcTest {
 
         // Login to establish session
         mockMvc.perform(post("/login")
-                .param("username", email)
+                .param("email", email)
                 .param("password", password)
                 .with(csrf())
                 .session(session))
