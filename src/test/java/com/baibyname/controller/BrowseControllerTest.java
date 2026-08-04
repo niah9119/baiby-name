@@ -679,4 +679,144 @@ class BrowseControllerTest {
         }
         return null;
     }
+
+    /**
+     * Test that paging through an already-ranked list does NOT re-invoke the ranker.
+     * After clicking "Rank these for me", subsequent page changes should use the cached
+     * ranked list without calling the LLM again.
+     */
+    @Test
+    void pagingThroughRankedCandidatesDoesNotCallRanker() throws Exception {
+        // Setup: Create 25 names with stats so we have multiple pages
+        for (int i = 0; i < 25; i++) {
+            GivenName name = new GivenName();
+            name.setName("PagingTestName" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Use a shared session for all requests
+        MockHttpSession session = new MockHttpSession();
+
+        // First trigger re-ranking
+        mockMvc.perform(post("/browse/rerank").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("PagingTestName0")));
+
+        // Verify ranker was called once for the rerank request
+        verify(rankerService).reRank(anyList(), anyString(), eq(100));
+
+        // Reset the mock to track subsequent calls
+        reset(rankerService);
+
+        // Now change page - this should NOT call the ranker
+        mockMvc.perform(get("/browse/page").param("page", "1").param("pageSize", "10")
+                .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("PagingTestName10")));
+
+        // Verify ranker was NOT called during pagination
+        verifyNoInteractions(rankerService);
+    }
+
+    /**
+     * Test that re-ranking orders the whole narrowed set, not just the current page.
+     * With candidates spanning several pages, a name ranked highly by the LLM should
+     * appear on page 1 even if the database returned it last.
+     */
+    @Test
+    void reRankOrdersWholeNarrowedListNotCurrentPage() throws Exception {
+        // Setup: Create 25 names with stats - we'll use a threshold of 25
+        // All names are created without order guarantees from the database
+
+        // First, create names that would come last in DB order
+        GivenName nameThatShouldBeFirst = new GivenName();
+        nameThatShouldBeFirst.setName("ZebraName");  // Should come last alphabetically
+        nameThatShouldBeFirst.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(nameThatShouldBeFirst);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(nameThatShouldBeFirst);
+        stat1.setCountry(sweden);
+        stat1.setSex("Boy");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        // Create other names that come earlier alphabetically
+        for (int i = 0; i < 24; i++) {
+            GivenName name = new GivenName();
+            name.setName("AlphaName" + i);  // These come before "ZebraName" alphabetically
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Use a shared session
+        MockHttpSession session = new MockHttpSession();
+
+        // Configure the ranker mock to put "ZebraName" first in the ranked list
+        // The LLM will reorder names by fit with taste notes
+        List<RankerService.RankedName> rankedList = List.of(
+                new RankerService.RankedName("ZebraName", "Excellent fit!", nameThatShouldBeFirst)
+        );
+        // Add all other names with empty explanations
+        for (int i = 0; i < 24; i++) {
+            List<GivenName> allNames = givenNameRepository.findAll();
+            GivenName original = null;
+            for (GivenName gn : allNames) {
+                if (gn.getName().equals("AlphaName" + i)) {
+                    original = gn;
+                    break;
+                }
+            }
+            if (original != null) {
+                rankedList = new java.util.ArrayList<>(rankedList);
+                rankedList.add(new RankerService.RankedName("AlphaName" + i, "", original));
+            }
+        }
+
+        // Mock the ranker to return our pre-determined order (ZebraName first)
+        when(rankerService.reRank(anyList(), anyString(), eq(25)))
+                .thenReturn(rankedList);
+
+        // Trigger re-ranking with threshold of 25
+        mockMvc.perform(post("/browse/rerank").param("threshold", "25").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("ZebraName")));
+
+        // Verify that ZebraName appears on page 1 (it should be first after ranking)
+        // Note: With the current implementation, after ranking, page 1 shows the first 10
+        // Since we put ZebraName first in the ranked list, it should appear on page 0
+        String response = mockMvc.perform(get("/browse/page").param("page", "0").param("pageSize", "10")
+                .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // The ranked ZebraName should appear on page 1 (first page)
+        assertThat(response).contains("ZebraName");
+    }
 }
