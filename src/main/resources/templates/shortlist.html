@@ -63,7 +63,7 @@
                                 </div>
                                 <div class="flex gap-2">
                                     <button th:data-given-name-id="${entry.givenName.id}"
-                                            hx-post th:href="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
+                                            th:hx-post="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
                                             hx-swap="none"
                                             class="px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200"
                                             th:title="#{shortlist.remove}">
