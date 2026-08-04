@@ -26,6 +26,48 @@ import java.util.stream.Collectors;
 @Service
 public class BrowseService {
 
+    /**
+     * Share threshold for sex filtering.
+     *
+     * A name appears under a sex when that sex accounts for at least this percentage
+     * of the name's total recorded usage in each selected country.
+     *
+     * <p>Trade-off: We use <strong>per-country</strong> computation because:
+     * <ul>
+     *   <li>It's more correct for names like "Kim" that have different sex distributions
+     *       in different countries (Boy in Sweden, Girl in USA).</li>
+     *   <li>It's consistent with the "known in all countries" intersection semantics
+     *       used throughout the application.</li>
+     *   <li>It allows the share threshold to work correctly with country filtering.</li>
+     * </ul>
+     *
+     * A 10% threshold filters out statistically insignificant occurrences while still
+     * showing names where a sex is meaningfully represented. This avoids the problem
+     * of "Walter" appearing under "Girl" just because 3,632 American girls were named
+     * Walter since 1880 (0.6% - technically a row, but useless to parents).
+     */
+    /**
+     * Share threshold for sex filtering.
+     *
+     * A name appears under a sex when that sex accounts for at least this percentage
+     * of the name's total recorded usage in each selected country.
+     *
+     * <p>Trade-off: We use <strong>per-country</strong> computation because:
+     * <ul>
+     *   <li>It's more correct for names like "Kim" that have different sex distributions
+     *       in different countries (Boy in Sweden, Girl in USA).</li>
+     *   <li>It's consistent with the "known in all countries" intersection semantics
+     *       used throughout the application.</li>
+     *   <li>It allows the share threshold to work correctly with country filtering.</li>
+     * </ul>
+     *
+     * A 10% threshold filters out statistically insignificant occurrences while still
+     * showing names where a sex is meaningfully represented. This avoids the problem
+     * of "Walter" appearing under "Girl" just because 3,632 American girls were named
+     * Walter since 1880 (0.6% - technically a row, but useless to parents).
+     */
+    public static final double SHARE_THRESHOLD = 10.0;  // 10% (percentage value)
+
     private final GivenNameService givenNameService;
     private final GivenNameRepository givenNameRepository;
     private final CountryRepository countryRepository;
@@ -62,31 +104,29 @@ public class BrowseService {
         FilterState state = filterStateService.getState();
         List<Country> countries = resolveCountries(state.getCountries());
 
-        // If no countries selected, return all names from all countries
-        if (countries.isEmpty()) {
-            Page<GivenName> result = givenNameRepository.findAll(pageable);
-            // Eagerly initialize nameStats for template rendering
-            if (!result.isEmpty()) {
-                List<GivenName> content = result.getContent();
-                List<Long> ids = content.stream().map(GivenName::getId).toList();
-                List<com.baibyname.domain.NameStat> stats = givenNameRepository.findNameStatsByGivenNameIds(ids);
-                // Group stats by givenName
-                java.util.Map<Long, Set<com.baibyname.domain.NameStat>> statsByGivenName = stats.stream()
-                        .collect(java.util.stream.Collectors.groupingBy(ns -> ns.getGivenName().getId(), java.util.stream.Collectors.toSet()));
-                content.forEach(gn -> gn.setNameStats(statsByGivenName.getOrDefault(gn.getId(), java.util.Set.of())));
-            }
-            return result;
-        }
-
-        // Get base query results based on sex filter
+        // Get base query results - handle sex filter differently based on country selection
         Page<GivenName> result;
-        if (state.getSexes().isEmpty()) {
-            // No sex filter: find names known in all selected countries
-            result = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+
+        if (countries.isEmpty()) {
+            // No countries selected: apply sex filter globally (all countries)
+            if (state.getSexes().isEmpty()) {
+                // No sex filter: return all names
+                result = givenNameRepository.findAll(pageable);
+            } else {
+                // Apply sex filter: for each selected sex, find names where that sex has >= 10% share
+                // Use UNION of results for multiple selected sexes
+                result = getNamesWithSexShareGlobal(state.getSexes(), pageable);
+            }
         } else {
-            // Apply sex filter: names must have the selected sex in all countries
-            String firstSex = state.getSexes().iterator().next();
-            result = givenNameService.findBySexInAllCountries(countries, firstSex, pageable);
+            // Countries selected: apply sex filter per country (intersection semantics)
+            if (state.getSexes().isEmpty()) {
+                // No sex filter: find names known in all selected countries
+                result = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+            } else {
+                // Apply sex filter: names must have the selected sex with >= 10% share in all countries
+                // Use UNION of results for multiple selected sexes
+                result = getNamesWithSexShareInCountries(countries, state.getSexes(), pageable);
+            }
         }
 
         // Eagerly initialize nameStats for template rendering
@@ -121,6 +161,59 @@ public class BrowseService {
         }
 
         return result;
+    }
+
+    /**
+     * Get names matching any of the specified sex shares, globally (all countries).
+     * Uses UNION semantics: a name appears if it matches ANY of the selected sexes.
+     *
+     * @param sexes    set of sexes to match
+     * @param pageable pagination parameters
+     * @return page of names where at least one selected sex has >= 10% share
+     */
+    private Page<GivenName> getNamesWithSexShareGlobal(Set<String> sexes, Pageable pageable) {
+        // Collect results for each sex and merge them (union semantics)
+        java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
+        int totalElements = 0;
+
+        for (String sex : sexes) {
+            Page<GivenName> sexResult = givenNameService.findBySexShareGlobally(
+                    sex,
+                    pageable);
+
+            mergedResult.addAll(sexResult.getContent());
+            totalElements += sexResult.getTotalElements();
+        }
+
+        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, mergedResult.size());
+    }
+
+    /**
+     * Get names matching any of the specified sex shares in all given countries.
+     * Uses UNION semantics: a name appears if it matches ANY of the selected sexes
+     * with >= 10% share in ALL countries.
+     *
+     * @param countries list of countries
+     * @param sexes     set of sexes to match
+     * @param pageable  pagination parameters
+     * @return page of names where at least one selected sex has >= 10% share in all countries
+     */
+    private Page<GivenName> getNamesWithSexShareInCountries(List<Country> countries, Set<String> sexes, Pageable pageable) {
+        // Collect results for each sex and merge them (union semantics)
+        java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
+        int totalElements = 0;
+
+        for (String sex : sexes) {
+            Page<GivenName> sexResult = givenNameService.findBySexShareInAllCountries(
+                    countries,
+                    sex,
+                    pageable);
+
+            mergedResult.addAll(sexResult.getContent());
+            totalElements += sexResult.getTotalElements();
+        }
+
+        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, mergedResult.size());
     }
 
     /**

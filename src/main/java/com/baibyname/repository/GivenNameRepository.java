@@ -111,6 +111,80 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("countryCount") int countryCount);
 
     /**
+     * Find names by sex with share threshold filtering in all given countries.
+     *
+     * A name appears under a sex when that sex accounts for at least the share threshold
+     * percentage of the name's total recorded usage in each selected country.
+     *
+     * <p>For each country, we calculate:
+     *   (count for this sex in this country) / (total count for this name in this country) >= SHARE_THRESHOLD
+     *
+     * <p>A name is included if it satisfies this condition in ALL selected countries.
+     *
+     * @param countries    list of countries to filter by (must not be empty)
+     * @param sex          the sex to filter by
+     * @param countryCount number of countries (for HAVING clause)
+     * @param threshold    share threshold (0.0 to 100.0)
+     * @param pageable     pagination parameters
+     * @return page of names where the specified sex has >= threshold% share in all countries
+     */
+    @Query("""
+        SELECT gn FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.country IN :countries
+            AND ns2.sex = :sex
+            GROUP BY ns2.givenName.id
+            HAVING SUM(ns2.count) * 100.0 / (
+                SELECT SUM(ns3.count) FROM NameStat ns3
+                WHERE ns3.givenName.id = ns2.givenName.id
+                AND ns3.country IN :countries
+            ) >= :threshold
+        )
+        ORDER BY gn.name ASC
+        """)
+    Page<GivenName> findBySexShareInAllCountries(
+            @Param("countries") List<Country> countries,
+            @Param("sex") String sex,
+            @Param("countryCount") int countryCount,
+            @Param("threshold") double threshold,
+            Pageable pageable);
+
+    /**
+     * Find names by sex with share threshold filtering across all countries (global).
+     *
+     * A name appears under a sex when that sex accounts for at least the share threshold
+     * percentage of the name's total recorded usage globally.
+     *
+     * <p>For each name, we calculate:
+     *   (total count for this sex globally) / (total count for this name globally) >= SHARE_THRESHOLD
+     *
+     * <p>A name is included if it satisfies this condition.
+     *
+     * @param sex       the sex to filter by
+     * @param threshold share threshold (0.0 to 100.0)
+     * @param pageable  pagination parameters
+     * @return page of names where the specified sex has >= threshold% share globally
+     */
+    @Query("""
+        SELECT gn FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.sex = :sex
+            GROUP BY ns2.givenName.id
+            HAVING SUM(ns2.count) * 100.0 / (
+                SELECT SUM(ns3.count) FROM NameStat ns3
+                WHERE ns3.givenName.id = ns2.givenName.id
+            ) >= :threshold
+        )
+        ORDER BY gn.name ASC
+        """)
+    Page<GivenName> findBySexShareGlobally(
+            @Param("sex") String sex,
+            @Param("threshold") double threshold,
+            Pageable pageable);
+
+    /**
      * Find names that are Common Lately (rank <= 100 in any of last 5 years) in all given countries.
      */
     @Query("""
