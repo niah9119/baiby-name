@@ -1,19 +1,13 @@
 package com.baibyname.controller;
 
-import com.baibyname.domain.Account;
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
-import com.baibyname.domain.ShortlistEntry;
-import com.baibyname.domain.ShortlistMember;
-import com.baibyname.repository.AccountRepository;
 import com.baibyname.repository.CountryRepository;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
-import com.baibyname.repository.ShortlistMemberRepository;
 import com.baibyname.service.FilterStateService;
 import com.baibyname.service.RankerService;
-import com.baibyname.service.ShortlistService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,29 +25,35 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-import org.mockito.Mockito;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import com.baibyname.domain.Account;
+import com.baibyname.domain.ShortlistEntry;
+import com.baibyname.domain.ShortlistMember;
+import com.baibyname.repository.AccountRepository;
+import com.baibyname.repository.ShortlistMemberRepository;
+import com.baibyname.service.ShortlistService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.mockito.Mockito;
+import java.util.Optional;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for BrowseController.
@@ -70,6 +70,15 @@ class BrowseControllerTest {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
 
     @Autowired
+    private ShortlistMemberRepository shortlistMemberRepository;
+
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @Autowired
+    private ShortlistService shortlistService;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -83,15 +92,6 @@ class BrowseControllerTest {
 
     @Autowired
     private FilterStateService filterStateService;
-
-    @Autowired
-    private ShortlistService shortlistService;
-
-    @Autowired
-    private AccountRepository accountRepository;
-
-    @Autowired
-    private ShortlistMemberRepository shortlistMemberRepository;
 
     @MockBean
     private RankerService rankerService;
@@ -562,33 +562,6 @@ class BrowseControllerTest {
                 .andExpect(content().string(containsString("data-given-name-id")));
     }
 
-    @Test
-    void anonymousUser_seesShortlistButton() throws Exception {
-        // Clear authentication for anonymous access
-        SecurityContextHolder.clearContext();
-
-        // Setup: create a name with stats so candidate list renders
-        GivenName testName = new GivenName();
-        testName.setName("TestName" + System.nanoTime());
-        testName.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(testName);
-
-        NameStat stat = new NameStat();
-        stat.setGivenName(testName);
-        stat.setCountry(sweden);
-        stat.setSex("Boy");
-        stat.setYear(2023);
-        stat.setCount(100);
-        stat.setRank(50);
-        stat.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat);
-
-        // Act: anonymous users should now see an enabled shortlist button
-        mockMvc.perform(get("/browse"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("hx-post=\"/shortlist/add/")))
-                .andExpect(content().string(containsString("data-given-name-id")));
-    }
 
     /**
      * Verify that a plain /browse request does NOT call the ranker service.
@@ -702,7 +675,145 @@ class BrowseControllerTest {
         return null;
     }
 
-    // --- Tests for anonymous shortlist functionality ---
+    /**
+     * Test that paging through an already-ranked list does NOT re-invoke the ranker.
+     * After clicking "Rank these for me", subsequent page changes should use the cached
+     * ranked list without calling the LLM again.
+     */
+    @Test
+    void pagingThroughRankedCandidatesDoesNotCallRanker() throws Exception {
+        // Setup: Create 25 names with stats so we have multiple pages
+        for (int i = 0; i < 25; i++) {
+            GivenName name = new GivenName();
+            name.setName("PagingTestName" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Use a shared session for all requests
+        MockHttpSession session = new MockHttpSession();
+
+        // First trigger re-ranking
+        mockMvc.perform(post("/browse/rerank").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("PagingTestName0")));
+
+        // Verify ranker was called once for the rerank request
+        verify(rankerService).reRank(anyList(), anyString(), eq(100));
+
+        // Reset the mock to track subsequent calls
+        reset(rankerService);
+
+        // Now change page - this should NOT call the ranker
+        mockMvc.perform(get("/browse/page").param("page", "1").param("pageSize", "10")
+                .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("PagingTestName10")));
+
+        // Verify ranker was NOT called during pagination
+        verifyNoInteractions(rankerService);
+    }
+
+    /**
+     * Test that re-ranking orders the whole narrowed set, not just the current page.
+     * With candidates spanning several pages, a name ranked highly by the LLM should
+     * appear on page 1 even if the database returned it last.
+     */
+    @Test
+    void reRankOrdersWholeNarrowedListNotCurrentPage() throws Exception {
+        // Setup: Create 25 names with stats - we'll use a threshold of 25
+        // All names are created without order guarantees from the database
+
+        // First, create names that would come last in DB order
+        GivenName nameThatShouldBeFirst = new GivenName();
+        nameThatShouldBeFirst.setName("ZebraName");  // Should come last alphabetically
+        nameThatShouldBeFirst.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(nameThatShouldBeFirst);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(nameThatShouldBeFirst);
+        stat1.setCountry(sweden);
+        stat1.setSex("Boy");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        // Create other names that come earlier alphabetically
+        for (int i = 0; i < 24; i++) {
+            GivenName name = new GivenName();
+            name.setName("AlphaName" + i);  // These come before "ZebraName" alphabetically
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Use a shared session
+        MockHttpSession session = new MockHttpSession();
+
+        // Configure the ranker mock to put "ZebraName" first in the ranked list
+        // The LLM will reorder names by fit with taste notes
+        List<RankerService.RankedName> rankedList = List.of(
+                new RankerService.RankedName("ZebraName", "Excellent fit!", nameThatShouldBeFirst)
+        );
+        // Add all other names with empty explanations
+        for (int i = 0; i < 24; i++) {
+            List<GivenName> allNames = givenNameRepository.findAll();
+            GivenName original = null;
+            for (GivenName gn : allNames) {
+                if (gn.getName().equals("AlphaName" + i)) {
+                    original = gn;
+                    break;
+                }
+            }
+            if (original != null) {
+                rankedList = new java.util.ArrayList<>(rankedList);
+                rankedList.add(new RankerService.RankedName("AlphaName" + i, "", original));
+            }
+        }
+
+        // Mock the ranker to return our pre-determined order (ZebraName first)
+        when(rankerService.reRank(anyList(), anyString(), eq(25)))
+                .thenReturn(rankedList);
+
+        // Trigger re-ranking with threshold of 25
+        mockMvc.perform(post("/browse/rerank").param("threshold", "25").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("ZebraName")));
+
+        // Verify that ZebraName appears on page 1 (it should be first after ranking)
+        // Note: With the current implementation, after ranking, page 1 shows the first 10
+        // Since we put ZebraName first in the ranked list, it should appear on page 0
+        String response = mockMvc.perform(get("/browse/page").param("page", "0").param("pageSize", "10")
+                .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // The ranked ZebraName should appear on page 1 (first page)
+        assertThat(response).contains("ZebraName");
+    }
 
     @Test
     void anonymousUserCanAddTwoNamesToShortlist() throws Exception {
@@ -933,5 +1044,33 @@ class BrowseControllerTest {
         assertThat(entries).as("Account should have 1 entry after adoption").hasSize(1);
         String actualName = entries.get(0).getGivenName().getName();
         assertThat(actualName).as("Entry name should start with LoginAdoptionTest").startsWith("LoginAdoptionTest");
+    }
+
+    @Test
+    void anonymousUser_seesShortlistButton() throws Exception {
+        // Clear authentication for anonymous access
+        SecurityContextHolder.clearContext();
+
+        // Setup: create a name with stats so candidate list renders
+        GivenName testName = new GivenName();
+        testName.setName("TestName" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act: anonymous users should now see an enabled shortlist button
+        mockMvc.perform(get("/browse"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("hx-post=\"/shortlist/add/")))
+                .andExpect(content().string(containsString("data-given-name-id")));
     }
 }
