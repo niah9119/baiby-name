@@ -204,6 +204,7 @@
                                     <th class="px-4 py-2 text-left font-medium text-gray-700">Country</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-700">Sex</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-700">Year Range</th>
+                                    <th class="px-4 py-2 text-center font-medium text-gray-700">Years Top 100</th>
                                     <th class="px-4 py-2 text-right font-medium text-gray-700">Highest Rank</th>
                                     <th class="px-4 py-2 text-right font-medium text-gray-700">Count</th>
                                 </tr>
@@ -213,6 +214,7 @@
                                     <td class="px-4 py-2" th:text="${entry.key}">SE</td>
                                     <td class="px-4 py-2" th:text="${entry.value.sex}">Boy</td>
                                     <td class="px-4 py-2" th:text="${entry.value.yearRange}">2023</td>
+                                    <td class="px-4 py-2 text-center" th:text="${entry.value.yearsInTop100 != null ? entry.value.yearsInTop100 : '-'}">-</td>
                                     <td class="px-4 py-2 text-right" th:text="${entry.value.highestRank}">50</td>
                                     <td class="px-4 py-2 text-right" th:text="${entry.value.totalCount}">100</td>
                                 </tr>

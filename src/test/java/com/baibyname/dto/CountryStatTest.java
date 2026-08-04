@@ -123,6 +123,7 @@ class CountryStatTest {
 
         // Assert
         assertThat(stat.highestRank()).isEqualTo(50);  // Only valid rank
+        assertThat(stat.yearsInTop100()).isEqualTo(1);  // Only 2021 has rank <= 100
     }
 
     @Test
@@ -138,6 +139,57 @@ class CountryStatTest {
 
         // Assert
         assertThat(stat.highestRank()).isEqualTo(50);
+        assertThat(stat.yearsInTop100()).isEqualTo(1);  // Only 2021 has rank <= 100
+    }
+
+    @Test
+    void fromYearsInTop100CountsDistinctYears() {
+        // Setup: 3 years of data, all in top 100
+        List<NameStat> stats = List.of(
+                createStat("SE", "Boy", 2020, 100, 50),
+                createStat("SE", "Boy", 2021, 90, 45),
+                createStat("SE", "Boy", 2022, 80, 40)
+        );
+
+        // Act
+        CountryStat stat = CountryStat.from("SE", stats);
+
+        // Assert
+        assertThat(stat.yearsInTop100()).isEqualTo(3);  // 3 distinct years with rank <= 100
+    }
+
+    @Test
+    void fromYearsInTop100ExcludesLowRanks() {
+        // Setup: 3 years, only 2 are in top 100
+        List<NameStat> stats = List.of(
+                createStat("SE", "Boy", 2020, 100, 50),   // In top 100
+                createStat("SE", "Boy", 2021, 90, 150),   // Not in top 100
+                createStat("SE", "Boy", 2022, 80, 40)     // In top 100
+        );
+
+        // Act
+        CountryStat stat = CountryStat.from("SE", stats);
+
+        // Assert
+        assertThat(stat.yearsInTop100()).isEqualTo(2);  // Only 2020 and 2022
+        assertThat(stat.highestRank()).isEqualTo(40);
+    }
+
+    @Test
+    void fromNoYearsInTop100() {
+        // Setup: 3 years, none in top 100 (all ranks > 100)
+        List<NameStat> stats = List.of(
+                createStat("SE", "Boy", 2020, 100, 150),
+                createStat("SE", "Boy", 2021, 90, 200),
+                createStat("SE", "Boy", 2022, 80, 300)
+        );
+
+        // Act
+        CountryStat stat = CountryStat.from("SE", stats);
+
+        // Assert
+        assertThat(stat.yearsInTop100()).isNull();  // No years in top 100
+        assertThat(stat.highestRank()).isEqualTo(150);
     }
 
     private NameStat createStat(String countryCode, String sex, int year, int count, Integer rank) {
