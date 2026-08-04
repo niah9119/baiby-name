@@ -83,8 +83,9 @@
     <script>
         document.body.addEventListener('htmx:configRequest', function(evt) {
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
-            if (csrfToken) {
-                evt.detail.headers['X-CSRF-Token'] = csrfToken;
+            const csrfHeaderName = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            if (csrfToken && csrfHeaderName) {
+                evt.detail.headers[csrfHeaderName] = csrfToken;
             }
         });
     </script>

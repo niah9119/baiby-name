@@ -321,10 +321,11 @@
     <script>
         // Ensure HTMX works with Thymeleaf
         document.body.addEventListener('htmx:configRequest', function(evt) {
-            // Add CSRF token if present
+            // Add CSRF token if present - read header name from meta tag to match Spring's config
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
-            if (csrfToken) {
-                evt.detail.headers['X-CSRF-Token'] = csrfToken;
+            const csrfHeaderName = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            if (csrfToken && csrfHeaderName) {
+                evt.detail.headers[csrfHeaderName] = csrfToken;
             }
         });
     </script>
