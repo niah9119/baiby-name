@@ -142,6 +142,27 @@ committed.
 SCB specifics: the .xlsx is 49 sheets (`Flickor`/`Pojkar` 1998–2021, top 100 per year/sex),
 already at `pipeline/data/scb/raw/scb-nyfodda-1998-2021.xlsx`. Full URL is in the #4 comments.
 
+
+## Leftover stashes in the agent clone (2026-08-03)
+
+`/work/git/baiby-name-agent` holds three stash entries left by earlier agents:
+
+| stash | from | contents |
+|---|---|---|
+| `stash@{0}` | issue-52 | `CountryStat.java`, 7 lines |
+| `stash@{1}` | issue-16 | `GivenName.java` + ranker files, 35 lines |
+| `stash@{2}` | issue-40 | `.gitignore` + `agent-loop.sh`, 15 lines |
+
+All three issues are merged, and each stash is a superseded intermediate state —
+`stash@{1}` adds a field to the `GivenName` entity, which is the approach #16's review
+explicitly rejected. They are left in place rather than dropped because dropping is
+irreversible and they are inert unless popped.
+
+**The hazard:** an agent running `git stash pop` mid-round would inject unrelated changes
+into whatever branch it is on, and `git add -A` in the rescue step would sweep them into a
+PR. Agents do use `git stash` — #57's round used it twice. If a PR ever shows changes to
+files unrelated to its issue, check this list first.
+
 ## Running the loop
 
     ./scripts/ralph/agent-loop.sh --max 1 --scope ""
