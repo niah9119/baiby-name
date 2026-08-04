@@ -91,15 +91,12 @@ class AccountWebMvcTest {
     }
 
     @Test
-    void shortlistRequiresLogin() throws Exception {
-        // Shortlist endpoints should redirect to login for anonymous users
+    void anonymousUserCanAccessShortlist() throws Exception {
+        // Shortlist endpoints are now public for anonymous users (ADR 0004)
+        // Anonymous users can browse, add names, and view their shortlist
         mockMvc.perform(get("/shortlist"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
-
-        mockMvc.perform(get("/shortlist/entries"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(status().isOk())
+                .andExpect(view().name("shortlist"));
     }
 
     @Test

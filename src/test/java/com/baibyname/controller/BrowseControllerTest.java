@@ -42,6 +42,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import com.baibyname.domain.Account;
+import com.baibyname.domain.ShortlistEntry;
+import com.baibyname.domain.ShortlistMember;
+import com.baibyname.repository.AccountRepository;
+import com.baibyname.repository.ShortlistMemberRepository;
+import com.baibyname.service.ShortlistService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.mockito.Mockito;
+import java.util.Optional;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for BrowseController.
@@ -56,6 +68,15 @@ class BrowseControllerTest {
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
+
+    @Autowired
+    private ShortlistMemberRepository shortlistMemberRepository;
+
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @Autowired
+    private ShortlistService shortlistService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -541,32 +562,6 @@ class BrowseControllerTest {
                 .andExpect(content().string(containsString("data-given-name-id")));
     }
 
-    @Test
-    void anonymousUser_seesLoginRequiredButton() throws Exception {
-        // Clear authentication for anonymous access
-        SecurityContextHolder.clearContext();
-
-        // Setup: create a name with stats so candidate list renders
-        GivenName testName = new GivenName();
-        testName.setName("TestName" + System.nanoTime());
-        testName.setCreatedAt(OffsetDateTime.now());
-        givenNameRepository.save(testName);
-
-        NameStat stat = new NameStat();
-        stat.setGivenName(testName);
-        stat.setCountry(sweden);
-        stat.setSex("Boy");
-        stat.setYear(2023);
-        stat.setCount(100);
-        stat.setRank(50);
-        stat.setCreatedAt(OffsetDateTime.now());
-        nameStatRepository.save(stat);
-
-        // Act
-        mockMvc.perform(get("/browse"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("disabled")));
-    }
 
     /**
      * Verify that a plain /browse request does NOT call the ranker service.
@@ -818,5 +813,264 @@ class BrowseControllerTest {
 
         // The ranked ZebraName should appear on page 1 (first page)
         assertThat(response).contains("ZebraName");
+    }
+
+    @Test
+    void anonymousUserCanAddTwoNamesToShortlist() throws Exception {
+        // Setup: create two names with stats
+        GivenName name1 = new GivenName();
+        name1.setName("AnonymousName1" + System.nanoTime());
+        name1.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name1);
+
+        GivenName name2 = new GivenName();
+        name2.setName("AnonymousName2" + System.nanoTime());
+        name2.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name2);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(name1);
+        stat1.setCountry(sweden);
+        stat1.setSex("Boy");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        NameStat stat2 = new NameStat();
+        stat2.setGivenName(name2);
+        stat2.setCountry(sweden);
+        stat2.setSex("Girl");
+        stat2.setYear(2023);
+        stat2.setCount(100);
+        stat2.setRank(50);
+        stat2.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat2);
+
+        // Clear authentication for anonymous access
+        SecurityContextHolder.clearContext();
+
+        // Create a session for the anonymous user
+        MockHttpSession session = new MockHttpSession();
+
+        // First, get the CSRF token from the browse page
+        String responseHtml = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String csrfToken = extractCsrfToken(responseHtml);
+        String csrfHeaderName = extractCsrfHeaderName(responseHtml);
+
+        // Add first name anonymously
+        mockMvc.perform(post("/shortlist/add/" + name1.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk());
+
+        // Add second name anonymously
+        mockMvc.perform(post("/shortlist/add/" + name2.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk());
+
+        // Verify both names appear on /shortlist page
+        mockMvc.perform(get("/shortlist").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("AnonymousName1")))
+                .andExpect(content().string(containsString("AnonymousName2")));
+    }
+
+    @Test
+    void separateSessionsHaveSeparateShortlists() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("SeparateSessionTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Clear authentication for anonymous access
+        SecurityContextHolder.clearContext();
+
+        // Create two separate sessions
+        MockHttpSession session1 = new MockHttpSession();
+        MockHttpSession session2 = new MockHttpSession();
+
+        // Get CSRF tokens for both sessions
+        String csrfToken1 = extractCsrfToken(mockMvc.perform(get("/browse").session(session1))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String csrfHeaderName1 = extractCsrfHeaderName(mockMvc.perform(get("/browse").session(session1))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        String csrfToken2 = extractCsrfToken(mockMvc.perform(get("/browse").session(session2))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String csrfHeaderName2 = extractCsrfHeaderName(mockMvc.perform(get("/browse").session(session2))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        // Session 1 adds the name
+        mockMvc.perform(post("/shortlist/add/" + testName.getId())
+                .header(csrfHeaderName1, csrfToken1)
+                .session(session1))
+                .andExpect(status().isOk());
+
+        // Session 2 tries to add the same name - it should create its own shortlist
+        mockMvc.perform(post("/shortlist/add/" + testName.getId())
+                .header(csrfHeaderName2, csrfToken2)
+                .session(session2))
+                .andExpect(status().isOk());
+
+        // Session 1 should see the name on its shortlist
+        mockMvc.perform(get("/shortlist").session(session1))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("SeparateSessionTest")));
+
+        // Session 2 should also see the name on its shortlist
+        mockMvc.perform(get("/shortlist").session(session2))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("SeparateSessionTest")));
+    }
+
+    @Test
+    void anonymousUserLoginKeepsTheirNames() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("LoginAdoptionTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Clear authentication for anonymous access
+        SecurityContextHolder.clearContext();
+
+        // Create a session for the anonymous user
+        MockHttpSession session = new MockHttpSession();
+
+        // Get CSRF token and add name anonymously
+        String csrfToken = extractCsrfToken(mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String csrfHeaderName = extractCsrfHeaderName(mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        mockMvc.perform(post("/shortlist/add/" + testName.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk());
+
+        // Verify name is on anonymous shortlist
+        mockMvc.perform(get("/shortlist").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("LoginAdoptionTest")));
+
+        // Create an account and verify the adoption service method works
+        Account account = new Account();
+        account.setEmail("newuser@example.com");
+        account.setPasswordHash("$2a$10$dummyhash"); // Dummy hash for testing
+        account.setCreatedAt(OffsetDateTime.now());
+        account = accountRepository.save(account);
+
+        // Get all session members to debug
+        List<com.baibyname.domain.ShortlistMember> allMembers = shortlistMemberRepository.findAll();
+        assertThat(allMembers).as("Should have at least 1 member").hasSizeGreaterThanOrEqualTo(1);
+
+        // Find the session member (one with sessionToken set, not account)
+        Optional<com.baibyname.domain.ShortlistMember> sessionMemberOpt = allMembers.stream()
+                .filter(m -> m.getSessionToken() != null && m.getAccount() == null)
+                .findFirst();
+        assertThat(sessionMemberOpt).as("Should have a session member").isPresent();
+        String sessionToken = sessionMemberOpt.get().getSessionToken();
+        assertThat(sessionToken).as("Session token should not be null").isNotNull();
+
+        // Debug: log the member details
+        com.baibyname.domain.ShortlistMember sessionMember = sessionMemberOpt.get();
+        System.out.println("Session member ID: " + sessionMember.getId());
+        System.out.println("Session token: " + sessionToken);
+        System.out.println("Shortlist ID: " + sessionMember.getShortlist().getId());
+
+        // Call the adoption method directly - this simulates what happens on login
+        boolean adopted = shortlistService.adoptSessionShortlist(account.getId(), sessionToken);
+        assertThat(adopted).isTrue();
+
+        // Authenticate the user so resolveOwner() returns the account
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn(account.getEmail());
+
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+
+        SecurityContextHolder.setContext(securityContext);
+
+        // Now the account should have access to the entries that were added anonymously
+        List<ShortlistEntry> entries = shortlistService.getCurrentUserEntries();
+        assertThat(entries).as("Account should have 1 entry after adoption").hasSize(1);
+        String actualName = entries.get(0).getGivenName().getName();
+        assertThat(actualName).as("Entry name should start with LoginAdoptionTest").startsWith("LoginAdoptionTest");
+    }
+
+    @Test
+    void anonymousUser_seesShortlistButton() throws Exception {
+        // Clear authentication for anonymous access
+        SecurityContextHolder.clearContext();
+
+        // Setup: create a name with stats so candidate list renders
+        GivenName testName = new GivenName();
+        testName.setName("TestName" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act: anonymous users should now see an enabled shortlist button
+        mockMvc.perform(get("/browse"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("hx-post=\"/shortlist/add/")))
+                .andExpect(content().string(containsString("data-given-name-id")));
     }
 }
