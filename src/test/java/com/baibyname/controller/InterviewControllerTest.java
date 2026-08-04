@@ -8,15 +8,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import reactor.core.publisher.Flux;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -74,10 +77,17 @@ class InterviewControllerTest {
         // Setup: Mock LLM as unavailable
         when(llmGateway.isAvailable()).thenReturn(false);
 
-        // Act
-        String response = mockMvc.perform(get("/interview/stream")
+        // Act: Wait for async dispatch to complete before reading response
+        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
                 .param("message", "Hello"))
                 .andExpect(status().isOk())
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        // Wait for async processing to complete and read the full response
+        String response = mockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -96,10 +106,17 @@ class InterviewControllerTest {
         when(llmGateway.isAvailable()).thenReturn(true);
         when(llmGateway.chatCompletionStream(any())).thenReturn(Flux.empty());
 
-        // Act
-        mockMvc.perform(get("/interview/stream")
+        // Act: Wait for async dispatch to complete before reading response
+        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
                 .param("message", "I want boy names"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        // Wait for async processing to complete
+        mockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"));
     }
 
     @Test
@@ -110,12 +127,19 @@ class InterviewControllerTest {
             new LlmGateway.LlmUnavailableException("Connection failed")
         );
 
-        // Act
-        String response = mockMvc.perform(get("/interview/stream")
+        // Act: Wait for async dispatch to complete before reading response
+        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
                 .param("message", "Hello"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("type\":\"message\"")))
-                .andExpect(content().string(containsString("type\":\"done\"")))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        // Wait for async processing to complete and read the full response
+        String response = mockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
+                .andExpect(content().string(containsString("\"type\":\"message\"")))
+                .andExpect(content().string(containsString("\"type\":\"done\"")))
                 .andExpect(content().string(containsString("unavailable")))
                 .andReturn()
                 .getResponse()
