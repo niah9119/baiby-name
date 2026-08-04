@@ -104,7 +104,7 @@ class AccountWebMvcTest {
 
     @Test
     void registerThenLoginEstablishesSession() throws Exception {
-        String email = "test" + System.currentTimeMillis() + "@example.com";
+        String email = "test" + System.nanoTime() + "@example.com";
         String password = "password123";
 
         // Register a new user
@@ -147,7 +147,7 @@ class AccountWebMvcTest {
         Long accountId;
 
         // First, create an account through registration
-        String email = "delete" + System.currentTimeMillis() + "@example.com";
+        String email = "delete" + System.nanoTime() + "@example.com";
         String password = "password123";
 
         MockHttpSession session = new MockHttpSession();
@@ -193,7 +193,7 @@ class AccountWebMvcTest {
         // Need to create a given name first
         com.baibyname.repository.GivenNameRepository givenNameRepo = context.getBean(com.baibyname.repository.GivenNameRepository.class);
         com.baibyname.domain.GivenName givenName = new com.baibyname.domain.GivenName();
-        givenName.setName("TestName" + System.currentTimeMillis());
+        givenName.setName("TestName" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenName = givenNameRepo.save(givenName);
 
