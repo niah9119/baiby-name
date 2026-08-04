@@ -23,11 +23,10 @@
                     </label>
                     <div class="flex flex-wrap gap-2">
                         <button th:each="sex : ${sexes}"
-                                th:class="${filterState.sexes.contains(sex)} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${filterState.sexes.contains(sex)} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="#{${'filter.sex.' + sex.toLowerCase()}}"
                                 th:hx-post="@{/browse/filter/sex/{sex}(htmx=true,page=0)}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="sex"
                                 th:data-filter-value="${sex}">
                             <!-- Button text set via th:text -->
@@ -47,11 +46,10 @@
                     </label>
                     <div class="flex flex-wrap gap-2">
                         <button th:each="country : ${countries}"
-                                th:class="${filterState.countries.contains(country.code)} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${filterState.countries.contains(country.code)} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${country.name}"
                                 th:hx-post="@{/browse/filter/country/{code}(htmx=true,page=0,code=${country.code})}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="country"
                                 th:data-filter-value="${country.code}">
                         </button>
@@ -66,28 +64,25 @@
                     <div class="flex flex-wrap gap-2">
                         <button th:with="allText=#{filter.celebrity.all}"
                                 th:hx-post="@{/browse/filter/celebrity(htmx=true,page=0)}"
-                                th:class="${filterState.celebrityFilter == null} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${filterState.celebrityFilter == null} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${allText}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="celebrity"
                                 th:data-filter-value="all">
                         </button>
                         <button th:with="withText=#{filter.celebrity.with}"
                                 th:hx-post="@{/browse/filter/celebrity(htmx=true,page=0,withCelebrity=true)}"
-                                th:class="${filterState.celebrityFilter == true} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${filterState.celebrityFilter == true} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${withText}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="celebrity"
                                 th:data-filter-value="with">
                         </button>
                         <button th:with="withoutText=#{filter.celebrity.without}"
                                 th:hx-post="@{/browse/filter/celebrity(htmx=true,page=0,withCelebrity=false)}"
-                                th:class="${filterState.celebrityFilter == false} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${filterState.celebrityFilter == false} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${withoutText}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="celebrity"
                                 th:data-filter-value="without">
                         </button>
@@ -102,28 +97,25 @@
                     <div class="flex flex-wrap gap-2">
                         <button th:with="allText=#{filter.popularity.all}"
                                 th:hx-post="@{/browse/filter/popularity(htmx=true,page=0)}"
-                                th:class="${filterState.popularityFilter == null} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${filterState.popularityFilter == null} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${allText}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="popularity"
                                 th:data-filter-value="all">
                         </button>
                         <button th:with="commonText=#{filter.popularity.common}"
                                 th:hx-post="@{/browse/filter/popularity(htmx=true,page=0,filterType=common_lately)}"
-                                th:class="${'common_lately' == filterState.popularityFilter} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${'common_lately' == filterState.popularityFilter} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${commonText}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="popularity"
                                 th:data-filter-value="common">
                         </button>
                         <button th:with="uncommonText=#{filter.popularity.uncommon}"
                                 th:hx-post="@{/browse/filter/popularity(htmx=true,page=0,filterType=uncommon_lately)}"
-                                th:class="${'uncommon_lately' == filterState.popularityFilter} ? 'btn-primary bg-blue-600 text-white' : 'btn-secondary'"
+                                th:class="${'uncommon_lately' == filterState.popularityFilter} ? 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200'"
                                 th:text="${uncommonText}"
                                 hx-swap="none"
-                                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                                 th:data-filter-type="popularity"
                                 th:data-filter-value="uncommon">
                         </button>
