@@ -116,22 +116,27 @@ public class ShortlistService {
             return shortlistRepository.save(s);
         });
 
-        // Validate the member cap: v1 enforces one member per shortlist
-        long memberCount = shortlistMemberRepository.countByShortlist(shortlist);
-        if (memberCount >= 1) {
-            // At capacity - no more members allowed in v1
-            return false;
-        }
-
         // Get the member for this account (or create if not exists)
         ShortlistMember member = shortlistMemberRepository.findByShortlistAndAccount(shortlist, account)
                 .orElseGet(() -> {
+                    // Validate the member cap: v1 enforces one member per shortlist
+                    // Only check when creating a new member (i.e., someone else trying to join)
+                    long memberCount = shortlistMemberRepository.countByShortlist(shortlist);
+                    if (memberCount >= 1) {
+                        // At capacity - no more members allowed in v1
+                        return null;
+                    }
                     ShortlistMember m = new ShortlistMember();
                     m.setShortlist(shortlist);
                     m.setAccount(account);
                     m.setCreatedAt(OffsetDateTime.now());
                     return shortlistMemberRepository.save(m);
                 });
+
+        if (member == null) {
+            // Someone else owns this shortlist; v1 allows one member
+            return false;
+        }
 
         // Check if the name is already in the shortlist
         Optional<GivenName> givenNameOpt = givenNameRepository.findById(givenNameId);
