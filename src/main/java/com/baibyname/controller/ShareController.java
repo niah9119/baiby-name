@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
@@ -21,15 +22,15 @@ import java.util.Optional;
 /**
  * Controller for shared shortlist views.
  *
- * <p>Provides read-only access to claimed shortlists via unguessable tokens.
+ * <p>Provides read-only access to claimed shortlists via unguessable share tokens.
  * Anyone with the link can view the list, but no edit controls are shown.</p>
  *
  * <p>This route is public (permitAll) and returns 404 for unknown tokens.</p>
  *
- * <p>Deletion is allowed via the same link to enable GDPR compliance (claimers
- * have no password and can't log in to ask for deletion). To prevent accidental
- * deletion by mere recipients, the delete endpoint requires confirmation via
- * a POST with a secret token (CSRF-style protection).</p>
+ * <p>Deletion requires the owner token (stored with the claimer when the shortlist
+ * is claimed), not the share token. This prevents recipients from deleting someone
+ * else's list. The owner token is returned to the claimer and should be stored
+ * securely by the client.</p>
  */
 @Controller
 public class ShareController {
@@ -94,21 +95,23 @@ public class ShareController {
     }
 
     /**
-     * Delete a shared shortlist by token.
-     * This is a POST request that requires the token to be in the path.
-     * The share link is the owner's proof of ownership - they must see the page
-     * first to know the token exists, preventing accidental deletion by mere recipients.
+     * Delete a shared shortlist by owner token.
+     * This is a DELETE request that requires the owner token to be in the request body.
      *
-     * @param token the share token
+     * <p>The owner token is returned to the claimer when the shortlist is claimed.
+     * It is separate from the share token and must be kept secret.
+     * Recipients who only have the share token cannot delete the list.</p>
+     *
+     * @param ownerToken the owner token (not the share token)
      * @return JSON response indicating success/failure
      */
-    @DeleteMapping("/s/{token}")
+    @DeleteMapping("/s")
     @ResponseBody
-    public ShareDeletionResponse deleteSharedShortlist(@PathVariable String token) {
-        boolean deleted = shareLinkService.deleteByToken(token);
+    public ShareDeletionResponse deleteSharedShortlist(@RequestBody String ownerToken) {
+        boolean deleted = shareLinkService.deleteByToken(ownerToken);
         if (!deleted) {
-            // Token not found
-            throw new TokenNotFoundException(token);
+            // Token not found or is a share token (not an owner token)
+            throw new TokenNotFoundException(ownerToken);
         }
         return new ShareDeletionResponse(true);
     }

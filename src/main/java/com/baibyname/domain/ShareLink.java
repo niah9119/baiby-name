@@ -44,6 +44,9 @@ public class ShareLink {
     @Column(name = "share_token", nullable = false, unique = true)
     private String shareToken;
 
+    @Column(name = "owner_token", nullable = false, unique = true)
+    private String ownerToken;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "access_level", nullable = false)
     private AccessLevel accessLevel;
@@ -89,6 +92,14 @@ public class ShareLink {
 
     public void setShareToken(String shareToken) {
         this.shareToken = shareToken;
+    }
+
+    public String getOwnerToken() {
+        return ownerToken;
+    }
+
+    public void setOwnerToken(String ownerToken) {
+        this.ownerToken = ownerToken;
     }
 
     public AccessLevel getAccessLevel() {

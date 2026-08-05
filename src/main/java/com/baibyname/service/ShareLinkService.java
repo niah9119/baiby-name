@@ -12,7 +12,6 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -22,6 +21,11 @@ import jakarta.validation.constraints.NotBlank;
  *
  * <p>Implements ADR 0004: allows anonymous visitors to claim their shortlist
  * by providing email and display name, then share it via a read-only link.</p>
+ *
+ * <p>Two-token deletion: when a shortlist is claimed, two tokens are generated:
+ * the share token (for reading) and the owner token (for deletion).
+ * The owner token is returned to the claimer and stored securely; recipients
+ * who only have the share token cannot delete the list.</p>
  */
 @Service
 @Validated
@@ -56,12 +60,30 @@ public class ShareLinkService {
     }
 
     /**
+     * Generate a URL-safe, random token with at least 128 bits of entropy for owner operations.
+     * Same as share token but generated independently so the owner token is unguessable.
+     *
+     * @return a URL-safe base64-encoded string
+     */
+    private String generateOwnerToken() {
+        byte[] randomBytes = new byte[TOKEN_BYTES];
+        // SecureRandom is thread-safe and suitable for this use
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        random.nextBytes(randomBytes);
+        return Base64UrlEncoder.encode(randomBytes);
+    }
+
+    /**
      * Claim a shortlist by providing email and display name.
-     * Creates a share link with a random token and returns it.
+     * Creates a share link with two tokens (share token and owner token) and returns the owner token.
+     *
+     * <p>The share token is stored in the database and used for read-only access via the share link.
+     * The owner token is returned to the claimer and is required for deletion.
+     * Recipients who only have the share token cannot delete the list.</p>
      *
      * @param email the claimer's email address (validated for format)
      * @param displayName the display name for the shortlist
-     * @return the share token if successful, empty if no shortlist exists
+     * @return the owner token if successful (empty if no shortlist exists)
      * @throws IllegalArgumentException if email format is invalid
      */
     @Transactional
@@ -85,24 +107,27 @@ public class ShareLinkService {
         if (existingLinkOpt.isPresent()) {
             // For now, we don't allow re-claiming an already-claimed shortlist
             // The existing link remains valid and should be shown to the user
-            return Optional.of(existingLinkOpt.get().getShareToken());
+            return Optional.of(existingLinkOpt.get().getOwnerToken());
         }
 
-        // Generate a new share token
+        // Generate both tokens
         String shareToken = generateShareToken();
+        String ownerToken = generateOwnerToken();
 
-        // Create the share link
+        // Create the share link with both tokens
         ShareLink shareLink = new ShareLink();
         shareLink.setShortlist(shortlist);
         shareLink.setEmail(email);
         shareLink.setDisplayName(displayName);
         shareLink.setShareToken(shareToken);
+        shareLink.setOwnerToken(ownerToken);
         shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
         shareLink.setCreatedAt(OffsetDateTime.now());
 
         shareLinkRepository.save(shareLink);
 
-        return Optional.of(shareToken);
+        // Return the owner token (not the share token) - only the owner should know this
+        return Optional.of(ownerToken);
     }
 
     /**
@@ -140,25 +165,41 @@ public class ShareLinkService {
 
     /**
      * Delete a share link by token.
-     * This allows the owner to delete their claimed shortlist using only the link.
+     * Accepts either the share token (read-only access) or the owner token (deletion).
      *
-     * @param token the share token
-     * @return true if deleted, false if not found
+     * <p>Only the owner token grants deletion permission. The share token can view
+     * the shortlist but cannot delete it.</p>
+     *
+     * @param token the owner token for deletion (or share token which will be rejected)
+     * @return true if deleted, false if not found or wrong token type
      */
     @Transactional
     public boolean deleteByToken(String token) {
-        Optional<ShareLink> linkOpt = shareLinkRepository.findByShareToken(token);
+        // First try to find by owner token with the shortlist attached
+        Optional<ShareLink> linkOpt = shareLinkRepository.findByOwnerTokenWithShortlist(token);
         if (linkOpt.isEmpty()) {
+            // If not found by owner token, try share token
+            // If found by share token, deletion is not allowed
+            linkOpt = shareLinkRepository.findByShareToken(token);
+            if (linkOpt.isPresent()) {
+                // Token exists but is a share token, not an owner token
+                // This means a recipient is trying to delete - reject
+                return false;
+            }
+            // Neither token found
             return false;
         }
 
         ShareLink link = linkOpt.get();
+        Shortlist shortlist = link.getShortlist();
+        Long shortlistId = shortlist.getId();
 
-        // Also delete all entries in the shortlist
-        shortlistService.deleteShortlistById(link.getShortlist().getId());
+        // Delete the share link by ID first (before deleting the shortlist)
+        // This avoids transient object issues when the shortlist is deleted
+        shareLinkRepository.deleteById(link.getId());
 
-        // Delete the share link
-        shareLinkRepository.deleteByShareToken(token);
+        // Delete all entries in the shortlist
+        shortlistService.deleteShortlistById(shortlistId);
 
         return true;
     }

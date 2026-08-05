@@ -13,16 +13,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -106,13 +105,15 @@ class ShareControllerIntegrationTest {
         shortlist.setCreatedAt(OffsetDateTime.now());
         shortlist = shortlistRepository.save(shortlist);
 
-        // Create a share link for the shortlist
+        // Create a share link for the shortlist with both tokens
         String validToken = "test-token-" + System.nanoTime();
+        String ownerToken = "owner-token-" + System.nanoTime();
         ShareLink shareLink = new ShareLink();
         shareLink.setShortlist(shortlist);
         shareLink.setEmail("test@example.com");
         shareLink.setDisplayName("Test User");
         shareLink.setShareToken(validToken);
+        shareLink.setOwnerToken(ownerToken);
         shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
         shareLink.setCreatedAt(OffsetDateTime.now());
         shareLinkRepository.save(shareLink);
@@ -125,7 +126,78 @@ class ShareControllerIntegrationTest {
                 .getContentAsString();
 
         // The template should contain the noindex meta tag
+        // Note: The meta tag is <meta name="robots" content="noindex, nofollow">
+        assertThat(responseHtml).contains("robots");
         assertThat(responseHtml).contains("noindex");
         assertThat(responseHtml).contains("nofollow");
+    }
+
+    /**
+     * Test that deletion requires the owner token, not the share token.
+     * This is the key security requirement: recipients who only have the share
+     * token cannot delete the list.
+     */
+    @Test
+    void deletionRequiresOwnerTokenNotShareToken() throws Exception {
+        // Create a shortlist and claim it to get both tokens
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Test Shortlist for Deletion");
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        String shareToken = "share-" + System.nanoTime();
+        String ownerToken = "owner-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("owner@example.com");
+        shareLink.setDisplayName("Owner User");
+        shareLink.setShareToken(shareToken);
+        shareLink.setOwnerToken(ownerToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // First verify the share link exists and is accessible
+        mockMvc.perform(get("/s/" + shareToken))
+                .andExpect(status().isOk());
+
+        // Try to delete with only the share token - should fail (404 because it's rejected)
+        mockMvc.perform(delete("/s")
+                        .content(shareToken)
+                        .contentType("text/plain")
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+
+        // Verify the list still exists
+        mockMvc.perform(get("/s/" + shareToken))
+                .andExpect(status().isOk());
+
+        // Delete with the owner token - should succeed
+        mockMvc.perform(delete("/s")
+                        .content(ownerToken)
+                        .contentType("text/plain")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        // Verify the list is gone - both share token and owner token should 404
+        mockMvc.perform(get("/s/" + shareToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete("/s")
+                        .content(ownerToken)
+                        .contentType("text/plain")
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Test that deleting with an unknown token returns 404.
+     */
+    @Test
+    void deletionReturns404ForUnknownToken() throws Exception {
+        mockMvc.perform(delete("/s")
+                        .content("unknown-token-12345")
+                        .contentType("text/plain")
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
     }
 }

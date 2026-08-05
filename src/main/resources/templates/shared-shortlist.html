@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head th:include="layout :: head(~{})">
-    <meta name="robots" content="noindex, nofollow">
+<head th:insert="~{layout :: head(~{})}">
     <title th:text="${displayName} + ' - BaibyName'">Shortlist - BaibyName</title>
 </head>
 <body>

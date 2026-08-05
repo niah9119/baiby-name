@@ -14,6 +14,8 @@ public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
 
     Optional<ShareLink> findByShareToken(String shareToken);
 
+    Optional<ShareLink> findByOwnerToken(String ownerToken);
+
     @Query("SELECT sl FROM ShareLink sl JOIN FETCH sl.shortlist WHERE sl.id = :id")
     Optional<ShareLink> findByIdWithShortlist(@Param("id") Long id);
 
@@ -26,4 +28,17 @@ public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
     @Modifying
     @Query("DELETE FROM ShareLink sl WHERE sl.shareToken = :token")
     void deleteByShareToken(@Param("token") String token);
+
+    @Modifying
+    @Query("DELETE FROM ShareLink sl WHERE sl.ownerToken = :token")
+    void deleteByOwnerToken(@Param("token") String token);
+
+    @Query("SELECT sl.shortlist.id FROM ShareLink sl WHERE sl.ownerToken = :token")
+    Long findShortlistIdByOwnerToken(@Param("token") String token);
+
+    @Query("SELECT sl FROM ShareLink sl JOIN FETCH sl.shortlist WHERE sl.ownerToken = :token")
+    Optional<ShareLink> findByOwnerTokenWithShortlist(@Param("token") String token);
+
+    // Method to delete by ID - used after finding the entity
+    void deleteById(Long id);
 }

@@ -6,6 +6,10 @@
     <!-- CSRF meta tags - required for HTMX requests to work -->
     <meta name="_csrf" th:content="${_csrf?.token}">
     <meta name="_csrf_header" th:content="${_csrf?.headerName}">
+    <!-- Noindex for shared views (anonymous shortlist sharing) -->
+    <th:block th:with="isShared=${isShared ?: false}" th:if="${isShared}">
+        <meta name="robots" content="noindex, nofollow">
+    </th:block>
     <title th:with="title=${title ?: 'BaibyName'}" th:text="${title} + ' - BaibyName'">BaibyName</title>
     <th:block th:insert="${headContent}"/>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
