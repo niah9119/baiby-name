@@ -263,29 +263,40 @@
             const acceptBtn = document.getElementById('consent-accept');
             const declineBtn = document.getElementById('consent-decline');
 
-            // Check localStorage for consent
+            // Check localStorage for consent (for anonymous users)
             const consent = localStorage.getItem('baibyname_consent');
             if (consent) {
                 banner.classList.add('hidden');
             }
 
+            // Function to set consent cookie
+            function setConsentCookie(consentValue) {
+                // Set cookie with consent data
+                document.cookie = 'baibyname_consent=' + encodeURIComponent(consentValue) +
+                    ';path=/;max-age=31536000;samesite=strict';
+            }
+
             acceptBtn.addEventListener('click', function() {
-                localStorage.setItem('baibyname_consent', JSON.stringify({
+                const consentData = JSON.stringify({
                     cookies: true,
                     processing: true,
                     marketing: true,
                     consentedAt: new Date().toISOString()
-                }));
+                });
+                localStorage.setItem('baibyname_consent', consentData);
+                setConsentCookie(consentData);
                 banner.classList.add('hidden');
             });
 
             declineBtn.addEventListener('click', function() {
-                localStorage.setItem('baibyname_consent', JSON.stringify({
+                const consentData = JSON.stringify({
                     cookies: false,
                     processing: false,
                     marketing: false,
                     consentedAt: new Date().toISOString()
-                }));
+                });
+                localStorage.setItem('baibyname_consent', consentData);
+                setConsentCookie(consentData);
                 banner.classList.add('hidden');
             });
         });
@@ -298,7 +309,8 @@
             accountId=${#authentication != null and #authentication.principal instanceof com.baibyname.domain.Account ? #authentication.principal.id : null},
             hasSlot=${@adService.hasAdSlot(placement)},
             hasConsent=${@adService.hasSlotWithConsent(placement, accountId)},
-            hasSlotWithConsent=${hasSlot and hasConsent}">
+            hasAnonymousConsent=${@adService.hasAnonymousConsent()},
+            hasSlotWithConsent=${hasSlot and (hasConsent or hasAnonymousConsent)}">
             <div th:if="${hasSlotWithConsent}" class="ad-slot mb-6">
                 <div class="ad-label" th:if="${showLabel}" th:text="#{ad.label}">Advertisement</div>
                 <div class="p-4">
@@ -311,8 +323,8 @@
                     </script>
                 </div>
             </div>
-            <div th:if="${hasSlot and not hasConsent}" class="ad-slot-empty">
-                <!-- User has declined consent -->
+            <div th:if="${hasSlot and not hasConsent and not hasAnonymousConsent}" class="ad-slot-empty">
+                <!-- User has declined consent (logged-in users only) -->
                 <span th:text="#{ad.consent.required}">Consent required for ads</span>
             </div>
             <div th:if="${not hasSlot}" class="ad-slot-empty">

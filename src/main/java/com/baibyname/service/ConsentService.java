@@ -4,10 +4,28 @@ import com.baibyname.domain.Account;
 import com.baibyname.domain.Consent;
 import com.baibyname.repository.AccountRepository;
 import com.baibyname.repository.ConsentRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
+
+/**
+ * Service for managing GDPR consent.
+ * <p>
+ * For logged-in users, consent is stored in the database.
+ * For anonymous users, consent can be stored client-side via a cookie that is
+ * readable server-side. The cookie format is JSON with fields:
+ * <ul>
+ *   <li>cookies: boolean</li>
+ *   <li>processing: boolean</li>
+ *   <li>marketing: boolean</li>
+ * </ul>
+ * If any field is missing or false, the consent is considered not given.
+ * Absence of the cookie means no consent (fails closed).
+ */
 
 @Service
 public class ConsentService {
@@ -90,5 +108,68 @@ public class ConsentService {
         Optional<Consent> consent = consentRepository.findByAccountId(accountId);
         return consent.map(c -> c.isCookiesAccepted() && c.isProcessingConsented() && c.isMarketingConsented())
                 .orElse(false);
+    }
+
+    /**
+     * Check if consent is given via HTTP request (for anonymous users).
+     * <p>
+     * Reads the consent from a cookie named "baibyname_consent" which contains
+     * a JSON object with the consent state. For anonymous users, consent is
+     * stored client-side via localStorage and synced to a cookie.
+     *
+     * @param request the HTTP request
+     * @return true if all consents are given via cookie
+     */
+    public boolean hasFullConsentFromRequest(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return false;
+        }
+
+        for (Cookie cookie : cookies) {
+            if ("baibyname_consent".equals(cookie.getName())) {
+                return parseConsentFromCookie(cookie.getValue());
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if the current user has given consent for cookies.
+     * <p>
+     * For anonymous users, this checks the consent cookie.
+     * For logged-in users, this returns false (database consent is checked separately).
+     *
+     * @param request the HTTP request
+     * @return true if anonymous user has given consent via cookie
+     */
+    public boolean hasConsent(HttpServletRequest request) {
+        return hasFullConsentFromRequest(request);
+    }
+
+    /**
+     * Parse consent from cookie value.
+     * <p>
+     * The cookie contains a JSON object like: {"cookies": true, "processing": true, "marketing": true}
+     *
+     * @param cookieValue the cookie value
+     * @return true if all consents are given
+     */
+    private boolean parseConsentFromCookie(String cookieValue) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            java.util.Map<String, Object> consent = mapper.readValue(cookieValue, java.util.Map.class);
+
+            Object cookies = consent.get("cookies");
+            Object processing = consent.get("processing");
+            Object marketing = consent.get("marketing");
+
+            return Boolean.TRUE.equals(cookies)
+                    && Boolean.TRUE.equals(processing)
+                    && Boolean.TRUE.equals(marketing);
+        } catch (Exception e) {
+            // Invalid or unreadable cookie value - treat as no consent
+            return false;
+        }
     }
 }

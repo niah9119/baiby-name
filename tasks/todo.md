@@ -1,46 +1,24 @@
-# Issue #65: Sex Filter Share Threshold Implementation Plan
+# Issue #78 - Consent Gate Rendering Tests and Anonymous Consent
 
-## Status: In Progress
+## Status
+In progress
 
-### Completed:
+## Tasks
 
-### In Progress:
-- Create share threshold constant
-- Add repository method for share-based sex filter
-- Add service method for share-based sex filter
-- Update BrowseService.getCandidates
+### 1. Create rendering tests for ad markup
+- [ ] Test consenting logged-in visitor sees ad markup
+- [ ] Test logged-in visitor who declined consent
+- [ ] Test anonymous visitor (no consent)
+- [ ] Verify empty states are distinct (consent required vs slot not configured)
 
-### Remaining:
-- Write tests for share-based sex filter
-- Run tests and verify
+### 2. Fix anonymous visitor ad consent mechanism
+- [x] Add method to ConsentService for checking consent from cookie
+- [x] Update layout template to set cookie via JavaScript
+- [x] Update AdService to check consent cookie for anonymous users
+- [ ] Test anonymous visitor with valid consent signal
 
-## Infrastructure
-
-## Implementation
-
-### Phase 1: Share Threshold Constant
-- [ ] Create SHARE_THRESHOLD constant (10%) in BrowseService
-- [ ] Document trade-off: per-country vs global computation
-
-### Phase 2: Repository Layer
-- [ ] Add method to GivenNameRepository for share-based sex filter
-- [ ] Query: find names where specified sex has >= 10% of total count per country
-
-### Phase 3: Service Layer
-- [ ] Add method to GivenNameService that wraps the repository method
-- [ ] Handle multiple selected sexes (union semantics)
-
-### Phase 4: BrowseService Updates
-- [ ] Apply sex filter even when no countries selected
-- [ ] Use all selected sexes (union), not just first one
-- [ ] Remove iterator().next() pattern
-
-### Phase 5: Tests
-- [ ] Test Kim: 20% boys -> appears under both Boy and Girl
-- [ ] Test Walter: 0.6% girls -> appears under Boy only
-- [ ] Test Alice: 0.3% boys -> appears under Girl only
-- [ ] Test Folke: 100% boys -> Boy only
-- [ ] Test no-country sex filter
-- [ ] Test multiple sex selection (union)
-
-## Verification
+## Implementation Notes
+- Consent cookie will be set by JavaScript when user accepts/declines consent
+- For anonymous users, the cookie contains: `{"cookies": true, "processing": true, "marketing": true}`
+- The cookie will be readable server-side and checked by AdService
+- Default (no cookie) = no consent (fails closed, as per GDPR)
