@@ -44,18 +44,18 @@ class FamousBearerRepositoryTest {
     void setUp() {
         // Setup given names with unique names for each test
         givenName1 = new GivenName();
-        givenName1.setName("Leo" + System.currentTimeMillis());
+        givenName1.setName("Leo" + System.nanoTime());
         givenName1.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName1);
 
         givenName2 = new GivenName();
-        givenName2.setName("Lionel" + System.currentTimeMillis());
+        givenName2.setName("Lionel" + System.nanoTime());
         givenName2.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(givenName2);
 
         // Setup famous bearer
         messiBearer = new FamousBearer();
-        messiBearer.setPublicName("Lionel Messi " + System.currentTimeMillis());
+        messiBearer.setPublicName("Lionel Messi " + System.nanoTime());
         messiBearer.setSubcategory(FamousBearer.Subcategory.SPORTS_STAR);
         messiBearer.setCreatedAt(OffsetDateTime.now());
         bearerRepository.save(messiBearer);
@@ -98,7 +98,7 @@ class FamousBearerRepositoryTest {
     void findBearersByGivenNameIdReturnsEmptyWhenNoLinks() {
         // Setup: a given name not linked to any bearer
         var unlinkedName = new GivenName();
-        unlinkedName.setName("Unlinked" + System.currentTimeMillis());
+        unlinkedName.setName("Unlinked" + System.nanoTime());
         unlinkedName.setCreatedAt(OffsetDateTime.now());
         givenNameRepository.save(unlinkedName);
 
@@ -116,7 +116,7 @@ class FamousBearerRepositoryTest {
         int countBefore = bearersBefore.size();
 
         var newBearer = new FamousBearer();
-        newBearer.setPublicName("Test Sports Star " + System.currentTimeMillis());
+        newBearer.setPublicName("Test Sports Star " + System.nanoTime());
         newBearer.setSubcategory(FamousBearer.Subcategory.SPORTS_STAR);
         newBearer.setCreatedAt(OffsetDateTime.now());
         bearerRepository.save(newBearer);

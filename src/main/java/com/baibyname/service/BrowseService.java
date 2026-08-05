@@ -26,6 +26,48 @@ import java.util.stream.Collectors;
 @Service
 public class BrowseService {
 
+    /**
+     * Share threshold for sex filtering.
+     *
+     * A name appears under a sex when that sex accounts for at least this percentage
+     * of the name's total recorded usage in each selected country.
+     *
+     * <p>Trade-off: We use <strong>per-country</strong> computation because:
+     * <ul>
+     *   <li>It's more correct for names like "Kim" that have different sex distributions
+     *       in different countries (Boy in Sweden, Girl in USA).</li>
+     *   <li>It's consistent with the "known in all countries" intersection semantics
+     *       used throughout the application.</li>
+     *   <li>It allows the share threshold to work correctly with country filtering.</li>
+     * </ul>
+     *
+     * A 10% threshold filters out statistically insignificant occurrences while still
+     * showing names where a sex is meaningfully represented. This avoids the problem
+     * of "Walter" appearing under "Girl" just because 3,632 American girls were named
+     * Walter since 1880 (0.6% - technically a row, but useless to parents).
+     */
+    /**
+     * Share threshold for sex filtering.
+     *
+     * A name appears under a sex when that sex accounts for at least this percentage
+     * of the name's total recorded usage in each selected country.
+     *
+     * <p>Trade-off: We use <strong>per-country</strong> computation because:
+     * <ul>
+     *   <li>It's more correct for names like "Kim" that have different sex distributions
+     *       in different countries (Boy in Sweden, Girl in USA).</li>
+     *   <li>It's consistent with the "known in all countries" intersection semantics
+     *       used throughout the application.</li>
+     *   <li>It allows the share threshold to work correctly with country filtering.</li>
+     * </ul>
+     *
+     * A 10% threshold filters out statistically insignificant occurrences while still
+     * showing names where a sex is meaningfully represented. This avoids the problem
+     * of "Walter" appearing under "Girl" just because 3,632 American girls were named
+     * Walter since 1880 (0.6% - technically a row, but useless to parents).
+     */
+    public static final double SHARE_THRESHOLD = 10.0;  // 10% (percentage value)
+
     private final GivenNameService givenNameService;
     private final GivenNameRepository givenNameRepository;
     private final CountryRepository countryRepository;
@@ -33,6 +75,7 @@ public class BrowseService {
     private final FilterStateService filterStateService;
     private final RankerService rankerService;
     private final ReRankConfig reRankConfig;
+    private final RankedCandidatesService rankedCandidatesService;
 
     public BrowseService(
             GivenNameService givenNameService,
@@ -41,7 +84,8 @@ public class BrowseService {
             FamousBearerRepository famousBearerRepository,
             FilterStateService filterStateService,
             RankerService rankerService,
-            ReRankConfig reRankConfig) {
+            ReRankConfig reRankConfig,
+            RankedCandidatesService rankedCandidatesService) {
         this.givenNameService = givenNameService;
         this.givenNameRepository = givenNameRepository;
         this.countryRepository = countryRepository;
@@ -49,6 +93,7 @@ public class BrowseService {
         this.filterStateService = filterStateService;
         this.rankerService = rankerService;
         this.reRankConfig = reRankConfig;
+        this.rankedCandidatesService = rankedCandidatesService;
     }
 
     /**
@@ -62,35 +107,29 @@ public class BrowseService {
         FilterState state = filterStateService.getState();
         List<Country> countries = resolveCountries(state.getCountries());
 
-        // If no countries selected, return all names from all countries
-        if (countries.isEmpty()) {
-            Page<GivenName> result = givenNameRepository.findAll(pageable);
-            // Apply subcategory filter in memory
-            if (!state.getSubcategories().isEmpty()) {
-                result = applySubcategoryFilter(result, state.getSubcategories());
-            }
-            // Eagerly initialize nameStats for template rendering
-            if (!result.isEmpty()) {
-                List<GivenName> content = result.getContent();
-                List<Long> ids = content.stream().map(GivenName::getId).toList();
-                List<com.baibyname.domain.NameStat> stats = givenNameRepository.findNameStatsByGivenNameIds(ids);
-                // Group stats by givenName
-                java.util.Map<Long, Set<com.baibyname.domain.NameStat>> statsByGivenName = stats.stream()
-                        .collect(java.util.stream.Collectors.groupingBy(ns -> ns.getGivenName().getId(), java.util.stream.Collectors.toSet()));
-                content.forEach(gn -> gn.setNameStats(statsByGivenName.getOrDefault(gn.getId(), java.util.Set.of())));
-            }
-            return result;
-        }
-
-        // Get base query results based on sex filter
+        // Get base query results - handle sex filter differently based on country selection
         Page<GivenName> result;
-        if (state.getSexes().isEmpty()) {
-            // No sex filter: find names known in all selected countries
-            result = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+
+        if (countries.isEmpty()) {
+            // No countries selected: apply sex filter globally (all countries)
+            if (state.getSexes().isEmpty()) {
+                // No sex filter: return all names
+                result = givenNameRepository.findAll(pageable);
+            } else {
+                // Apply sex filter: for each selected sex, find names where that sex has >= 10% share
+                // Use UNION of results for multiple selected sexes
+                result = getNamesWithSexShareGlobal(state.getSexes(), pageable);
+            }
         } else {
-            // Apply sex filter: names must have the selected sex in all countries
-            String firstSex = state.getSexes().iterator().next();
-            result = givenNameService.findBySexInAllCountries(countries, firstSex, pageable);
+            // Countries selected: apply sex filter per country (intersection semantics)
+            if (state.getSexes().isEmpty()) {
+                // No sex filter: find names known in all selected countries
+                result = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+            } else {
+                // Apply sex filter: names must have the selected sex with >= 10% share in all countries
+                // Use UNION of results for multiple selected sexes
+                result = getNamesWithSexShareInCountries(countries, state.getSexes(), pageable);
+            }
         }
 
         // Apply subcategory filter in memory
@@ -182,6 +221,59 @@ public class BrowseService {
     }
 
     /**
+     * Get names matching any of the specified sex shares, globally (all countries).
+     * Uses UNION semantics: a name appears if it matches ANY of the selected sexes.
+     *
+     * @param sexes    set of sexes to match
+     * @param pageable pagination parameters
+     * @return page of names where at least one selected sex has >= 10% share
+     */
+    private Page<GivenName> getNamesWithSexShareGlobal(Set<String> sexes, Pageable pageable) {
+        // Collect results for each sex and merge them (union semantics)
+        java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
+        int totalElements = 0;
+
+        for (String sex : sexes) {
+            Page<GivenName> sexResult = givenNameService.findBySexShareGlobally(
+                    sex,
+                    pageable);
+
+            mergedResult.addAll(sexResult.getContent());
+            totalElements += sexResult.getTotalElements();
+        }
+
+        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, mergedResult.size());
+    }
+
+    /**
+     * Get names matching any of the specified sex shares in all given countries.
+     * Uses UNION semantics: a name appears if it matches ANY of the selected sexes
+     * with >= 10% share in ALL countries.
+     *
+     * @param countries list of countries
+     * @param sexes     set of sexes to match
+     * @param pageable  pagination parameters
+     * @return page of names where at least one selected sex has >= 10% share in all countries
+     */
+    private Page<GivenName> getNamesWithSexShareInCountries(List<Country> countries, Set<String> sexes, Pageable pageable) {
+        // Collect results for each sex and merge them (union semantics)
+        java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
+        int totalElements = 0;
+
+        for (String sex : sexes) {
+            Page<GivenName> sexResult = givenNameService.findBySexShareInAllCountries(
+                    countries,
+                    sex,
+                    pageable);
+
+            mergedResult.addAll(sexResult.getContent());
+            totalElements += sexResult.getTotalElements();
+        }
+
+        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, mergedResult.size());
+    }
+
+    /**
      * Get the list of countries that are known in the system.
      *
      * @return list of all countries
@@ -232,12 +324,46 @@ public class BrowseService {
     }
 
     /**
+     * Get candidates for a page, preferring cached ranked candidates if available.
+     *
+     * <p>This method first checks if there are cached ranked candidates and if they are
+     * still valid for the current filter state. If so, it returns the cached candidates
+     * paginated. Otherwise, it falls back to plain candidates.</p>
+     *
+     * @param pageable pagination parameters
+     * @return page of candidates (ranked if available and valid, plain otherwise)
+     */
+    @Transactional(readOnly = true)
+    public Page<RankerService.RankedName> getCandidatesForPage(Pageable pageable) {
+        // Get the current filter version
+        int currentFilterVersion = filterStateService.getFilterVersion();
+
+        // Check if we have valid cached ranked candidates
+        if (rankedCandidatesService.isRankingValid(currentFilterVersion)) {
+            // Use cached ranked candidates, paginated
+            List<RankerService.RankedName> cached = rankedCandidatesService.getRankedCandidates();
+            int fromIndex = (int) pageable.getOffset();
+            int toIndex = Math.min(fromIndex + pageable.getPageSize(), cached.size());
+            List<RankerService.RankedName> paginated = cached.subList(fromIndex, toIndex);
+            return new PageImpl<>(paginated, pageable, cached.size());
+        }
+
+        // No valid cache - return plain candidates
+        Page<GivenName> candidates = getCandidates(pageable);
+        return toRankedPage(candidates);
+    }
+
+    /**
      * Get re-ranked candidates using the LLM.
      *
      * <p>This method re-ranks the candidate list when the count is at or below
      * the threshold configured in application.yml. The LLM reorders names by fit
      * with the user's taste and adds a one-line explanation per name. On LLM
      * unavailability or invalid output, falls back silently to database ordering.</p>
+     *
+     * <p>The full candidate list is ranked (up to the threshold), and the ranked
+     * result is cached in the session. Pagination is applied to the cached ranked
+     * list, so users can page through the ranked results without re-invoking the LLM.</p>
      *
      * <p>For plain browse views (no explicit user request), use getCandidates()
      * instead. This method should only be called when the user explicitly requests
@@ -253,34 +379,59 @@ public class BrowseService {
         // Get the configured threshold from configuration
         int threshold = reRankConfig.getThreshold();
 
-        // First get the candidates
-        Page<GivenName> candidates = getCandidates(pageable);
+        // Get the current filter state
+        FilterState state = filterStateService.getState();
+
+        // Get the current filter version
+        int currentFilterVersion = filterStateService.getFilterVersion();
+
+        // Check if we have valid cached ranked candidates
+        if (rankedCandidatesService.isRankingValid(currentFilterVersion)) {
+            // Use cached ranked candidates, paginated
+            List<RankerService.RankedName> cached = rankedCandidatesService.getRankedCandidates();
+            int fromIndex = (int) pageable.getOffset();
+            int toIndex = Math.min(fromIndex + pageable.getPageSize(), cached.size());
+            List<RankerService.RankedName> paginated = cached.subList(fromIndex, toIndex);
+            return new PageImpl<>(paginated, pageable, cached.size());
+        }
+
+        // No valid cache - need to fetch and rank the whole narrowed set
+
+        // Get all candidates (unpaginated, up to threshold)
+        // We need to fetch all candidates to rank them as a complete set
+        Page<GivenName> allCandidates = getCandidates(Pageable.unpaged());
 
         // Only re-rank if candidate count is at or below threshold
-        if (candidates.getTotalElements() > threshold) {
+        if (allCandidates.getTotalElements() > threshold) {
             // Return original candidates without explanations
-            List<RankerService.RankedName> ranked = candidates.getContent().stream()
+            List<RankerService.RankedName> ranked = allCandidates.getContent().stream()
                     .map(name -> new RankerService.RankedName(name.getName(), "", name))
                     .collect(Collectors.toList());
-            return new PageImpl<>(ranked, pageable, candidates.getTotalElements());
+            return new PageImpl<>(ranked, pageable, allCandidates.getTotalElements());
         }
 
         // Build taste notes from filter state
-        FilterState state = filterStateService.getState();
         String tasteNotes = buildTasteNotes(state);
 
-        // Call the ranker service
+        // Call the ranker service with ALL candidates (up to threshold)
         List<RankerService.RankedName> rankedNames = rankerService.reRank(
-                candidates.getContent(), tasteNotes, threshold);
+                allCandidates.getContent(), tasteNotes, threshold);
 
         // If ranker returned nothing (fallback), use original order
         if (rankedNames.isEmpty()) {
-            rankedNames = candidates.getContent().stream()
+            rankedNames = allCandidates.getContent().stream()
                     .map(name -> new RankerService.RankedName(name.getName(), "", name))
                     .collect(Collectors.toList());
         }
 
-        return new PageImpl<>(rankedNames, pageable, candidates.getTotalElements());
+        // Cache the full ranked list with the current filter version
+        rankedCandidatesService.setRankedCandidates(rankedNames, currentFilterVersion);
+
+        // Return the requested page
+        int fromIndex = (int) pageable.getOffset();
+        int toIndex = Math.min(fromIndex + pageable.getPageSize(), rankedNames.size());
+        List<RankerService.RankedName> paginated = rankedNames.subList(fromIndex, toIndex);
+        return new PageImpl<>(paginated, pageable, rankedNames.size());
     }
 
     /**
@@ -290,6 +441,10 @@ public class BrowseService {
      * the provided threshold. The LLM reorders names by fit with the user's taste
      * and adds a one-line explanation per name. On LLM unavailability or invalid
      * output, falls back silently to database ordering.</p>
+     *
+     * <p>The full candidate list is ranked (up to the threshold), and the ranked
+     * result is cached in the session. Pagination is applied to the cached ranked
+     * list, so users can page through the ranked results without re-invoking the LLM.</p>
      *
      * <p>For plain browse views (no explicit user request), use getCandidates()
      * instead. This method should only be called when the user explicitly requests
@@ -303,34 +458,58 @@ public class BrowseService {
     @Transactional(readOnly = true)
     public Page<RankerService.RankedName> getReRankedCandidates(Pageable pageable, int threshold,
             RankerService rankerService) {
-        // First get the candidates
-        Page<GivenName> candidates = getCandidates(pageable);
+        // Get the current filter version
+        int currentFilterVersion = filterStateService.getFilterVersion();
+
+        // Get the current filter state
+        FilterState state = filterStateService.getState();
+
+        // Check if we have valid cached ranked candidates
+        if (rankedCandidatesService.isRankingValid(currentFilterVersion)) {
+            // Use cached ranked candidates, paginated
+            List<RankerService.RankedName> cached = rankedCandidatesService.getRankedCandidates();
+            int fromIndex = (int) pageable.getOffset();
+            int toIndex = Math.min(fromIndex + pageable.getPageSize(), cached.size());
+            List<RankerService.RankedName> paginated = cached.subList(fromIndex, toIndex);
+            return new PageImpl<>(paginated, pageable, cached.size());
+        }
+
+        // No valid cache - need to fetch and rank the whole narrowed set
+
+        // Get all candidates (unpaginated, up to threshold)
+        Page<GivenName> allCandidates = getCandidates(Pageable.unpaged());
 
         // Only re-rank if candidate count is at or below threshold
-        if (candidates.getTotalElements() > threshold) {
+        if (allCandidates.getTotalElements() > threshold) {
             // Return original candidates without explanations
-            List<RankerService.RankedName> ranked = candidates.getContent().stream()
+            List<RankerService.RankedName> ranked = allCandidates.getContent().stream()
                     .map(name -> new RankerService.RankedName(name.getName(), "", name))
                     .collect(Collectors.toList());
-            return new PageImpl<>(ranked, pageable, candidates.getTotalElements());
+            return new PageImpl<>(ranked, pageable, allCandidates.getTotalElements());
         }
 
         // Build taste notes from filter state
-        FilterState state = filterStateService.getState();
         String tasteNotes = buildTasteNotes(state);
 
-        // Call the ranker service
+        // Call the ranker service with ALL candidates (up to threshold)
         List<RankerService.RankedName> rankedNames = rankerService.reRank(
-                candidates.getContent(), tasteNotes, threshold);
+                allCandidates.getContent(), tasteNotes, threshold);
 
         // If ranker returned nothing (fallback), use original order
         if (rankedNames.isEmpty()) {
-            rankedNames = candidates.getContent().stream()
+            rankedNames = allCandidates.getContent().stream()
                     .map(name -> new RankerService.RankedName(name.getName(), "", name))
                     .collect(Collectors.toList());
         }
 
-        return new PageImpl<>(rankedNames, pageable, candidates.getTotalElements());
+        // Cache the full ranked list with the current filter version
+        rankedCandidatesService.setRankedCandidates(rankedNames, currentFilterVersion);
+
+        // Return the requested page
+        int fromIndex = (int) pageable.getOffset();
+        int toIndex = Math.min(fromIndex + pageable.getPageSize(), rankedNames.size());
+        List<RankerService.RankedName> paginated = rankedNames.subList(fromIndex, toIndex);
+        return new PageImpl<>(paginated, pageable, rankedNames.size());
     }
 
     /**

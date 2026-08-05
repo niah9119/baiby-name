@@ -87,12 +87,17 @@ class ShortlistServiceTest {
 
     @Test
     void addToShortlistReturnsFalseWhenAtCapacity() {
-        // Given
+        // Given: a different account (not the owner) tries to join a shortlist that already has a member
         mockAuthenticatedUser();
         Long givenNameId = 1L;
 
         Account account = new Account();
         account.setId(1L);
+        account.setEmail("test@example.com");
+
+        Account ownerAccount = new Account();
+        ownerAccount.setId(2L);
+        ownerAccount.setEmail("owner@example.com");
 
         Shortlist shortlist = new Shortlist();
         shortlist.setId(1L);
@@ -100,21 +105,19 @@ class ShortlistServiceTest {
         ShortlistMember existingMember = new ShortlistMember();
         existingMember.setId(1L);
         existingMember.setShortlist(shortlist);
+        existingMember.setAccount(ownerAccount);
 
+        // Mock: the authenticated account is not the owner, so getShortlistForAccount returns empty
         when(accountRepository.findByEmail("test@example.com")).thenReturn(Optional.of(account));
-        // Mock getShortlistForAccount - returns a list with one member
-        when(shortlistMemberRepository.findMembersByAccount(account))
-                .thenReturn(List.of(existingMember));
-        // This is what countByShortlist will be called on - same shortlist
+        when(shortlistMemberRepository.findMembersByAccount(account)).thenReturn(List.of());
+        // When creating a new member, countByShortlist will be called
         when(shortlistMemberRepository.countByShortlist(shortlist)).thenReturn(1L);
-        // This is called after we get the shortlist
-        when(shortlistMemberRepository.findByShortlistAndAccount(shortlist, account))
-                .thenReturn(Optional.of(existingMember));
 
         // When
         boolean result = shortlistService.addToShortlist(givenNameId);
 
         // Then - Should return false because shortlist already has 1 member (v1 cap)
+        // and the authenticated account is not the owner
         assertThat(result).isFalse();
     }
 
@@ -184,6 +187,68 @@ class ShortlistServiceTest {
 
         // Then
         assertThat(result).isFalse();
+    }
+
+    @Test
+    void addToShortlistAllowsMultipleNamesForSameAccount() {
+        // Given: same account adding multiple names to its own shortlist
+        mockAuthenticatedUser();
+        Long firstGivenNameId = 1L;
+        Long secondGivenNameId = 2L;
+        Long thirdGivenNameId = 3L;
+
+        Account account = new Account();
+        account.setId(1L);
+        account.setEmail("test@example.com");
+
+        Shortlist shortlist = new Shortlist();
+        shortlist.setId(1L);
+
+        ShortlistMember member = new ShortlistMember();
+        member.setId(1L);
+        member.setShortlist(shortlist);
+        member.setAccount(account);
+
+        GivenName firstGivenName = new GivenName();
+        firstGivenName.setId(firstGivenNameId);
+        GivenName secondGivenName = new GivenName();
+        secondGivenName.setId(secondGivenNameId);
+        GivenName thirdGivenName = new GivenName();
+        thirdGivenName.setId(thirdGivenNameId);
+
+        // Mock: account already has a shortlist with this member
+        when(accountRepository.findByEmail("test@example.com")).thenReturn(Optional.of(account));
+        when(shortlistMemberRepository.findMembersByAccount(account)).thenReturn(List.of(member));
+        when(shortlistMemberRepository.findByShortlistAndAccount(shortlist, account))
+                .thenReturn(Optional.of(member));
+        when(shortlistMemberRepository.countByShortlist(shortlist)).thenReturn(0L);
+        // Member already exists, so no save is called for member
+
+        // First add
+        when(givenNameRepository.findById(firstGivenNameId)).thenReturn(Optional.of(firstGivenName));
+        when(shortlistEntryRepository.findByShortlistAndGivenNameAndMember(shortlist, firstGivenName, member))
+                .thenReturn(Optional.empty());
+        when(shortlistEntryRepository.save(any(ShortlistEntry.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Second add
+        when(givenNameRepository.findById(secondGivenNameId)).thenReturn(Optional.of(secondGivenName));
+        when(shortlistEntryRepository.findByShortlistAndGivenNameAndMember(shortlist, secondGivenName, member))
+                .thenReturn(Optional.empty());
+        // Third add
+        when(givenNameRepository.findById(thirdGivenNameId)).thenReturn(Optional.of(thirdGivenName));
+        when(shortlistEntryRepository.findByShortlistAndGivenNameAndMember(shortlist, thirdGivenName, member))
+                .thenReturn(Optional.empty());
+
+        // When
+        boolean firstResult = shortlistService.addToShortlist(firstGivenNameId);
+        boolean secondResult = shortlistService.addToShortlist(secondGivenNameId);
+        boolean thirdResult = shortlistService.addToShortlist(thirdGivenNameId);
+
+        // Then
+        assertThat(firstResult).isTrue();
+        assertThat(secondResult).isTrue();
+        assertThat(thirdResult).isTrue();
     }
 
     @Test
@@ -268,6 +333,7 @@ class ShortlistServiceTest {
         ShortlistMember member = new ShortlistMember();
         member.setId(1L);
         member.setShortlist(shortlist);
+        member.setAccount(account);
 
         GivenName givenName = new GivenName();
         givenName.setId(givenNameId);

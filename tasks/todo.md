@@ -1,47 +1,46 @@
-# Full-Name Advice Implementation Plan
+# Issue #65: Sex Filter Share Threshold Implementation Plan
 
 ## Status: In Progress
 
 ### Completed:
-- Family name storage schema (V4 migration)
-- FamilyName entity with account relationship
-- FamilyNameRepository with findByAccountId
-- AccountService updated to delete family name on account deletion
-- All tests passing
 
 ### In Progress:
-- LLM tool definition for full-name advice
-- FullNameAdviceService with LLM integration
-- FullNameAdviceController
-- Tests for advice functionality
+- Create share threshold constant
+- Add repository method for share-based sex filter
+- Add service method for share-based sex filter
+- Update BrowseService.getCandidates
 
 ### Remaining:
-
-### Blocked:
+- Write tests for share-based sex filter
+- Run tests and verify
 
 ## Infrastructure
 
 ## Implementation
 
-### Phase 1: Database Schema
-- [x] Create V4__family_name.sql migration
-- [x] Create FamilyName entity
+### Phase 1: Share Threshold Constant
+- [ ] Create SHARE_THRESHOLD constant (10%) in BrowseService
+- [ ] Document trade-off: per-country vs global computation
 
 ### Phase 2: Repository Layer
-- [x] Create FamilyNameRepository
+- [ ] Add method to GivenNameRepository for share-based sex filter
+- [ ] Query: find names where specified sex has >= 10% of total count per country
 
 ### Phase 3: Service Layer
-- [x] Create FamilyNameService with CRUD and GDPR erasure
-- [ ] Create FullNameAdviceService with LLM integration
+- [ ] Add method to GivenNameService that wraps the repository method
+- [ ] Handle multiple selected sexes (union semantics)
 
-### Phase 4: Controller Layer
-- [ ] Create FullNameAdviceController
+### Phase 4: BrowseService Updates
+- [ ] Apply sex filter even when no countries selected
+- [ ] Use all selected sexes (union), not just first one
+- [ ] Remove iterator().next() pattern
 
 ### Phase 5: Tests
-- [ ] Write repository tests
-- [ ] Write service tests with stubbed LLM
-- [ ] Write integration tests
+- [ ] Test Kim: 20% boys -> appears under both Boy and Girl
+- [ ] Test Walter: 0.6% girls -> appears under Boy only
+- [ ] Test Alice: 0.3% boys -> appears under Girl only
+- [ ] Test Folke: 100% boys -> Boy only
+- [ ] Test no-country sex filter
+- [ ] Test multiple sex selection (union)
 
 ## Verification
-
-## PR

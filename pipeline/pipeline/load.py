@@ -10,6 +10,29 @@ from sqlalchemy import create_engine, text
 
 from .config import CANONICAL_CSV_PATH, get_database_url
 
+# Canonical sex vocabulary - all importers must produce only these values
+CANONICAL_SEX_VALUES = {"Boy", "Girl"}
+
+
+def _validate_sex_value(sex: str, row_num: int, country: str) -> None:
+    """
+    Validate that a sex value is in the canonical vocabulary.
+
+    Args:
+        sex: The sex value to validate
+        row_num: The row number in the CSV (for error reporting)
+        country: The country code (for error reporting)
+
+    Raises:
+        ValueError: If the sex value is not in the canonical vocabulary
+    """
+    if sex not in CANONICAL_SEX_VALUES:
+        raise ValueError(
+            f"Invalid sex value '{sex}' at row {row_num}, country '{country}'. "
+            f"Expected one of: {', '.join(sorted(CANONICAL_SEX_VALUES))}. "
+            f"See pipeline/README.md for the canonical sex vocabulary contract."
+        )
+
 
 def create_database_engine(db_url: Optional[str] = None) -> sqlalchemy.Engine:
     """Create and return a database engine."""
@@ -109,6 +132,9 @@ def load_name_stats_csv(
         # Check if record already exists using pre-loaded cache
         name_id = name_cache.get(row["name"])
         country_id = country_cache.get(row["country"])
+
+        # Validate sex value against canonical vocabulary (#61)
+        _validate_sex_value(row["sex"], stats["total_rows"], row["country"])
 
         if name_id is None or country_id is None:
             # Name or country doesn't exist yet - will need to insert

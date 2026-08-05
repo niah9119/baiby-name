@@ -91,20 +91,17 @@ class AccountWebMvcTest {
     }
 
     @Test
-    void shortlistRequiresLogin() throws Exception {
-        // Shortlist endpoints should redirect to login for anonymous users
+    void anonymousUserCanAccessShortlist() throws Exception {
+        // Shortlist endpoints are now public for anonymous users (ADR 0004)
+        // Anonymous users can browse, add names, and view their shortlist
         mockMvc.perform(get("/shortlist"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
-
-        mockMvc.perform(get("/shortlist/entries"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(status().isOk())
+                .andExpect(view().name("shortlist"));
     }
 
     @Test
     void registerThenLoginEstablishesSession() throws Exception {
-        String email = "test" + System.currentTimeMillis() + "@example.com";
+        String email = "test" + System.nanoTime() + "@example.com";
         String password = "password123";
 
         // Register a new user
@@ -117,10 +114,10 @@ class AccountWebMvcTest {
                 .andExpect(view().name("login"));
 
         // Login with the registered user using Spring Security's formLogin
-        // formLogin uses 'username' and 'password' parameters
+        // formLogin now uses 'email' and 'password' parameters (configured in SecurityConfig)
         MockHttpSession session = new MockHttpSession();
         mockMvc.perform(post("/login")
-                .param("username", email)
+                .param("email", email)
                 .param("password", password)
                 .with(csrf())
                 .session(session))
@@ -147,7 +144,7 @@ class AccountWebMvcTest {
         Long accountId;
 
         // First, create an account through registration
-        String email = "delete" + System.currentTimeMillis() + "@example.com";
+        String email = "delete" + System.nanoTime() + "@example.com";
         String password = "password123";
 
         MockHttpSession session = new MockHttpSession();
@@ -162,7 +159,7 @@ class AccountWebMvcTest {
 
         // Login to establish session
         mockMvc.perform(post("/login")
-                .param("username", email)
+                .param("email", email)
                 .param("password", password)
                 .with(csrf())
                 .session(session))
@@ -193,7 +190,7 @@ class AccountWebMvcTest {
         // Need to create a given name first
         com.baibyname.repository.GivenNameRepository givenNameRepo = context.getBean(com.baibyname.repository.GivenNameRepository.class);
         com.baibyname.domain.GivenName givenName = new com.baibyname.domain.GivenName();
-        givenName.setName("TestName" + System.currentTimeMillis());
+        givenName.setName("TestName" + System.nanoTime());
         givenName.setCreatedAt(OffsetDateTime.now());
         givenName = givenNameRepo.save(givenName);
 

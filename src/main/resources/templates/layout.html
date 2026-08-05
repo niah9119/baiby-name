@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSRF meta tags - required for HTMX requests to work -->
+    <meta name="_csrf" th:content="${_csrf?.token}">
+    <meta name="_csrf_header" th:content="${_csrf?.headerName}">
     <title th:with="title=${title ?: 'BaibyName'}" th:text="${title} + ' - BaibyName'">BaibyName</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,29 +15,146 @@
             background-color: #f9fafb;
         }
         .nav-link {
-            @apply text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-colors;
+            color: #4b5563;
+        }
+        .nav-link:hover {
+            color: #111827;
+        }
+        .nav-link {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition-colors;
         }
         .btn-primary {
-            @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+            background-color: #2563eb;
+        }
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+        .btn-primary {
+            color: #ffffff;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition-colors;
         }
         .btn-secondary {
-            @apply bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+            background-color: #f3f4f6;
+        }
+        .btn-secondary:hover {
+            background-color: #e5e7eb;
+        }
+        .btn-secondary {
+            color: #374151;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition-colors;
         }
         .btn-danger {
-            @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+            background-color: #dc2626;
+        }
+        .btn-danger:hover {
+            background-color: #b91c1c;
+        }
+        .btn-danger {
+            color: #ffffff;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition-colors;
         }
         .card {
-            @apply bg-white rounded-xl shadow-sm p-6;
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            padding: 1.5rem;
         }
         /* Consent banner styles */
         .consent-banner {
-            @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 transform transition-transform duration-300;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #ffffff;
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            z-index: 50;
+            transform: translateY(0);
+            transition-transform: transform 300ms;
         }
         .consent-banner.hidden {
-            @apply -translate-y-full;
+            transform: translateY(-100%);
         }
         .consent-banner-content {
-            @apply max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8;
+            max-width: 80rem;
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        @media (min-width: 640px) {
+            .consent-banner-content {
+                padding-left: 1.5rem;
+                padding-right: 1.5rem;
+            }
+        }
+        @media (min-width: 1024px) {
+            .consent-banner-content {
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }
+        }
+        /* Ad slot styles - reserved dimensions to prevent layout shift */
+        .ad-slot {
+            width: 100%;
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+        .ad-slot-empty {
+            width: 100%;
+            height: 6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+        .ad-slot-content {
+            width: 100%;
+            height: auto;
+        }
+        .ad-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #9ca3af;
+            font-weight: 600;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
         }
     </style>
 </head>
@@ -73,9 +193,9 @@
                         </a>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="#" class="nav-link" th:text="#{nav.browse}">Browse</a>
-                        <a href="#" class="nav-link" th:text="#{nav.interview}">Interview</a>
-                        <a href="#" class="nav-link" th:text="#{nav.shortlist}">Shortlist</a>
+                        <a th:href="@{/browse}" class="nav-link" th:text="#{nav.browse}">Browse</a>
+                        <a th:href="@{/interview}" class="nav-link" th:text="#{nav.interview}">Interview</a>
+                        <a th:href="@{/shortlist}" class="nav-link" th:text="#{nav.shortlist}">Shortlist</a>
                         <a th:href="@{/advice}" class="nav-link" th:text="#{nav.advice}">Advice</a>
                     </div>
                 </div>
@@ -170,5 +290,51 @@
             });
         });
     </script>
+
+    <!-- Ad Slot Fragment - for reuse across pages -->
+    <th:block th:fragment="ad-slot(placement, showLabel=true)">
+        <th:block th:with="
+            slotId=${@adService.getSlotIdOrNull(placement)},
+            accountId=${#authentication != null and #authentication.principal instanceof com.baibyname.domain.Account ? #authentication.principal.id : null},
+            hasSlot=${@adService.hasAdSlot(placement)},
+            hasConsent=${@adService.hasSlotWithConsent(placement, accountId)},
+            hasSlotWithConsent=${hasSlot and hasConsent}">
+            <div th:if="${hasSlotWithConsent}" class="ad-slot mb-6">
+                <div class="ad-label" th:if="${showLabel}" th:text="#{ad.label}">Advertisement</div>
+                <div class="p-4">
+                    <!-- AdSense script will be loaded via HTMX or deferred JS -->
+                    <ins class="adsbygoogle"
+                         th:attr="data-ad-client=${@adService.publisherId}, data-ad-slot=${slotId}, data-ad-layout-key=${'-' + slotId + '+d+e+x'}"
+                         style="display:block"></ins>
+                    <script th:if="${@adService.isPublisherConfigured()}">
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    </script>
+                </div>
+            </div>
+            <div th:if="${hasSlot and not hasConsent}" class="ad-slot-empty">
+                <!-- User has declined consent -->
+                <span th:text="#{ad.consent.required}">Consent required for ads</span>
+            </div>
+            <div th:if="${not hasSlot}" class="ad-slot-empty">
+                <!-- No slot configured for this placement -->
+                <span th:text="#{ad.slot.notconfigured}">Ad slot not configured</span>
+            </div>
+        </th:block>
+    </th:block>
+
+    <!-- Ad Slot Below Filter Panel (with label) -->
+    <th:block th:fragment="ad-slot-below-filter-panel()">
+        <th:block th:insert="~{:: ad-slot('belowFilterPanel', true)}"/>
+    </th:block>
+
+    <!-- Ad Slot Between Browse Pages (no label for cleaner separation) -->
+    <th:block th:fragment="ad-slot-between-browse-pages()">
+        <th:block th:insert="~{:: ad-slot('betweenBrowsePages', false)}"/>
+    </th:block>
+
+    <!-- Ad Slot on Name Landing Page -->
+    <th:block th:fragment="ad-slot-name-landing-page()">
+        <th:block th:insert="~{:: ad-slot('onNameLandingPage', true)}"/>
+    </th:block>
 </body>
 </html>

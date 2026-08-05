@@ -23,8 +23,11 @@ public class ShortlistMember {
     private Shortlist shortlist;
 
     @ManyToOne
-    @JoinColumn(name = "account_id", nullable = false)
+    @JoinColumn(name = "account_id", nullable = true)
     private Account account;
+
+    @Column(name = "session_token")
+    private String sessionToken;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -51,6 +54,14 @@ public class ShortlistMember {
 
     public void setAccount(Account account) {
         this.account = account;
+    }
+
+    public String getSessionToken() {
+        return sessionToken;
+    }
+
+    public void setSessionToken(String sessionToken) {
+        this.sessionToken = sessionToken;
     }
 
     public OffsetDateTime getCreatedAt() {

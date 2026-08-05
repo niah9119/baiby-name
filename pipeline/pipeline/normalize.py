@@ -17,6 +17,9 @@ def normalize_ssa_file(file_path: Path) -> pd.DataFrame:
 
     Canonical format: name,country,sex,year,count,rank
 
+    The canonical sex vocabulary is "Boy" and "Girl". SSA data uses "M" and "F",
+    so these are mapped during normalization.
+
     Args:
         file_path: Path to the SSA data file (yob{year}.txt)
 
@@ -32,6 +35,10 @@ def normalize_ssa_file(file_path: Path) -> pd.DataFrame:
         names=["name", "sex", "count"],
         dtype={"name": str, "sex": str, "count": int}
     )
+
+    # Map SSA sex values to canonical vocabulary
+    # SSA uses "M" for boys and "F" for girls; canonical uses "Boy"/"Girl"
+    df["sex"] = df["sex"].map({"M": "Boy", "F": "Girl"})
 
     # Add country and year
     df["country"] = USA_COUNTRY_CODE

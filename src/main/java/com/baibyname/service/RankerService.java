@@ -2,6 +2,7 @@ package com.baibyname.service;
 
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
+import com.baibyname.dto.CountryStat;
 
 import java.util.List;
 import java.util.Set;
@@ -56,6 +57,14 @@ public interface RankerService {
          */
         public Set<NameStat> nameStats() {
             return originalName != null ? originalName.getNameStats() : Set.of();
+        }
+
+        /**
+         * Get the aggregated country stats from the original name.
+         * For templates that need aggregated country statistics.
+         */
+        public List<CountryStat> countryStats() {
+            return originalName != null ? originalName.getCountryStats() : List.of();
         }
     }
 }

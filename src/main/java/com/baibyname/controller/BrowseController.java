@@ -6,6 +6,7 @@ import com.baibyname.service.BrowseService;
 import com.baibyname.service.FilterState;
 import com.baibyname.service.FilterStateService;
 import com.baibyname.service.RankerService;
+import com.baibyname.service.RankedCandidatesService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +35,14 @@ public class BrowseController {
     private final BrowseService browseService;
     private final FilterStateService filterStateService;
     private final RankerService rankerService;
+    private final RankedCandidatesService rankedCandidatesService;
 
     public BrowseController(BrowseService browseService, FilterStateService filterStateService,
-                            RankerService rankerService) {
+                            RankerService rankerService, RankedCandidatesService rankedCandidatesService) {
         this.browseService = browseService;
         this.filterStateService = filterStateService;
         this.rankerService = rankerService;
+        this.rankedCandidatesService = rankedCandidatesService;
     }
 
     /**
@@ -65,9 +68,9 @@ public class BrowseController {
                 com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
         ));
         model.addAttribute("filterState", filterStateService.getState());
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
-        model.addAttribute("page", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use candidates (ranked if available and valid, plain otherwise)
+        model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
+        model.addAttribute("page", browseService.getCandidatesForPage(pageable));
 
         return "browse";
     }
@@ -89,6 +92,8 @@ public class BrowseController {
                                   Model model,
                                   HttpSession session) {
         filterStateService.toggleSex(sex);
+        // Clear ranked candidates when filters change
+        rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
@@ -113,6 +118,8 @@ public class BrowseController {
                                       Model model,
                                       HttpSession session) {
         filterStateService.toggleCountry(countryCode);
+        // Clear ranked candidates when filters change
+        rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
@@ -139,6 +146,8 @@ public class BrowseController {
                                         Model model,
                                         HttpSession session) {
         filterStateService.setCelebrityFilter(withCelebrity);
+        // Clear ranked candidates when filters change
+        rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
@@ -163,6 +172,8 @@ public class BrowseController {
                                          Model model,
                                          HttpSession session) {
         filterStateService.setPopularityFilter(filterType);
+        // Clear ranked candidates when filters change
+        rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
@@ -215,6 +226,8 @@ public class BrowseController {
                                Model model,
                                HttpSession session) {
         filterStateService.reset();
+        // Clear ranked candidates when filters change
+        rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
@@ -235,9 +248,9 @@ public class BrowseController {
                              @RequestParam(defaultValue = "10") int pageSize,
                              Model model) {
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
-        model.addAttribute("page", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use candidates (ranked if available and valid, plain otherwise)
+        model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
+        model.addAttribute("page", browseService.getCandidatesForPage(pageable));
         model.addAttribute("filterState", filterStateService.getState());
         return "browse :: candidate-list";
     }

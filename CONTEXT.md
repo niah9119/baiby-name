@@ -69,3 +69,13 @@ A Given Name ranked in the top 100 in the selected country in any of the last 5 
 
 **Uncommon Lately**:
 A known Given Name that is not Common Lately in the selected country.
+
+## Canonical CSV Contract
+
+**Sex Vocabulary**:
+The `sex` column in all canonical CSV files must use exactly one vocabulary: **`Boy`** and **`Girl`**.
+All five importers (SSA, SCB, SSB, DST, ONS) must normalize to this vocabulary:
+- SSA (USA) uses `M`/`F` internally and maps to `Boy`/`Girl`
+- SCB (Sweden), SSB (Norway), DST (Denmark), and ONS (England and Wales) all use `Boy`/`Girl` directly
+
+This contract ensures a consistent display vocabulary across the UI, where sex filters always show two buttons regardless of source.

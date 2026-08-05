@@ -1,5 +1,10 @@
 # Lessons
 
+> Moved here from `tasks/lessons.md`. Agents treat `tasks/` as their own scratch space — the
+> global CLAUDE.md tells them to write plans there — and the #67 agent deleted this file
+> outright. Durable notes live under `docs/`; `tasks/` belongs to whichever agent is running.
+> See #73.
+
 Patterns worth not repeating. Each entry: what went wrong, why, and the rule that prevents it.
 
 ## A manual requeue must touch the board, not just the label

@@ -44,7 +44,7 @@
                     <span class="text-xl font-semibold text-gray-900" th:text="${familyName}">
                         Smith
                     </span>
-                    <button hx-post th:href="@{/advice/family-name/remove}"
+                    <button th:hx-post="@{/advice/family-name/remove}"
                             class="text-red-600 hover:text-red-800 text-sm font-medium"
                             th:title="#{advice.familyName.remove}">
                         <i class="fa-solid fa-xmark"></i>
@@ -92,7 +92,7 @@
                                     </span>
                                 </div>
                                 <button th:data-given-name-id="${entry.givenName.id}"
-                                        hx-post th:href="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
+                                        th:hx-post="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
                                         class="text-red-500 hover:text-red-700 px-2 py-1"
                                         th:title="#{shortlist.remove}">
                                     <i class="fa-solid fa-xmark"></i>
@@ -229,8 +229,9 @@
             const adviceForm = document.getElementById('adviceForm');
             adviceForm.addEventListener('htmx:configRequest', function(evt) {
                 const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
-                if (csrfToken) {
-                    evt.detail.headers['X-CSRF-Token'] = csrfToken;
+                const csrfHeaderName = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+                if (csrfToken && csrfHeaderName) {
+                    evt.detail.headers[csrfHeaderName] = csrfToken;
                 }
             });
         });
@@ -239,8 +240,9 @@
     <script>
         document.body.addEventListener('htmx:configRequest', function(evt) {
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
-            if (csrfToken) {
-                evt.detail.headers['X-CSRF-Token'] = csrfToken;
+            const csrfHeaderName = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            if (csrfToken && csrfHeaderName) {
+                evt.detail.headers[csrfHeaderName] = csrfToken;
             }
         });
     </script>
