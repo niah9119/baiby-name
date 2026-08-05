@@ -15,6 +15,10 @@ import java.util.List;
  * Controller for sitemap.xml generation.
  * Provides XML sitemap with all name pages for SEO.
  * Splits sitemaps into chunks of 50,000 URLs to comply with Google's limit.
+ *
+ * <p>Share links (/s/**) are intentionally excluded from sitemaps to prevent
+ * indexing of personal shortlists shared via email. These pages carry
+ * noindex,nofollow meta tags as additional protection.</p>
  */
 @Controller
 public class SitemapController {
@@ -57,6 +61,7 @@ public class SitemapController {
 
     /**
      * Generate a specific sitemap chunk by index.
+     * Only includes name pages (/names/**), not share links (/s/**).
      *
      * @param index the chunk index (0-based)
      * @return XML sitemap content for this chunk

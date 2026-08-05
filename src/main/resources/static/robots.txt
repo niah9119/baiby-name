@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+
+# Disallow share links to prevent indexing of personal shortlists
+Disallow: /s/
+
+# Disallow private account pages
+Disallow: /account/
+Disallow: /gdpr/
+
+# Disallow login/registration pages
+Disallow: /login
+Disallow: /register
+Disallow: /logout
+
+# Allow search engines to index media files
+Allow: /images/
+Allow: /css/
+Allow: /js/
+
+# Sitemap location
+Sitemap: https://example.com/sitemap.xml

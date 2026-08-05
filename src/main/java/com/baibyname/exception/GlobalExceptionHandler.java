@@ -10,7 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Global exception handler for the application.
- * Handles NameNotFoundException and returns 404 status.
+ * Handles NameNotFoundException and TokenNotFoundException and returns 404 status.
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -29,5 +29,21 @@ public class GlobalExceptionHandler {
             HttpServletRequest request,
             NameNotFoundException ex) {
         return "Name not found: " + ex.getMessage();
+    }
+
+    /**
+     * Handle TokenNotFoundException by returning 404 Not Found.
+     *
+     * @param request the HTTP request
+     * @param ex      the exception
+     * @return error message
+     */
+    @ExceptionHandler(TokenNotFoundException.class)
+    @ResponseBody
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public String handleTokenNotFoundException(
+            HttpServletRequest request,
+            TokenNotFoundException ex) {
+        return "Share link not found";
     }
 }
