@@ -33,6 +33,26 @@
 
             <!-- Shortlist entries -->
             <th:block th:unless="${not hasEntries}">
+                <div class="card mb-8 bg-blue-50 border-blue-200">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0">
+                            <i class="fa-solid fa-link text-blue-600 text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-2" th:text="#{claim.cta.title}">
+                                Share your shortlist
+                            </h2>
+                            <p class="text-sm text-gray-600 mb-4" th:text="#{claim.cta.description}">
+                                Keep your shortlist by providing your email. You'll get a unique link to share with family and friends.
+                            </p>
+                            <a href="/shortlist/claim" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                                <i class="fa-solid fa-paper-plane mr-2"></i>
+                                <span th:text="#{claim.cta.action}">Share your shortlist</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-lg font-semibold text-gray-900" th:text="#{shortlist.entries.count(${entries.size()})}">

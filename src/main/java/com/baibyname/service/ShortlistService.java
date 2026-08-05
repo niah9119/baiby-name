@@ -308,6 +308,18 @@ public class ShortlistService {
     }
 
     /**
+     * Get all entries in a shortlist by its ID. Used for shared read-only views.
+     *
+     * @param shortlistId the ID of the shortlist
+     * @return list of entries, or empty list if not found
+     */
+    public List<ShortlistEntry> getEntriesById(Long shortlistId) {
+        return shortlistRepository.findById(shortlistId)
+                .map(this::getEntries)
+                .orElse(List.of());
+    }
+
+    /**
      * Get all entries in the current user's shortlist (or session shortlist for anonymous).
      *
      * @return list of entries, or empty list if no shortlist exists
@@ -533,6 +545,34 @@ public class ShortlistService {
         sessionMember.setAccount(account);
         sessionMember.setSessionToken(null);
         shortlistMemberRepository.save(sessionMember);
+
+        return true;
+    }
+
+    /**
+     * Delete a shortlist by its ID and all its entries.
+     * Used when deleting a claimed shortlist via the share link.
+     *
+     * @param shortlistId the ID of the shortlist to delete
+     * @return true if deleted, false if not found
+     */
+    @Transactional
+    public boolean deleteShortlistById(Long shortlistId) {
+        Optional<Shortlist> shortlistOpt = shortlistRepository.findById(shortlistId);
+        if (shortlistOpt.isEmpty()) {
+            return false;
+        }
+
+        Shortlist shortlist = shortlistOpt.get();
+
+        // Delete all entries
+        shortlistEntryRepository.deleteAllByShortlist(shortlist);
+
+        // Delete all members
+        shortlistMemberRepository.deleteAllByShortlist(shortlist);
+
+        // Delete the shortlist
+        shortlistRepository.delete(shortlist);
 
         return true;
     }

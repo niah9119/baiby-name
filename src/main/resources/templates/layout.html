@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head>
+<head th:fragment="head()">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- CSRF meta tags - required for HTMX requests to work -->
     <meta name="_csrf" th:content="${_csrf?.token}">
     <meta name="_csrf_header" th:content="${_csrf?.headerName}">
+    <!-- Noindex for shared views (anonymous shortlist sharing) -->
+    <th:block th:with="isShared=${isShared ?: false}" th:if="${isShared}">
+        <meta name="robots" content="noindex, nofollow">
+    </th:block>
     <title th:with="title=${title ?: 'BaibyName'}" th:text="${title} + ' - BaibyName'">BaibyName</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
