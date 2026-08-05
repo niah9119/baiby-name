@@ -281,4 +281,22 @@ public class AdService {
         }
         return null;
     }
+
+    /**
+     * Debug method to log current cookies.
+     *
+     * @param request the HTTP request
+     * @return string representation of cookies for debugging
+     */
+    public String debugCookies(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return "No cookies";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Cookie cookie : cookies) {
+            sb.append(cookie.getName()).append("=").append(cookie.getValue()).append(", ");
+        }
+        return sb.toString();
+    }
 }
