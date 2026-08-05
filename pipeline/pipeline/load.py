@@ -2,7 +2,7 @@
 
 import csv
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import psycopg2.extras
 import sqlalchemy
@@ -82,50 +82,186 @@ def load_canonical_csv(
     if not csv_path.exists():
         raise FileNotFoundError(f"Canonical CSV not found: {csv_path}")
 
+    # Determine if this is a famous bearers CSV or a name stats CSV
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        first_row = next(reader, None)
+        if first_row is None:
+            return stats
+        is_famous_bearers = "public_name" in first_row
+
+    # Reset file position
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+    if is_famous_bearers:
+        return load_famous_bearers_csv(rows, engine, dry_run, stats)
+    else:
+        # Name stats CSV - original flow
+        return load_name_stats_csv(rows, engine, batch_size, dry_run, stats)
+
+
+def load_name_stats_csv(
+    rows: List[dict],
+    engine: sqlalchemy.Engine,
+    batch_size: int = 10000,
+    dry_run: bool = False,
+    stats: Optional[dict] = None,
+) -> dict:
+    """Load name statistics CSV data into the database."""
+    if stats is None:
+        stats = {
+            "total_rows": 0,
+            "inserted_rows": 0,
+            "skipped_rows": 0,
+            "dropped_on_conflict": 0,
+            "errors": [],
+        }
+
     # Load caches for given_name and country to avoid per-row lookups
     name_cache, country_cache = _load_lookup_caches(engine)
 
     # Load existing name_stat records as a set of (name_id, country_id, sex, year) tuples
     existing_name_stats = _load_existing_name_stats(engine, name_cache, country_cache)
 
-    # Read CSV and process
-    with open(csv_path, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+    stats["total_rows"] = len(rows)
 
-        rows_to_insert = []
-        for row in reader:
-            stats["total_rows"] += 1
+    rows_to_insert = []
+    for row in rows:
+        # Check if record already exists using pre-loaded cache
+        name_id = name_cache.get(row["name"])
+        country_id = country_cache.get(row["country"])
 
-            # Validate sex value against canonical vocabulary
-            _validate_sex_value(row["sex"], stats["total_rows"], row["country"])
+        # Validate sex value against canonical vocabulary (#61)
+        _validate_sex_value(row["sex"], stats["total_rows"], row["country"])
 
-            # Check if record already exists using pre-loaded cache
-            name_id = name_cache.get(row["name"])
-            country_id = country_cache.get(row["country"])
+        if name_id is None or country_id is None:
+            # Name or country doesn't exist yet - will need to insert
+            exists = False
+        else:
+            # Check if (name_id, country_id, sex, year) exists in name_stat
+            exists = (name_id, country_id, row["sex"], int(row["year"])) in existing_name_stats
 
-            if name_id is None or country_id is None:
-                # Name or country doesn't exist yet - will need to insert
-                exists = False
-            else:
-                # Check if (name_id, country_id, sex, year) exists in name_stat
-                exists = (name_id, country_id, row["sex"], int(row["year"])) in existing_name_stats
+        if exists:
+            stats["skipped_rows"] += 1
+            continue
 
-            if exists:
-                stats["skipped_rows"] += 1
-                continue
+        rows_to_insert.append(row)
 
-            rows_to_insert.append(row)
-
-            if len(rows_to_insert) >= batch_size:
-                if not dry_run:
-                    _insert_batch(engine, rows_to_insert, name_cache, country_cache, stats)
-                rows_to_insert = []
-
-        # Insert remaining rows
-        if rows_to_insert:
+        if len(rows_to_insert) >= batch_size:
             if not dry_run:
                 _insert_batch(engine, rows_to_insert, name_cache, country_cache, stats)
+            rows_to_insert = []
 
+    # Insert remaining rows
+    if rows_to_insert:
+        if not dry_run:
+            _insert_batch(engine, rows_to_insert, name_cache, country_cache, stats)
+
+    return stats
+
+
+def load_famous_bearers_csv(
+    rows: List[dict],
+    engine: sqlalchemy.Engine,
+    dry_run: bool = False,
+    stats: Optional[dict] = None,
+) -> dict:
+    """Load famous bearers CSV data into the database.
+
+    This function is idempotent - running it multiple times will not duplicate rows.
+    It matches existing bearers on wikidata_id, not on public_name.
+
+    Args:
+        rows: List of row dictionaries with columns:
+            public_name, subcategory, given_names, country, wikidata_id
+        engine: Database engine
+        dry_run: If True, only show what would be loaded
+        stats: Optional stats dict to update
+
+    Returns:
+        Dictionary with statistics about the load operation
+    """
+    if stats is None:
+        stats = {
+            "total_rows": 0,
+            "inserted_bearers": 0,
+            "skipped_bearers": 0,
+            "inserted_links": 0,
+            "skipped_links": 0,
+            "unresolved_names": [],
+            "errors": [],
+        }
+
+    stats["total_rows"] = len(rows)
+
+    # Load caches for given_name and existing bearers
+    name_cache = _load_given_name_cache(engine)
+
+    # Load existing bearers by wikidata_id to avoid duplicates
+    existing_bearers = _load_existing_bearers(engine)
+
+    # Track names that couldn't be resolved
+    unresolved_names = set()
+
+    for row in rows:
+        public_name = row["public_name"].strip()
+        subcategory = row["subcategory"].strip().upper()
+        given_names_str = row["given_names"].strip()
+        country = row["country"].strip().upper()
+        wikidata_id = row["wikidata_id"].strip()
+
+        # Validate required fields
+        if not all([public_name, subcategory, wikidata_id]):
+            stats["errors"].append(f"Missing required field: {row}")
+            continue
+
+        # Validate subcategory
+        if subcategory not in ("ROYALTY", "MOVIE_STAR", "SPORTS_STAR"):
+            stats["errors"].append(f"Invalid subcategory: {subcategory}")
+            continue
+
+        # Check if bearer already exists by wikidata_id
+        existing_bearer = existing_bearers.get(wikidata_id)
+
+        if existing_bearer:
+            bearer_id = existing_bearer["id"]
+            stats["skipped_bearers"] += 1
+        else:
+            # Insert new bearer
+            if not dry_run:
+                bearer_id = _insert_famous_bearer(
+                    engine, public_name, subcategory, wikidata_id
+                )
+            else:
+                bearer_id = None
+            stats["inserted_bearers"] += 1
+
+        # Parse and link given names
+        if given_names_str:
+            given_names = [n.strip() for n in given_names_str.split(";") if n.strip()]
+
+            for given_name in given_names:
+                name_id = name_cache.get(given_name)
+
+                if name_id is None:
+                    # Name doesn't exist in the database
+                    unresolved_names.add(given_name)
+                    continue
+
+                # Check if link already exists
+                link_key = (name_id, bearer_id) if bearer_id else None
+                if link_key and _check_name_bearer_link_exists(engine, name_id, bearer_id):
+                    stats["skipped_links"] += 1
+                    continue
+
+                # Insert link
+                if not dry_run and bearer_id:
+                    _insert_name_bearer_link(engine, name_id, bearer_id)
+                stats["inserted_links"] += 1
+
+    stats["unresolved_names"] = list(unresolved_names)
     return stats
 
 
@@ -412,6 +548,89 @@ def _get_country_name(code: str) -> str:
         "GB": "England",
     }
     return country_names.get(code, code)
+
+
+def _load_given_name_cache(engine: sqlalchemy.Engine) -> dict[str, int]:
+    """Load a cache of given names to IDs."""
+    name_cache = {}
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT id, name FROM given_name"))
+        for row in result:
+            name_cache[row[1]] = row[0]
+    return name_cache
+
+
+def _load_existing_bearers(engine: sqlalchemy.Engine) -> dict[str, dict]:
+    """Load existing bearers keyed by wikidata_id."""
+    bearers = {}
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT id, public_name, wikidata_id FROM famous_bearer"))
+        for row in result:
+            bearers[row[2]] = {"id": row[0], "public_name": row[1]}
+    return bearers
+
+
+def _check_name_bearer_link_exists(
+    engine: sqlalchemy.Engine, given_name_id: int, bearer_id: int
+) -> bool:
+    """Check if a name-to-bearer link already exists."""
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                SELECT EXISTS (
+                    SELECT 1 FROM name_famous_bearer
+                    WHERE given_name_id = :name_id AND famous_bearer_id = :bearer_id
+                )
+            """),
+            {"name_id": given_name_id, "bearer_id": bearer_id},
+        )
+        return result.scalar()
+
+
+def _insert_famous_bearer(
+    engine: sqlalchemy.Engine,
+    public_name: str,
+    subcategory: str,
+    wikidata_id: str,
+) -> int:
+    """Insert a new famous bearer and return its ID."""
+    with engine.raw_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                    INSERT INTO famous_bearer (public_name, subcategory, wikidata_id, created_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (wikidata_id) DO NOTHING
+                    RETURNING id
+                """,
+                (public_name, subcategory, wikidata_id),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return row[0] if row else None
+        finally:
+            conn.close()
+
+
+def _insert_name_bearer_link(
+    engine: sqlalchemy.Engine, given_name_id: int, bearer_id: int
+) -> None:
+    """Insert a link between a given name and a famous bearer."""
+    with engine.raw_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                    INSERT INTO name_famous_bearer (given_name_id, famous_bearer_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (given_name_id, famous_bearer_id) DO NOTHING
+                """,
+                (given_name_id, bearer_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
 
 def load_all(dry_run: bool = False) -> dict:

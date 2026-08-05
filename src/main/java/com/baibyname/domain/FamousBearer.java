@@ -34,6 +34,9 @@ public class FamousBearer {
     @Column(name = "subcategory", nullable = false)
     private Subcategory subcategory;
 
+    @Column(name = "wikidata_id")
+    private String wikidataId;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -67,6 +70,14 @@ public class FamousBearer {
 
     public void setSubcategory(Subcategory subcategory) {
         this.subcategory = subcategory;
+    }
+
+    public String getWikidataId() {
+        return wikidataId;
+    }
+
+    public void setWikidataId(String wikidataId) {
+        this.wikidataId = wikidataId;
     }
 
     public OffsetDateTime getCreatedAt() {

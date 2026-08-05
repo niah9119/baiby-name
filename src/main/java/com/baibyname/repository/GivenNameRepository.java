@@ -280,6 +280,18 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     List<GivenName> findSimilarBySharedCountries(@Param("id") Long id, Pageable pageable);
 
     /**
+     * Find famous bearers for the given GivenName IDs.
+     * Used to apply subcategory filtering.
+     */
+    @Query("""
+        SELECT DISTINCT fb FROM FamousBearer fb
+        JOIN fb.givenNames gn
+        WHERE gn.id IN :givenNameIds
+        """)
+    List<com.baibyname.domain.FamousBearer> findFamousBearersByGivenNameIds(
+            @Param("givenNameIds") List<Long> givenNameIds);
+
+    /**
      * Find a chunk of all names for sitemap pagination.
      * Used to split sitemap into multiple files under the 50k URL limit.
      */

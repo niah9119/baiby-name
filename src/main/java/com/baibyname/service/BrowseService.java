@@ -132,6 +132,11 @@ public class BrowseService {
             }
         }
 
+        // Apply subcategory filter in memory
+        if (!state.getSubcategories().isEmpty()) {
+            result = applySubcategoryFilter(result, state.getSubcategories());
+        }
+
         // Eagerly initialize nameStats for template rendering
         if (!result.isEmpty()) {
             List<GivenName> content = result.getContent();
@@ -164,6 +169,55 @@ public class BrowseService {
         }
 
         return result;
+    }
+
+    /**
+     * Apply subcategory filter to a page of names.
+     * Returns only names that have at least one famous bearer in the selected subcategories.
+     *
+     * @param page the page of names to filter
+     * @param subcategories set of selected subcategories
+     * @return filtered page of names
+     */
+    private Page<GivenName> applySubcategoryFilter(
+            Page<GivenName> page, Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories) {
+        if (page.isEmpty()) {
+            return page;
+        }
+
+        List<GivenName> content = page.getContent();
+        List<Long> ids = content.stream().map(GivenName::getId).toList();
+
+        // Get all famous bearers for these names
+        List<com.baibyname.domain.FamousBearer> bearers = givenNameRepository.findFamousBearersByGivenNameIds(ids);
+
+        // Group bearers by given name ID
+        // Note: each FamousBearer can be linked to multiple GivenNames (e.g., Leo links to both "Leo" and "Lionel")
+        // We need to create a mapping from each GivenName ID to the set of subcategories of its bearers
+        java.util.Map<Long, Set<com.baibyname.domain.FamousBearer.Subcategory>> subcategoriesByGivenName = new java.util.HashMap<>();
+        for (com.baibyname.domain.FamousBearer bearer : bearers) {
+            com.baibyname.domain.FamousBearer.Subcategory subcategory = bearer.getSubcategory();
+            for (com.baibyname.domain.GivenName givenName : bearer.getGivenNames()) {
+                subcategoriesByGivenName
+                        .computeIfAbsent(givenName.getId(), k -> new java.util.HashSet<>())
+                        .add(subcategory);
+            }
+        }
+
+        // Filter content: keep names that have at least one bearer in selected subcategories
+        List<GivenName> filteredContent = content.stream()
+                .filter(gn -> {
+                    Set<com.baibyname.domain.FamousBearer.Subcategory> bearersSubcategories =
+                            subcategoriesByGivenName.get(gn.getId());
+                    if (bearersSubcategories == null) {
+                        return false;
+                    }
+                    // Return true if there's any intersection between bearer subcategories and selected
+                    return bearersSubcategories.stream().anyMatch(subcategories::contains);
+                })
+                .toList();
+
+        return new PageImpl<>(filteredContent, page.getPageable(), filteredContent.size());
     }
 
     /**

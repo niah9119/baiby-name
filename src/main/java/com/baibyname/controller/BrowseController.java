@@ -61,6 +61,12 @@ public class BrowseController {
 
         model.addAttribute("countries", browseService.getAllCountries());
         model.addAttribute("sexes", browseService.getSexes());
+        // Add subcategories for the filter chips
+        model.addAttribute("subcategories", java.util.Arrays.asList(
+                com.baibyname.domain.FamousBearer.Subcategory.ROYALTY,
+                com.baibyname.domain.FamousBearer.Subcategory.MOVIE_STAR,
+                com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
+        ));
         model.addAttribute("filterState", filterStateService.getState());
         // Use candidates (ranked if available and valid, plain otherwise)
         model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
@@ -168,6 +174,36 @@ public class BrowseController {
         filterStateService.setPopularityFilter(filterType);
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
+        Pageable pageable = PageRequest.of(page, pageSize);
+        // Use plain candidates - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        model.addAttribute("filterState", filterStateService.getState());
+        return "browse :: candidate-list";
+    }
+
+    /**
+     * Toggle a subcategory filter and return the updated candidate list.
+     *
+     * @param subcategory "ROYALTY", "MOVIE_STAR", or "SPORTS_STAR"
+     * @param page the page number
+     * @param pageSize the page size
+     * @param model the model
+     * @param session the HTTP session
+     * @return the candidate list fragment
+     */
+    @PostMapping("/filter/subcategory/{subcategory}")
+    public String toggleSubcategoryFilter(@PathVariable String subcategory,
+                                          @RequestParam(defaultValue = "0") int page,
+                                          @RequestParam(defaultValue = "10") int pageSize,
+                                          Model model,
+                                          HttpSession session) {
+        try {
+            com.baibyname.domain.FamousBearer.Subcategory category =
+                    com.baibyname.domain.FamousBearer.Subcategory.valueOf(subcategory);
+            filterStateService.toggleSubcategory(category);
+        } catch (IllegalArgumentException e) {
+            // Invalid subcategory - ignore
+        }
         Pageable pageable = PageRequest.of(page, pageSize);
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
