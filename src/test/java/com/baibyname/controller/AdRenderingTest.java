@@ -147,19 +147,15 @@ class AdRenderingTest {
         // Set the baibyname_consent cookie directly in the request
         String consentJson = "{\"cookies\":true,\"processing\":true,\"marketing\":true}";
         String responseHtml = mockMvc.perform(get("/browse")
-                        .cookie(new org.springframework.mock.web.MockCookie("baibyname_consent", consentJson)))
+                        .cookie(new jakarta.servlet.http.Cookie("baibyname_consent", consentJson)))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
-        // Debug: print response to see what's happening
-        System.out.println("=== Response HTML ===");
-        System.out.println(responseHtml.substring(0, Math.min(3000, responseHtml.length())));
-        System.out.println("=== End Response ===");
-
         // Assert: Should contain adsbygoogle because user has consent
-        assertThat(responseHtml).contains("adsbygoogle");
+        assertThat(responseHtml).contains("<ins class=\"adsbygoogle\">");
+        assertThat(responseHtml).contains("push({})");
     }
 
     @Test
@@ -183,7 +179,7 @@ class AdRenderingTest {
         // Act: Get the browse page with declined consent cookie
         String consentJson = "{\"cookies\":false,\"processing\":false,\"marketing\":false}";
         String responseHtml = mockMvc.perform(get("/browse")
-                        .cookie(new org.springframework.mock.web.MockCookie("baibyname_consent", consentJson)))
+                        .cookie(new jakarta.servlet.http.Cookie("baibyname_consent", consentJson)))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
