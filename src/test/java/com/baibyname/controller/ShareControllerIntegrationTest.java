@@ -1,8 +1,10 @@
 package com.baibyname.controller;
 
 import com.baibyname.domain.Shortlist;
+import com.baibyname.domain.ShareLink;
 import com.baibyname.repository.ShortlistRepository;
 import com.baibyname.repository.ShareLinkRepository;
+import com.baibyname.service.ShortlistService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,16 +13,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -45,6 +50,9 @@ class ShareControllerIntegrationTest {
 
     @Autowired
     private ShortlistRepository shortlistRepository;
+
+    @Autowired
+    private ShortlistService shortlistService;
 
     private String randomToken;
 
@@ -92,9 +100,26 @@ class ShareControllerIntegrationTest {
      */
     @Test
     void sharedShortlistHasNoindexMeta() throws Exception {
-        // Get the template content and verify it contains the noindex meta tag
-        String responseHtml = mockMvc.perform(get("/s/" + randomToken))
-                .andExpect(status().isNotFound())
+        // Create a shortlist first
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Test Shortlist");
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        // Create a share link for the shortlist
+        String validToken = "test-token-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("test@example.com");
+        shareLink.setDisplayName("Test User");
+        shareLink.setShareToken(validToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // Visit the shared page with the valid token
+        String responseHtml = mockMvc.perform(get("/s/" + validToken))
+                .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();

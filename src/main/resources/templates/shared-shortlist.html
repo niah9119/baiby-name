@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head th:insert="layout :: head">
-    <title th:with="displayName=${displayName != null ? displayName : 'Shortlist'}" th:text="${displayName} + ' - BaibyName'">Shortlist - BaibyName</title>
-    <!-- No index for privacy - this is a read-only view of someone's shortlist -->
+<head th:include="layout :: head(~{})">
     <meta name="robots" content="noindex, nofollow">
+    <title th:text="${displayName} + ' - BaibyName'">Shortlist - BaibyName</title>
 </head>
 <body>
     <main class="flex-grow">
