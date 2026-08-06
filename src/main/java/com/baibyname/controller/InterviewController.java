@@ -120,9 +120,7 @@ public class InterviewController {
                 .flatMap(response -> {
                     List<String> events = new ArrayList<>();
 
-                    // Copy the list before iterating to avoid ConcurrentModificationException
-                    // when the streaming decoder mutates the response object concurrently
-                    for (var choice : List.copyOf(response.getChoices())) {
+                    for (var choice : response.getChoices()) {
                         var delta = choice.getDelta();
                         if (delta == null) {
                             continue;
@@ -130,8 +128,7 @@ public class InterviewController {
                         var toolCalls = delta.getToolCalls();
 
                         if (toolCalls != null && !toolCalls.isEmpty()) {
-                            // Handle tool calls - copy to avoid concurrent modification
-                            for (var toolCall : List.copyOf(toolCalls)) {
+                            for (var toolCall : toolCalls) {
                                 Map<String, Object> resultMap = new HashMap<>();
                                 resultMap.put("type", "toolResult");
                                 resultMap.put("toolName", toolCall.getFunction().getName());
@@ -139,7 +136,6 @@ public class InterviewController {
                                 events.add(toJson(resultMap));
                             }
                         } else if (delta.getContent() != null) {
-                            // Handle message content
                             Map<String, Object> contentMap = new HashMap<>();
                             contentMap.put("type", "message");
                             contentMap.put("content", delta.getContent());
