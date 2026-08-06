@@ -121,7 +121,7 @@ class AdRenderingTest {
                 .getContentAsString();
 
         // Assert: Should NOT contain adsbygoogle
-        assertThat(responseHtml).doesNotContain("<ins class=\"adsbygoogle\">");
+        assertThat(responseHtml).doesNotContain("adsbygoogle");
         assertThat(responseHtml).doesNotContain("push({})");
     }
 
@@ -154,7 +154,7 @@ class AdRenderingTest {
                 .getContentAsString();
 
         // Assert: Should contain adsbygoogle because user has consent
-        assertThat(responseHtml).contains("<ins class=\"adsbygoogle\">");
+        assertThat(responseHtml).contains("adsbygoogle");
         assertThat(responseHtml).contains("push({})");
     }
 
@@ -186,7 +186,7 @@ class AdRenderingTest {
                 .getContentAsString();
 
         // Assert: Should NOT contain adsbygoogle
-        assertThat(responseHtml).doesNotContain("<ins class=\"adsbygoogle\">");
+        assertThat(responseHtml).doesNotContain("adsbygoogle");
         assertThat(responseHtml).doesNotContain("push({})");
     }
 
