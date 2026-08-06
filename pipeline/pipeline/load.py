@@ -96,7 +96,17 @@ def load_canonical_csv(
         rows = list(reader)
 
     if is_famous_bearers:
-        return load_famous_bearers_csv(rows, engine, dry_run, stats)
+        # Famous bearers CSV uses a different stats structure
+        bearer_stats = {
+            "total_rows": 0,
+            "inserted_bearers": 0,
+            "skipped_bearers": 0,
+            "inserted_links": 0,
+            "skipped_links": 0,
+            "unresolved_names": [],
+            "errors": [],
+        }
+        return load_famous_bearers_csv(rows, engine, dry_run, bearer_stats)
     else:
         # Name stats CSV - original flow
         return load_name_stats_csv(rows, engine, batch_size, dry_run, stats)
@@ -663,14 +673,36 @@ if __name__ == "__main__":
             dry_run=args.dry_run,
         )
         print("\nLoad Statistics:")
-        print(f"  Total rows in CSV: {stats['total_rows']}")
-        print(f"  Inserted rows: {stats['inserted_rows']}")
-        print(f"  Skipped rows (already exists): {stats['skipped_rows']}")
-        print(f"  Dropped on conflict (source duplicate): {stats['dropped_on_conflict']}")
-        if stats["errors"]:
-            print(f"  Errors: {len(stats['errors'])}")
-            for error in stats["errors"][:5]:
-                print(f"    - {error}")
+
+        # Check if this is a famous_bearers CSV (has different stats structure)
+        if "inserted_bearers" in stats:
+            print(f"  Total rows in CSV: {stats['total_rows']}")
+            print(f"  Inserted bearers: {stats['inserted_bearers']}")
+            print(f"  Skipped bearers (already exists): {stats['skipped_bearers']}")
+            print(f"  Inserted links: {stats['inserted_links']}")
+            print(f"  Skipped links (already exists): {stats['skipped_links']}")
+            if stats["unresolved_names"]:
+                print(f"  Unresolved names: {len(stats['unresolved_names'])}")
+                # Show first 10 unresolved names
+                unresolved = stats['unresolved_names'][:10]
+                for name in unresolved:
+                    print(f"    - {name}")
+                if len(stats['unresolved_names']) > 10:
+                    print(f"    ... and {len(stats['unresolved_names']) - 10} more")
+            if stats["errors"]:
+                print(f"  Errors: {len(stats['errors'])}")
+                for error in stats["errors"][:5]:
+                    print(f"    - {error}")
+        else:
+            # Name stats CSV
+            print(f"  Total rows in CSV: {stats['total_rows']}")
+            print(f"  Inserted rows: {stats['inserted_rows']}")
+            print(f"  Skipped rows (already exists): {stats['skipped_rows']}")
+            print(f"  Dropped on conflict (source duplicate): {stats['dropped_on_conflict']}")
+            if stats["errors"]:
+                print(f"  Errors: {len(stats['errors'])}")
+                for error in stats["errors"][:5]:
+                    print(f"    - {error}")
     except Exception as e:
         print(f"Error: {e}")
         raise
