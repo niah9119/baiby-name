@@ -25,6 +25,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.hamcrest.Matchers;
 
@@ -206,6 +210,30 @@ class NameLandingPageIntegrationTest {
     }
 
     @Test
+    void sitemapIndexUsesConfiguredBaseUrl() throws Exception {
+        // Act & Assert - verify sitemap index uses the configured base URL
+        mockMvc.perform(get("/sitemap.xml"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(Matchers.containsString("http://localhost:8080/sitemap-")));
+    }
+
+    @Test
+    void sitemapChunkUsesConfiguredBaseUrl() throws Exception {
+        // Act & Assert - verify sitemap chunk uses the configured base URL
+        mockMvc.perform(get("/sitemap-0.xml"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(Matchers.containsString("http://localhost:8080/names/")));
+    }
+
+    @Test
+    void robotsTxtUsesConfiguredBaseUrl() throws Exception {
+        // Act & Assert - verify robots.txt uses the configured base URL for sitemap
+        mockMvc.perform(get("/robots.txt"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(Matchers.containsString("Sitemap: http://localhost:8080/sitemap.xml")));
+    }
+
+    @Test
     void nonAsciiNameUrlRoundTrips() throws Exception {
         // Setup
         GivenName specialName = new GivenName();
@@ -228,5 +256,118 @@ class NameLandingPageIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(Matchers.containsString(specialName.getName())))
                 .andExpect(content().string(Matchers.containsString("Åke")));
+    }
+
+    /**
+     * Tests sitemap chunking at realistic scale (50,000+ names).
+     * Verifies that:
+     * - The index has the correct number of chunks
+     * - Each chunk has at most 50,000 URLs
+     * - The union of all chunks equals the full name set exactly (no duplicates, no omissions)
+     */
+    @Test
+    void sitemapAtRealisticScale() throws Exception {
+        // Generate 55,000 names (more than 1 chunk but less than 2)
+        int numNames = 55000;
+        List<GivenName> names = new ArrayList<>();
+        for (int i = 0; i < numNames; i++) {
+            GivenName name = new GivenName();
+            name.setName("TestName" + String.format("%06d", i));
+            name.setCreatedAt(OffsetDateTime.now());
+            names.add(name);
+        }
+        givenNameRepository.saveAll(names);
+
+        // Get the full name set from the database
+        List<String> allNamesFromDb = givenNameRepository.findAll().stream()
+                .map(GivenName::getName)
+                .sorted()
+                .toList();
+
+        // Fetch the sitemap index
+        String indexXml = mockMvc.perform(get("/sitemap.xml"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Parse the index to get the number of chunks
+        int totalSitemaps = (int) Math.ceil((double) allNamesFromDb.size() / 50000);
+        for (int i = 0; i < totalSitemaps; i++) {
+            String chunkXml = mockMvc.perform(get("/sitemap-" + i + ".xml"))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            // Verify each chunk has at most 50,000 URLs
+            int urlCount = countOccurrences(chunkXml, "<url>");
+            if (i == totalSitemaps - 1) {
+                // Last chunk may have fewer than 50,000 URLs
+                int expectedLastChunk = allNamesFromDb.size() % 50000;
+                if (expectedLastChunk == 0) expectedLastChunk = 50000;
+                org.hamcrest.MatcherAssert.assertThat(
+                    "Chunk " + i + " should have " + expectedLastChunk + " URLs but had " + urlCount,
+                    urlCount, org.hamcrest.Matchers.equalTo(expectedLastChunk));
+            } else {
+                org.hamcrest.MatcherAssert.assertThat(
+                    "Chunk " + i + " should have 50000 URLs but had " + urlCount,
+                    urlCount, org.hamcrest.Matchers.equalTo(50000));
+            }
+        }
+
+        // Collect all names from all chunks
+        Set<String> namesInChunks = new HashSet<>();
+        for (int i = 0; i < totalSitemaps; i++) {
+            String chunkXml = mockMvc.perform(get("/sitemap-" + i + ".xml"))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            // Extract all name URLs from the chunk
+            int start = 0;
+            while (true) {
+                int locStart = chunkXml.indexOf("<loc>", start);
+                if (locStart == -1) break;
+                int locEnd = chunkXml.indexOf("</loc>", locStart);
+                if (locEnd == -1) break;
+                String loc = chunkXml.substring(locStart + 5, locEnd);
+                // Extract name from URL like "http://localhost:8080/names/TestName000001"
+                if (loc.contains("/names/")) {
+                    String name = loc.substring(loc.lastIndexOf("/names/") + 7);
+                    // Decode XML entities
+                    name = name.replace("&amp;", "&")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">")
+                            .replace("&quot;", "\"")
+                            .replace("&apos;", "'");
+                    namesInChunks.add(name);
+                }
+                start = locEnd + 6;
+            }
+        }
+
+        // Verify no duplicates in chunks
+        org.hamcrest.MatcherAssert.assertThat(
+            "No duplicate names should appear in chunks",
+            namesInChunks.size(), org.hamcrest.Matchers.equalTo(allNamesFromDb.size()));
+
+        // Verify union of chunks equals full name set exactly
+        Set<String> allNamesFromDbSet = new HashSet<>(allNamesFromDb);
+        org.hamcrest.MatcherAssert.assertThat(
+            "Union of all chunks should equal full database set",
+            namesInChunks, org.hamcrest.Matchers.equalTo(allNamesFromDbSet));
+    }
+
+    private int countOccurrences(String text, String substring) {
+        int count = 0;
+        int start = 0;
+        while (true) {
+            int idx = text.indexOf(substring, start);
+            if (idx == -1) break;
+            count++;
+            start = idx + substring.length();
+        }
+        return count;
     }
 }

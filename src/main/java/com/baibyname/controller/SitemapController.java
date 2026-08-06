@@ -1,6 +1,8 @@
 package com.baibyname.controller;
 
 import com.baibyname.repository.GivenNameRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
@@ -24,6 +26,9 @@ import java.util.List;
 public class SitemapController {
 
     private final GivenNameRepository givenNameRepository;
+
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     // Google's limit for URLs per sitemap file
     private static final int URLS_PER_SITEMAP = 50000;
@@ -49,7 +54,7 @@ public class SitemapController {
 
         for (int i = 0; i < totalSitemaps; i++) {
             xml.append("  <sitemap>\n");
-            xml.append("    <loc>https://example.com/sitemap-").append(i).append(".xml</loc>\n");
+            xml.append("    <loc>").append(baseUrl).append("/sitemap-").append(i).append(".xml</loc>\n");
             xml.append("    <lastmod>").append(OffsetDateTime.now().toLocalDate()).append("</lastmod>\n");
             xml.append("  </sitemap>\n");
         }
@@ -63,11 +68,17 @@ public class SitemapController {
      * Generate a specific sitemap chunk by index.
      * Only includes name pages (/names/**), not share links (/s/**).
      *
+     * <p>The rendered chunk is cached indefinitely to avoid rebuilding the same content
+     * on every request. The cache is keyed by the chunk index and invalidated when
+     * GivenName entities are modified (handled by spring-boot-starter-cache and
+     * cache evictions on name repository operations).</p>
+     *
      * @param index the chunk index (0-based)
      * @return XML sitemap content for this chunk
      */
     @GetMapping(value = "/sitemap-{index}.xml", produces = "application/xml")
     @ResponseBody
+    @Cacheable(cacheNames = "sitemapChunks", key = "#index")
     public String sitemapChunk(@PathVariable int index) {
         Pageable pageable = PageRequest.of(index, URLS_PER_SITEMAP);
         List<String> names = givenNameRepository.findAllChunk(pageable);
@@ -78,7 +89,7 @@ public class SitemapController {
 
         for (String name : names) {
             xml.append("  <url>\n");
-            xml.append("    <loc>https://example.com/names/").append(escapeXml(name)).append("</loc>\n");
+            xml.append("    <loc>").append(baseUrl).append("/names/").append(escapeXml(name)).append("</loc>\n");
             xml.append("    <lastmod>").append(OffsetDateTime.now().toLocalDate()).append("</lastmod>\n");
             xml.append("    <priority>0.8</priority>\n");
             xml.append("  </url>\n");

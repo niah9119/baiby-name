@@ -3,6 +3,7 @@ package com.baibyname.repository;
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,34 @@ import java.util.Optional;
 
 @Repository
 public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    <S extends GivenName> S save(S entity);
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    <S extends GivenName> List<S> saveAll(Iterable<S> entities);
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    void deleteById(Long aLong);
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    void delete(GivenName entity);
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    void deleteAllById(Iterable<? extends Long> IDs);
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    void deleteAll(Iterable<? extends GivenName> entities);
+
+    @CacheEvict(cacheNames = "sitemapChunks", allEntries = true)
+    @Override
+    void deleteAll();
 
     Optional<GivenName> findByName(String name);
 
