@@ -9,11 +9,24 @@ Fixed two blocking issues identified in the issue review:
 
 **Fix**: Changed from direct injection to `ObjectProvider<ConsentService>` with graceful degradation:
 ```java
-public ConsentControllerAdvice(ObjectProvider<ConsentService> consentServiceProvider) {
-    this.consentServiceProvider = consentServiceProvider;
+@ControllerAdvice
+public class ConsentControllerAdvice {
+    private final ObjectProvider<ConsentService> consentServiceProvider;
+    
+    public ConsentControllerAdvice(ObjectProvider<ConsentService> consentServiceProvider) {
+        this.consentServiceProvider = consentServiceProvider;
+    }
+    
+    @ModelAttribute("hasConsent")
+    public Boolean hasConsent(HttpServletRequest request) {
+        ConsentService consentService = consentServiceProvider.getIfAvailable();
+        if (consentService == null) {
+            return false; // fail closed
+        }
+        // ... use consentService
+    }
 }
 ```
-When `ConsentService` is not available, `hasConsent()` returns `false` (failing closed, as required by GDPR).
 
 ### Blocking 2: AdRenderingTest assertion failure
 **Problem**: The test `anonymousUserWithConsentCookie_seesAdMarkup` was failing because it expected `<ins class="adsbygoogle">` but the template actually renders `<ins class="adsbygoogle" style="display:block"...>`.
