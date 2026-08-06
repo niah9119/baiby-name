@@ -228,8 +228,8 @@ class AdServiceTest {
 
     @Test
     void shouldShowAdWithNullAccountIdReturnsFalse() {
-        // When
-        boolean result = adService.shouldShowAd("belowFilterPanel", null);
+        // When - cast null to Long to resolve method ambiguity
+        boolean result = adService.shouldShowAd("belowFilterPanel", (Long) null);
 
         // Then
         assertThat(result).isFalse();
