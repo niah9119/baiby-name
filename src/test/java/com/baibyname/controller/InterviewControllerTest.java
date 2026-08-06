@@ -77,20 +77,23 @@ class InterviewControllerTest {
         // Setup: Mock LLM as unavailable
         when(llmGateway.isAvailable()).thenReturn(false);
 
-        // Act: Start the async request
-        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
+        // Act: Start and complete the async request in one go
+        // Read from the asyncDispatch result to avoid race condition in MockHttpServletResponse
+        // where the async thread is still modifying the response while we're trying to read it
+        MvcResult asyncResult = mockMvc.perform(get("/interview/stream")
                 .param("message", "Hello"))
                 .andExpect(status().isOk())
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        // Wait for async processing to complete and read the full response
-        mockMvc.perform(asyncDispatch(mvcResult))
+        // Complete the async processing and read the response
+        mockMvc.perform(asyncDispatch(asyncResult))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/event-stream"));
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
+                .andReturn();
 
-        // Read the response from the original mvcResult after async dispatch completes
-        String response = mvcResult.getResponse().getContentAsString();
+        // Read from the async result to avoid race condition
+        String response = asyncResult.getResponse().getContentAsString();
 
         // Verify SSE format: exactly one "data:" prefix per event, not "data:data:"
         assertThat(response).contains("data:{\"type\":\"message\"");
@@ -107,16 +110,23 @@ class InterviewControllerTest {
         when(llmGateway.chatCompletionStream(any())).thenReturn(Flux.empty());
 
         // Act: Start the async request
-        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
+        MvcResult result = mockMvc.perform(get("/interview/stream")
                 .param("message", "I want boy names"))
                 .andExpect(status().isOk())
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        // Wait for async processing to complete
-        mockMvc.perform(asyncDispatch(mvcResult))
+        // Complete the async processing
+        MvcResult asyncResult = mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/event-stream"));
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
+                .andReturn();
+
+        // Read from the async result to avoid race condition
+        String response = asyncResult.getResponse().getContentAsString();
+
+        // Verify SSE format: exactly one "data:" prefix per event, not "data:data:"
+        assertThat(response).contains("data:{\"type\":\"done\"");
     }
 
     @Test
@@ -142,7 +152,9 @@ class InterviewControllerTest {
                 .andExpect(content().string(containsString("\"type\":\"done\"")))
                 .andExpect(content().string(containsString("unavailable")));
 
-        // Read the response from the original mvcResult after async dispatch completes
+        // Read the response after async processing is complete
+        // Use getAsyncResult() to ensure the async result is set before reading
+        mvcResult.getAsyncResult();
         String response = mvcResult.getResponse().getContentAsString();
 
         // Verify SSE format: exactly one "data:" prefix per event, not "data:data:"
