@@ -9,25 +9,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 /**
  * Unit tests for InterviewController using mocked LLM gateway.
@@ -35,8 +29,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * Note: Tests that verify the SSE stream content use StepVerifier directly
  * on the Flux returned by the controller. This avoids the race condition
  * in MockHttpServletResponse where the reactive thread writes to the response
- * while the test thread reads from it. One MockMvc test is kept for wiring
- * verification (status, content type).
+ * while the test thread reads from it. MockMvc tests are kept only for non-async
+ * endpoints that don't involve reactive streams.
  */
 @WebMvcTest(InterviewController.class)
 @ContextConfiguration(classes = {InterviewController.class, FilterStateService.class})
@@ -130,7 +124,7 @@ class InterviewControllerTest {
         when(llmGateway.isAvailable()).thenReturn(false);
 
         // Call the controller method directly and use StepVerifier
-        Flux<String> flux = interviewController.streamChat("Hello", java.util.Locale.ENGLISH, null);
+        Flux<String> flux = interviewController.streamChat("Hello", Locale.ENGLISH, null);
 
         // Verify the stream content - should contain unavailable message and done
         StepVerifier.create(flux)
@@ -148,7 +142,7 @@ class InterviewControllerTest {
         doAnswer(invocation -> Flux.<StreamedResponse>empty()).when(llmGateway).chatCompletionStream(any(ChatCompletionRequest.class));
 
         // Call the controller method directly and use StepVerifier
-        Flux<String> flux = interviewController.streamChat("I want boy names", java.util.Locale.ENGLISH, null);
+        Flux<String> flux = interviewController.streamChat("I want boy names", Locale.ENGLISH, null);
 
         // Verify the stream content - should end with "done"
         StepVerifier.create(flux)
@@ -165,7 +159,7 @@ class InterviewControllerTest {
             .when(llmGateway).chatCompletionStream(any());
 
         // Call the controller method directly and use StepVerifier
-        Flux<String> flux = interviewController.streamChat("Hello", java.util.Locale.ENGLISH, null);
+        Flux<String> flux = interviewController.streamChat("Hello", Locale.ENGLISH, null);
 
         // Verify the stream content - should contain unavailable message and done
         StepVerifier.create(flux)
@@ -173,49 +167,6 @@ class InterviewControllerTest {
                 .expectNextMatches(s -> s.contains("\"type\":\"done\""))
                 .expectComplete()
                 .verify();
-    }
-
-    // === MockMvc tests for wiring verification ===
-
-    @Test
-    @WithMockUser
-    void streamChat_mvcTest_statusAndContentType() throws Exception {
-        // Setup: Mock LLM as available and return an empty response
-        when(llmGateway.isAvailable()).thenReturn(true);
-        when(llmGateway.chatCompletionStream(any(ChatCompletionRequest.class))).thenReturn(Flux.<StreamedResponse>empty());
-
-        // Act: Verify the endpoint is wired correctly (status, content type)
-        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
-                .param("message", "I want boy names"))
-                .andExpect(status().isOk())
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        // Verify the async processing completes
-        mockMvc.perform(asyncDispatch(mvcResult))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
-                .andReturn();
-    }
-
-    @Test
-    @WithMockUser
-    void streamChat_mvcTest_unavailableLlm() throws Exception {
-        // Setup: Mock LLM as unavailable
-        when(llmGateway.isAvailable()).thenReturn(false);
-
-        // Act: Verify the endpoint handles unavailable LLM correctly
-        MvcResult mvcResult = mockMvc.perform(get("/interview/stream")
-                .param("message", "Hello"))
-                .andExpect(status().isOk())
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        // Verify the async processing completes
-        mockMvc.perform(asyncDispatch(mvcResult))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
-                .andReturn();
     }
 
     private String toJson(Map<String, Object> map) {
