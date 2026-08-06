@@ -18,14 +18,22 @@ from pipeline.normalize import _extract_year_from_filename, normalize_ssa_file
 
 
 def _load_flyway_schema(engine):
-    """Load the Flyway V2__core_schema.sql into the database."""
+    """Load the Flyway V2 and V7 migrations into the database."""
     from sqlalchemy import text
 
-    schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "main" / "resources" / "db" / "migration" / "V2__core_schema.sql"
-    schema_sql = schema_path.read_text()
+    migration_dir = Path(__file__).resolve().parent.parent.parent / "src" / "main" / "resources" / "db" / "migration"
+
+    # Load V2 schema
+    v2_path = migration_dir / "V2__core_schema.sql"
+    v2_sql = v2_path.read_text()
+
+    # Load V7 migration (adds wikidata_id column)
+    v7_path = migration_dir / "V7__famous_bearer_wikidata_id.sql"
+    v7_sql = v7_path.read_text()
 
     with engine.connect() as conn:
-        conn.execute(text(schema_sql))
+        conn.execute(text(v2_sql))
+        conn.execute(text(v7_sql))
         conn.commit()
 
 
@@ -281,6 +289,209 @@ class TestLoad:
             # Load the CSV - should raise ValueError
             with pytest.raises(ValueError, match="Invalid sex value 'M'"):
                 load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
+    def test_load_famous_bearers_csv(self, tmp_path):
+        """Test loading famous bearers CSV into the database.
+
+        This test verifies:
+        - Bearers are inserted with correct data
+        - Links are created between names and bearers
+        - Idempotency: running twice doesn't duplicate rows
+        """
+        import sqlalchemy
+        from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Create a temporary CSV file with famous bearers data
+        csv_path = tmp_path / "famous_bearers.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["public_name", "subcategory", "given_names", "country", "wikidata_id"])
+            writer.writerow(["Lionel Messi", "SPORTS_STAR", "Lionel;Leo", "AR", "Q1033"])
+            writer.writerow(["Zlatan Ibrahimović", "SPORTS_STAR", "Zlatan", "SE", "Q550"])
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
+
+            # Create the given names that will be linked
+            with engine.connect() as conn:
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Lionel', CURRENT_TIMESTAMP)"))
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Leo', CURRENT_TIMESTAMP)"))
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Zlatan', CURRENT_TIMESTAMP)"))
+                conn.commit()
+
+            # First load
+            stats1 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
+            assert stats1["total_rows"] == 2
+            assert stats1["inserted_bearers"] == 2
+            assert stats1["skipped_bearers"] == 0
+            assert stats1["inserted_links"] == 3  # Lionel;Leo + Zlatan = 3 links
+            assert stats1["skipped_links"] == 0
+            assert stats1["unresolved_names"] == []
+
+            # Verify data in database
+            with engine.connect() as conn:
+                # Check famous_bearer count
+                result = conn.execute(text("SELECT COUNT(*) FROM famous_bearer"))
+                assert result.scalar() == 2
+
+                # Check name_famous_bearer count
+                result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
+                assert result.scalar() == 3
+
+                # Verify the bearers were created correctly
+                result = conn.execute(text("SELECT public_name, subcategory FROM famous_bearer ORDER BY id"))
+                rows = result.fetchall()
+                assert len(rows) == 2
+                assert ("Lionel Messi", "SPORTS_STAR") in rows
+                assert ("Zlatan Ibrahimović", "SPORTS_STAR") in rows
+
+                # Verify links exist
+                result = conn.execute(text("""
+                    SELECT gn.name, fb.public_name
+                    FROM name_famous_bearer nfb
+                    JOIN given_name gn ON gn.id = nfb.given_name_id
+                    JOIN famous_bearer fb ON fb.id = nfb.famous_bearer_id
+                    ORDER BY gn.name, fb.public_name
+                """))
+                links = result.fetchall()
+                assert ("Lionel", "Lionel Messi") in links
+                assert ("Leo", "Lionel Messi") in links
+                assert ("Zlatan", "Zlatan Ibrahimović") in links
+
+            # Second load (should skip all since already exists)
+            stats2 = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
+            assert stats2["total_rows"] == 2
+            assert stats2["inserted_bearers"] == 0
+            assert stats2["skipped_bearers"] == 2
+            assert stats2["inserted_links"] == 0
+            assert stats2["skipped_links"] == 3
+
+            # Verify DB hasn't changed
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM famous_bearer"))
+                assert result.scalar() == 2
+                result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
+                assert result.scalar() == 3
+
+    def test_load_famous_bearers_unresolved_names(self, tmp_path):
+        """Test that names not in the given_name table are counted but not loaded."""
+        import sqlalchemy
+        from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Create a temporary CSV file with famous bearers
+        csv_path = tmp_path / "famous_bearers.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["public_name", "subcategory", "given_names", "country", "wikidata_id"])
+            # Create the names that exist
+            writer.writerow(["Lionel Messi", "SPORTS_STAR", "Lionel;Leo", "AR", "Q1033"])
+            # These names don't exist
+            writer.writerow(["Not A Person", "SPORTS_STAR", "Fake;Unknown;Unfound", "US", "Q999999"])
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
+
+            # Create the names that exist in the name universe
+            with engine.connect() as conn:
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Lionel', CURRENT_TIMESTAMP)"))
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Leo', CURRENT_TIMESTAMP)"))
+                conn.commit()
+
+            # Load the CSV
+            stats = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
+            # The bearer should be inserted but links to non-existent names should be skipped
+            assert stats["total_rows"] == 2
+            assert stats["inserted_bearers"] == 2
+            # Unresolved names should be sorted alphabetically
+            assert sorted(stats["unresolved_names"]) == ["Fake", "Unfound", "Unknown"]
+
+            # Verify only the valid links were created
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
+                # Only 2 valid links (Lionel and Leo for Messi)
+                assert result.scalar() == 2
+
+    def test_load_famous_bearers_multi_name_bearer(self, tmp_path):
+        """Test that bearers with multiple given names link to all of them.
+
+        Real rows from the committed CSV:
+        - Ole Gunnar Solskjær -> Gunnar;Ole (NO)
+        - Max von Sydow -> Max;Adolf (SE)
+        """
+        import sqlalchemy
+        from sqlalchemy import text
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Create a temporary CSV file with multi-name bearers
+        csv_path = tmp_path / "famous_bearers.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["public_name", "subcategory", "given_names", "country", "wikidata_id"])
+            # Use names that exist in the given_name table
+            writer.writerow(["Ole Gunnar Solskjær", "SPORTS_STAR", "Gunnar;Ole", "NO", "Q18976"])
+            writer.writerow(["Max von Sydow", "MOVIE_STAR", "Max;Adolf", "SE", "Q203215"])
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
+
+            # Create the given names that will be linked
+            with engine.connect() as conn:
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Gunnar', CURRENT_TIMESTAMP)"))
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Ole', CURRENT_TIMESTAMP)"))
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Max', CURRENT_TIMESTAMP)"))
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Adolf', CURRENT_TIMESTAMP)"))
+                conn.commit()
+
+            # First load
+            stats = load_canonical_csv(csv_path=csv_path, db_url=db_url)
+
+            assert stats["total_rows"] == 2
+            assert stats["inserted_bearers"] == 2
+            assert stats["inserted_links"] == 4  # Gunnar;Ole + Max;Adolf = 4 links
+            assert stats["skipped_links"] == 0
+            assert stats["unresolved_names"] == []
+
+            # Verify both links exist in name_famous_bearer
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT gn.name, fb.public_name
+                    FROM name_famous_bearer nfb
+                    JOIN given_name gn ON gn.id = nfb.given_name_id
+                    JOIN famous_bearer fb ON fb.id = nfb.famous_bearer_id
+                    ORDER BY gn.name, fb.public_name
+                """))
+                links = result.fetchall()
+
+                # Both names should be linked to Ole Gunnar Solskjær
+                assert ("Gunnar", "Ole Gunnar Solskjær") in links
+                assert ("Ole", "Ole Gunnar Solskjær") in links
+
+                # Both names should be linked to Max von Sydow
+                assert ("Max", "Max von Sydow") in links
+                assert ("Adolf", "Max von Sydow") in links
 
 
 @pytest.fixture
