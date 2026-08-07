@@ -279,12 +279,6 @@ for i in $(seq 1 "$MAX"); do
     result=$(grep '^{' "$log" | jq -r 'select(.type=="result") | .result' 2>/dev/null | tail -1)
     echo "-- agent result: ${result:-<none>}"
 
-    # Detect router crashes explicitly by looking for stack traces containing cli.js and "at async"
-    # These appear when the router hits a context window overflow and crashes
-    if grep -q "at async" "$log" && grep -q "cli.js" "$log"; then
-      echo "-- #$N CRASHED (router): context window overflow detected"
-    fi
-
     # Proof-of-verification: did the agent invoke the build/test runner as a Bash tool call?
     verify_cmds=$(grep '^{' "$log" \
       | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command' 2>/dev/null \
