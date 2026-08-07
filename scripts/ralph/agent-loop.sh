@@ -379,7 +379,6 @@ into the next iteration. Unverified." || true
         gh issue edit "$N" --add-label blocked-rescue 2>/dev/null || echo "! Could not add blocked-rescue label"
         # Build the comment body with a quoted heredoc to prevent backtick command substitution.
         # Use __LOCAL__ and __REMOTE__ placeholders, then substitute the SHA values.
-        local body
         body=$(cat <<'EOF'
 **CRITICAL WARNING**: This agent iteration left uncommitted work that could not be pushed to the remote branch. The local branch has diverged from the remote.
 
