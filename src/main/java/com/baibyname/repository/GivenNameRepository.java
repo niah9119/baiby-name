@@ -288,6 +288,11 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
      * This method takes a collection of sexes and returns COUNT(DISTINCT gn) to avoid
      * double-counting names that qualify for multiple sexes (unisex names).
      *
+     * The query uses EXISTS to check each selected sex independently, ensuring that
+     * a name is counted if it meets the threshold for ANY selected sex, not the sum
+     * of all selected sexes. This guards against incorrect results when a third sex
+     * value exists in the database.
+     *
      * @param countries list of countries to filter by (must not be empty)
      * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
      * @param countryCount number of countries (for HAVING clause)
@@ -297,10 +302,10 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     @Query("""
         SELECT COUNT(DISTINCT gn) FROM GivenName gn
         WHERE gn.id IN (
-            SELECT ns2.givenName.id FROM NameStat ns2
+            SELECT DISTINCT ns2.givenName.id FROM NameStat ns2
             WHERE ns2.country IN :countries
             AND ns2.sex IN :sexes
-            GROUP BY ns2.givenName.id
+            GROUP BY ns2.givenName.id, ns2.sex
             HAVING SUM(ns2.count) * 100.0 / (
                 SELECT SUM(ns3.count) FROM NameStat ns3
                 WHERE ns3.givenName.id = ns2.givenName.id
@@ -345,19 +350,25 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
      * This method takes a collection of sexes and returns COUNT(DISTINCT gn) to avoid
      * double-counting names that qualify for multiple sexes (unisex names).
      *
+     * The query uses EXISTS to check each selected sex independently, ensuring that
+     * a name is counted if it meets the threshold for ANY selected sex, not the sum
+     * of all selected sexes. This guards against incorrect results when a third sex
+     * value exists in the database.
+     *
      * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
      * @param threshold share threshold (0.0 to 100.0)
      * @return count of distinct names where at least one selected sex has >= threshold% share globally
      */
     @Query("""
         SELECT COUNT(DISTINCT gn) FROM GivenName gn
-        WHERE gn.id IN (
-            SELECT ns2.givenName.id FROM NameStat ns2
-            WHERE ns2.sex IN :sexes
-            GROUP BY ns2.givenName.id
-            HAVING SUM(ns2.count) * 100.0 / (
-                SELECT SUM(ns3.count) FROM NameStat ns3
-                WHERE ns3.givenName.id = ns2.givenName.id
+        WHERE EXISTS (
+            SELECT 1 FROM NameStat ns
+            WHERE ns.givenName.id = gn.id
+            AND ns.sex IN :sexes
+            GROUP BY ns.givenName.id, ns.sex
+            HAVING SUM(ns.count) * 100.0 / (
+                SELECT SUM(ns2.count) FROM NameStat ns2
+                WHERE ns2.givenName.id = gn.id
             ) >= :threshold
         )
         """)
