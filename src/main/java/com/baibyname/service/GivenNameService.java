@@ -148,6 +148,28 @@ public class GivenNameService {
     }
 
     /**
+     * Count names by sex with share threshold filtering across all countries (global).
+     *
+     * @param sex the sex to filter by (Boy or Girl)
+     * @return count of names where the specified sex has >= 10% share globally
+     */
+    public long countBySexShareGlobally(String sex) {
+        return givenNameRepository.countBySexShareGlobally(sex, BrowseService.SHARE_THRESHOLD);
+    }
+
+    /**
+     * Count names by sex with share threshold filtering in all given countries.
+     *
+     * @param countries the list of countries to search across
+     * @param sex the sex to filter by (Boy or Girl)
+     * @return count of names where the specified sex has >= 10% share in all countries
+     */
+    public long countBySexShareInAllCountries(List<Country> countries, String sex) {
+        int countryCount = countries.size();
+        return givenNameRepository.countBySexShareInAllCountries(countries, sex, countryCount, BrowseService.SHARE_THRESHOLD);
+    }
+
+    /**
      * Find names that are NOT Common Lately in any of the given countries.
      * A name is "uncommon lately" if it is known in the country but doesn't appear
      * in top 100 of any of the last 5 years.

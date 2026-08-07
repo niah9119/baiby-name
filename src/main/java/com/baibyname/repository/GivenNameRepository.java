@@ -252,6 +252,50 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("countryCount") int countryCount);
 
     /**
+     * Count names by sex with share threshold filtering in all given countries.
+     * Used for pagination to get the true total before pagination is applied.
+     */
+    @Query("""
+        SELECT COUNT(gn) FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.country IN :countries
+            AND ns2.sex = :sex
+            GROUP BY ns2.givenName.id
+            HAVING SUM(ns2.count) * 100.0 / (
+                SELECT SUM(ns3.count) FROM NameStat ns3
+                WHERE ns3.givenName.id = ns2.givenName.id
+                AND ns3.country IN :countries
+            ) >= :threshold
+        )
+        """)
+    long countBySexShareInAllCountries(
+            @Param("countries") List<Country> countries,
+            @Param("sex") String sex,
+            @Param("countryCount") int countryCount,
+            @Param("threshold") double threshold);
+
+    /**
+     * Count names by sex with share threshold filtering across all countries (global).
+     * Used for pagination to get the true total before pagination is applied.
+     */
+    @Query("""
+        SELECT COUNT(gn) FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.sex = :sex
+            GROUP BY ns2.givenName.id
+            HAVING SUM(ns2.count) * 100.0 / (
+                SELECT SUM(ns3.count) FROM NameStat ns3
+                WHERE ns3.givenName.id = ns2.givenName.id
+            ) >= :threshold
+        )
+        """)
+    long countBySexShareGlobally(
+            @Param("sex") String sex,
+            @Param("threshold") double threshold);
+
+    /**
      * Find all distinct sex values in the database.
      */
     @Query("SELECT DISTINCT ns.sex FROM NameStat ns ORDER BY ns.sex")
@@ -319,6 +363,19 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
         """)
     List<com.baibyname.domain.FamousBearer> findFamousBearersByGivenNameIds(
             @Param("givenNameIds") List<Long> givenNameIds);
+
+    /**
+     * Count names with famous bearers in the given subcategories.
+     * Used for pagination to get the true total before filtering.
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT gn) FROM GivenName gn
+        JOIN gn.famousBearers nfb
+        JOIN nfb.famousBearer fb
+        WHERE fb.subcategory IN :subcategories
+        """)
+    long countByFamousBearerSubcategories(
+            @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories);
 
     /**
      * Find a chunk of all names for sitemap pagination.
