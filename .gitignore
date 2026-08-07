@@ -64,5 +64,5 @@ pipeline/data/
 scripts/ralph/.agent-loop.lock
 scripts/ralph/.agent-loop.pid
 
-# Agent scratch space: per-issue plans and human-authored durable documents
-tasks/*.md
+# Agent scratch space: per-issue plans and temporary files
+tasks/
