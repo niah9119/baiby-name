@@ -878,4 +878,120 @@ class GivenNameServiceTest {
         assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
                 .doesNotContain(boyOnlyName.getName());
     }
+
+    // --- Tests for countBySexShare methods ---
+
+    @Test
+    void countBySexShareGlobally_boyOnly() {
+        // Setup: Create a boy-only name
+        var boyOnlyName = new GivenName();
+        boyOnlyName.setName("BoyOnlyName" + System.nanoTime());
+        boyOnlyName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(boyOnlyName);
+
+        addNameStat(boyOnlyName, country1, "Boy", 2023, 100, 50);
+
+        // Act
+        var count = givenNameService.countBySexShareGlobally("Boy");
+
+        // Assert
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void countBySexShareGlobally_unisexNameCountsOnce() {
+        // Setup: Create a unisex name (Boy: 20%, Girl: 80% globally)
+        var unisexName = new GivenName();
+        unisexName.setName("UnisexName" + System.nanoTime());
+        unisexName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(unisexName);
+
+        // Boy: 10,000 out of 50,000 total = 20% globally
+        addNameStat(unisexName, country1, "Boy", 2023, 10000, 50);
+        // Girl: 40,000 out of 50,000 total = 80% globally
+        addNameStat(unisexName, country1, "Girl", 2023, 40000, 10);
+
+        // Act: Count names with both Boy and Girl (should count unisex name only once)
+        var count = givenNameService.countBySexShareGlobally(Set.of("Boy", "Girl"));
+
+        // Assert: The unisex name should be counted exactly once, not twice
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void countBySexShareGlobally_multipleNamesWithUnion() {
+        // Setup: Create multiple names with different sex distributions
+        var unisexName = new GivenName();
+        unisexName.setName("UnisexName" + System.nanoTime());
+        unisexName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(unisexName);
+
+        // Boy: 20%, Girl: 80%
+        addNameStat(unisexName, country1, "Boy", 2023, 100, 50);
+        addNameStat(unisexName, country1, "Girl", 2023, 400, 10);
+
+        var boyOnlyName = new GivenName();
+        boyOnlyName.setName("BoyOnlyName" + System.nanoTime());
+        boyOnlyName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(boyOnlyName);
+
+        // Boy: 100%
+        addNameStat(boyOnlyName, country1, "Boy", 2023, 100, 30);
+
+        var girlOnlyName = new GivenName();
+        girlOnlyName.setName("GirlOnlyName" + System.nanoTime());
+        girlOnlyName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(girlOnlyName);
+
+        // Girl: 100%
+        addNameStat(girlOnlyName, country1, "Girl", 2023, 100, 40);
+
+        // Act: Count names with both Boy and Girl
+        var count = givenNameService.countBySexShareGlobally(Set.of("Boy", "Girl"));
+
+        // Assert: unisexName + boyOnlyName + girlOnlyName = 3, not 4 (unisex should not be double-counted)
+        assertThat(count).isEqualTo(3);
+    }
+
+    @Test
+    void countBySexShareInAllCountries_boyOnly() {
+        // Setup: Create a boy-only name in both countries
+        var name = new GivenName();
+        name.setName("BoyOnlyBothCountries" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        addNameStat(name, country1, "Boy", 2023, 100, 50);
+        addNameStat(name, country2, "Boy", 2023, 50, 30);
+
+        // Act
+        var count = givenNameService.countBySexShareInAllCountries(List.of(country1, country2), "Boy");
+
+        // Assert
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void countBySexShareInAllCountries_unisexNameCountsOnce() {
+        // Setup: Create a unisex name in both countries
+        var unisexName = new GivenName();
+        unisexName.setName("UnisexBothCountries" + System.nanoTime());
+        unisexName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(unisexName);
+
+        // Boy: 20% in country1, 30% in country2
+        addNameStat(unisexName, country1, "Boy", 2023, 100, 50);
+        addNameStat(unisexName, country2, "Boy", 2023, 50, 30);
+
+        // Girl: 80% in country1, 70% in country2
+        addNameStat(unisexName, country1, "Girl", 2023, 400, 10);
+        addNameStat(unisexName, country2, "Girl", 2023, 150, 20);
+
+        // Act: Count with both sexes (should count unisex name only once)
+        var count = givenNameService.countBySexShareInAllCountries(
+                List.of(country1, country2), Set.of("Boy", "Girl"));
+
+        // Assert: The unisex name should be counted exactly once
+        assertThat(count).isEqualTo(1);
+    }
 }

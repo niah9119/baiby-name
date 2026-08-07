@@ -254,6 +254,12 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
     /**
      * Count names by sex with share threshold filtering in all given countries.
      * Used for pagination to get the true total before pagination is applied.
+     *
+     * @param countries list of countries to filter by (must not be empty)
+     * @param sex the sex to filter by (Boy or Girl)
+     * @param countryCount number of countries (for HAVING clause)
+     * @param threshold share threshold (0.0 to 100.0)
+     * @return count of names where the specified sex has >= threshold% share in all countries
      */
     @Query("""
         SELECT COUNT(gn) FROM GivenName gn
@@ -276,8 +282,45 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("threshold") double threshold);
 
     /**
+     * Count names by sex with share threshold filtering in all given countries.
+     * Used for pagination to get the true total before pagination is applied.
+     *
+     * This method takes a collection of sexes and returns COUNT(DISTINCT gn) to avoid
+     * double-counting names that qualify for multiple sexes (unisex names).
+     *
+     * @param countries list of countries to filter by (must not be empty)
+     * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
+     * @param countryCount number of countries (for HAVING clause)
+     * @param threshold share threshold (0.0 to 100.0)
+     * @return count of distinct names where at least one selected sex has >= threshold% share in all countries
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT gn) FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.country IN :countries
+            AND ns2.sex IN :sexes
+            GROUP BY ns2.givenName.id
+            HAVING SUM(ns2.count) * 100.0 / (
+                SELECT SUM(ns3.count) FROM NameStat ns3
+                WHERE ns3.givenName.id = ns2.givenName.id
+                AND ns3.country IN :countries
+            ) >= :threshold
+        )
+        """)
+    long countBySexShareInAllCountries(
+            @Param("countries") List<Country> countries,
+            @Param("sexes") java.util.Set<String> sexes,
+            @Param("countryCount") int countryCount,
+            @Param("threshold") double threshold);
+
+    /**
      * Count names by sex with share threshold filtering across all countries (global).
      * Used for pagination to get the true total before pagination is applied.
+     *
+     * @param sex the sex to filter by (Boy or Girl)
+     * @param threshold share threshold (0.0 to 100.0)
+     * @return count of names where the specified sex has >= threshold% share globally
      */
     @Query("""
         SELECT COUNT(gn) FROM GivenName gn
@@ -293,6 +336,33 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
         """)
     long countBySexShareGlobally(
             @Param("sex") String sex,
+            @Param("threshold") double threshold);
+
+    /**
+     * Count names by sex with share threshold filtering across all countries (global).
+     * Used for pagination to get the true total before pagination is applied.
+     *
+     * This method takes a collection of sexes and returns COUNT(DISTINCT gn) to avoid
+     * double-counting names that qualify for multiple sexes (unisex names).
+     *
+     * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
+     * @param threshold share threshold (0.0 to 100.0)
+     * @return count of distinct names where at least one selected sex has >= threshold% share globally
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT gn) FROM GivenName gn
+        WHERE gn.id IN (
+            SELECT ns2.givenName.id FROM NameStat ns2
+            WHERE ns2.sex IN :sexes
+            GROUP BY ns2.givenName.id
+            HAVING SUM(ns2.count) * 100.0 / (
+                SELECT SUM(ns3.count) FROM NameStat ns3
+                WHERE ns3.givenName.id = ns2.givenName.id
+            ) >= :threshold
+        )
+        """)
+    long countBySexShareGlobally(
+            @Param("sexes") java.util.Set<String> sexes,
             @Param("threshold") double threshold);
 
     /**
