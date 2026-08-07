@@ -48,6 +48,11 @@ say in your PR comment which point each change answers.
   work away) and branches from main otherwise. Untracked files from an earlier attempt
   may be present — inspect and build on them.
 
+- **Do NOT rebase your branch onto main.** Work on top of the branch as it exists.
+  Let the merge handle divergence; if there's a genuine conflict, report it. Rebasing
+  is unsafe because the agent loop cannot safely push rebased commits without risking
+  work loss. See issue #77 for details.
+
 - If `git branch --show-current` does not print `issue-{{ISSUE}}`, STOP and fix it before
   doing anything else. Committing to `main` is a serious error: it puts unreviewed work on
   the shared branch and leaves your PR empty.
