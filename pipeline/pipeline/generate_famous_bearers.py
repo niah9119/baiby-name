@@ -28,6 +28,13 @@ COUNTRIES = OrderedDict([("SE", "Q34"), ("NO", "Q20"), ("DK", "Q756617"), ("GB",
 # Smaller countries publish fewer notable people; a uniform threshold empties them.
 COUNTRY_THRESHOLD = {"SE": 20, "NO": 20, "DK": 8, "GB": 60, "US": 80}
 
+# A bearer's nationality does not bound their relevance (#109). Messi is Argentinian and
+# shapes naming in Scandinavia; Haaland is Norwegian and shapes naming in South America.
+# So we also query worldwide, with a much higher notability bar so the list stays curated:
+# at sitelinks > 120 there are only a handful of footballers on Earth.
+GLOBAL_THRESHOLD = 120
+GLOBAL_COUNTRY_LABEL = "WW"   # bearer is globally notable; nationality is not a launch country
+
 # Only link to names that exist in the Name Universe. This is what separates a real
 # short form ("Henke") from a surname ("Chaplin") or a transliteration.
 def _load_universe():
@@ -74,6 +81,35 @@ LIMIT 200
 """
 
 
+GLOBAL_QUERY = """
+SELECT ?person ?personLabel ?sitelinks
+       (GROUP_CONCAT(DISTINCT STR(?gnLabel); separator="|") AS ?givenNames)
+       (GROUP_CONCAT(DISTINCT STR(?alias);  separator="|") AS ?aliases) WHERE {{
+  ?person wdt:P31 wd:Q5;
+          wdt:P106 wd:{occ};
+          wdt:P735 ?gn;
+          wikibase:sitelinks ?sitelinks.
+  FILTER(?sitelinks > {threshold})
+  ?gn rdfs:label ?gnLabel. FILTER(lang(?gnLabel) = "en")
+  ?person rdfs:label ?personLabel. FILTER(lang(?personLabel) = "en")
+  OPTIONAL {{ ?person skos:altLabel ?alias. }}
+}}
+GROUP BY ?person ?personLabel ?sitelinks
+ORDER BY DESC(?sitelinks)
+LIMIT 200
+"""
+
+
+def run_global(occ, threshold):
+    """Notable people worldwide, regardless of nationality (#109)."""
+    q = GLOBAL_QUERY.format(occ=occ, threshold=threshold)
+    r = requests.get(SPARQL, params={"query": q}, timeout=180,
+                     headers={"Accept": "text/csv", "User-Agent": UA})
+    if r.status_code != 200 or not r.text.startswith("person"):
+        return None
+    return list(csv.DictReader(r.text.splitlines()))
+
+
 def run(occ, country, threshold):
     q = QUERY.format(occ=occ, country=country, threshold=threshold)
     r = requests.get(SPARQL, params={"query": q}, timeout=180,
@@ -83,14 +119,77 @@ def run(occ, country, threshold):
     return list(csv.DictReader(r.text.splitlines()))
 
 
+def select_known_names(public_name, given, aliases, universe):
+    """Names the person is publicly *known* by (#108).
+
+    P735 is multi-valued and returns every given name, including middle names nobody
+    associates with the person -- Luke Shaw is "Luke Paul Hoare Shaw", so P735 yields
+    Paul and he ends up listed under /names/Paul. So a P735 name is kept only when it
+    appears in the public name.
+
+    Aliases are different: an alias *is* a name the person is known by, which is what
+    preserves "Leo" for Lionel Messi -- absent from "Lionel Messi", present in the
+    Spanish aliases. Aliases equal to the surname are dropped, though: being called
+    "Chaplin" is not being named Chaplin.
+    """
+    pub = public_name.lower()
+    surname = pub.split()[-1] if pub.split() else ""
+
+    kept = [g for g in given if g.lower() in pub]
+    kept += [a for a in aliases if a.lower() != surname and a.lower() not in {k.lower() for k in kept}]
+
+    return [n for n in OrderedDict.fromkeys(kept) if n in universe]
+
+
 def qid(url):
     m = re.search(r"/(Q\d+)$", url or "")
     return m.group(1) if m else None
 
 
+def collect(rows, sub, cc, universe, seen):
+    """Fold query rows into `seen`, keyed by the person's own QID."""
+    added = 0
+    for row in rows:
+        pid = qid(row.get("person"))
+        if not pid or pid in seen:
+            continue
+        names = select_known_names(
+            row["personLabel"],
+            [g for g in (row.get("givenNames") or "").split("|") if g],
+            [a for a in (row.get("aliases") or "").split("|") if NAME_TOKEN.match(a)],
+            universe,
+        )
+        if not names or len(names) > 6:
+            continue
+        seen[pid] = {
+            "public_name": row["personLabel"],
+            "subcategory": sub,
+            "given_names": ";".join(names),
+            "country": cc,
+            "wikidata_id": pid,
+            "sitelinks": row["sitelinks"],
+        }
+        added += 1
+    return added
+
+
 def main(out_path):
     universe = _load_universe()
     seen = {}
+
+    # Pass 1: globally notable people, any nationality (#109).
+    for sub, occs in OCCUPATIONS.items():
+        for occ, _ in occs:
+            rows = run_global(occ, GLOBAL_THRESHOLD)
+            if rows is None:
+                print(f"  {sub:12s} WW {occ:12s} -> query failed/timeout", file=sys.stderr)
+                time.sleep(2)
+                continue
+            n = collect(rows, sub, GLOBAL_COUNTRY_LABEL, universe, seen)
+            print(f"  {sub:12s} WW {occ:12s} -> {n:3d} new (of {len(rows)})", file=sys.stderr)
+            time.sleep(1)
+
+    # Pass 2: per launch country, at a lower bar, so nationally-notable people survive.
     for sub, occs in OCCUPATIONS.items():
         for cc, cq in COUNTRIES.items():
             for occ, thr in occs:
@@ -99,25 +198,7 @@ def main(out_path):
                     print(f"  {sub:12s} {cc} {occ:12s} -> query failed/timeout", file=sys.stderr)
                     time.sleep(2)
                     continue
-                added = 0
-                for row in rows:
-                    pid = qid(row.get("person"))
-                    if not pid or pid in seen:
-                        continue
-                    given = [g for g in (row.get("givenNames") or "").split("|") if g]
-                    aliases = [a for a in (row.get("aliases") or "").split("|") if NAME_TOKEN.match(a)]
-                    names = [n for n in OrderedDict.fromkeys(given + aliases) if n in universe]
-                    if not names or len(names) > 6:
-                        continue          # no names, or a list entity masquerading as a person
-                    seen[pid] = {
-                        "public_name": row["personLabel"],
-                        "subcategory": sub,
-                        "given_names": ";".join(names),
-                        "country": cc,
-                        "wikidata_id": pid,
-                        "sitelinks": row["sitelinks"],
-                    }
-                    added += 1
+                added = collect(rows, sub, cc, universe, seen)
                 print(f"  {sub:12s} {cc} {occ:12s} -> {added:3d} new (of {len(rows)})", file=sys.stderr)
                 time.sleep(1)
 
