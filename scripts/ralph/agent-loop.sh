@@ -66,11 +66,67 @@ done
 
 mkdir -p "$LOG_DIR"
 
+# --- Verification functions ---
+# Verify we're in the agent's clone, not the human's tree
+verify_agent_tree() {
+  local cwd
+  cwd=$(pwd)
+  local expected="/work/git/baiby-name-agent"
+  if [[ "$cwd" != "$expected" ]]; then
+    echo "ERROR: Current directory is '$cwd', expected '$expected'" >&2
+    echo "ERROR: This is NOT the agent's clone. Aborting." >&2
+    exit 1
+  fi
+  echo "agent-loop: verified agent tree at $cwd"
+}
+
+
+# Record human tree state for later verification
+human_tree_head=""
+record_human_tree() {
+  local human_tree="/work/git/baiby-name"
+  if [[ -d "$human_tree/.git" ]]; then
+    human_tree_head=$(git -C "$human_tree" rev-parse HEAD 2>/dev/null || echo "")
+    echo "agent-loop: recorded human tree HEAD: $human_tree_head"
+  fi
+}
+
+# Verify human tree matches recorded state
+verify_human_tree() {
+  local human_tree="/work/git/baiby-name"
+  if [[ -z "$human_tree_head" ]]; then
+    return 0  # No state to verify
+  fi
+  if [[ ! -d "$human_tree/.git" ]]; then
+    return 0
+  fi
+  local head_now
+  head_now=$(git -C "$human_tree" rev-parse HEAD 2>/dev/null || echo "")
+  if [[ "$head_now" != "$human_tree_head" ]]; then
+    echo "ERROR: Human tree HEAD changed from $human_tree_head to $head_now" >&2
+    echo "ERROR: Commands were run against the human's tree!" >&2
+    exit 1
+  fi
+  if [[ -n "$(git -C "$human_tree" status --porcelain)" ]]; then
+    echo "ERROR: Human tree has uncommitted changes:" >&2
+    git -C "$human_tree" status --porcelain >&2
+    echo "ERROR: The agent may have written to the human's tree!" >&2
+    exit 1
+  fi
+  echo "agent-loop: verified human tree is unchanged"
+}
+
 label_args=(--label "$QUEUE_LABEL")
 [[ -n "$SCOPE_LABEL" ]] && label_args+=(--label "$SCOPE_LABEL")
 
 echo "agent-loop: max=$MAX  queue-label=$QUEUE_LABEL  scope-label='${SCOPE_LABEL:-<none>}'"
 echo "branch: $(git branch --show-current)"
+
+# Verify we're in the agent's clone at start
+verify_agent_tree
+
+# Record human tree state for later verification
+record_human_tree
 
 # --- Lock file mechanism to prevent concurrent runs ---
 # Only one instance can run at a time against this clone
@@ -336,6 +392,9 @@ into the next iteration. Unverified." || true
 
   # Back to main so the next iteration starts clean even if the agent left a branch checked out.
   git checkout -q main && git pull -q --ff-only || echo "WARN: could not return to clean main"
+
+  # Verify human tree is still untouched after the round
+  verify_human_tree
 
   sleep 1
 done
