@@ -420,6 +420,84 @@ class BrowseControllerTest {
                 .andExpect(view().name("browse"));
     }
 
+    @Test
+    void nextButtonVisibleWhenMultiplePages() throws Exception {
+        // Setup: create 25 names (25 items / 10 per page = 3 pages)
+        for (int i = 0; i < 25; i++) {
+            GivenName name = new GivenName();
+            name.setName("NextButtonTestName" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Act: Get page 0
+        String responsePage0 = mockMvc.perform(get("/browse")
+                .param("page", "0")
+                .param("pageSize", "10"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Assert: Next button should be visible (hasNext() is true when page 0 of 3)
+        assertThat(responsePage0).contains("Next");
+
+        // Act: Get page 2 (the last page)
+        String responsePage2 = mockMvc.perform(get("/browse")
+                .param("page", "2")
+                .param("pageSize", "10"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Assert: Next button should NOT be visible on the last page (hasNext() is false)
+        assertThat(responsePage2).doesNotContain("Next");
+    }
+
+    @Test
+    void nextButtonNotVisibleWhenSinglePage() throws Exception {
+        // Setup: create 5 names (5 items / 10 per page = 1 page)
+        for (int i = 0; i < 5; i++) {
+            GivenName name = new GivenName();
+            name.setName("SinglePageNextTest" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Act: Get page 0 (the only page)
+        String responsePage0 = mockMvc.perform(get("/browse")
+                .param("page", "0")
+                .param("pageSize", "10"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Assert: Next button should NOT be visible (only one page)
+        assertThat(responsePage0).doesNotContain("Next");
+    }
+
     // --- Tests for popularity filter ---
 
     @Test

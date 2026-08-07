@@ -301,15 +301,16 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
      */
     @Query("""
         SELECT COUNT(DISTINCT gn) FROM GivenName gn
-        WHERE gn.id IN (
-            SELECT DISTINCT ns2.givenName.id FROM NameStat ns2
-            WHERE ns2.country IN :countries
-            AND ns2.sex IN :sexes
-            GROUP BY ns2.givenName.id, ns2.sex
-            HAVING SUM(ns2.count) * 100.0 / (
-                SELECT SUM(ns3.count) FROM NameStat ns3
-                WHERE ns3.givenName.id = ns2.givenName.id
-                AND ns3.country IN :countries
+        WHERE EXISTS (
+            SELECT 1 FROM NameStat ns
+            WHERE ns.givenName.id = gn.id
+            AND ns.country IN :countries
+            AND ns.sex IN :sexes
+            GROUP BY ns.givenName.id, ns.sex
+            HAVING SUM(ns.count) * 100.0 / (
+                SELECT SUM(ns2.count) FROM NameStat ns2
+                WHERE ns2.givenName.id = gn.id
+                AND ns2.country IN :countries
             ) >= :threshold
         )
         """)

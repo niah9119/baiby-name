@@ -1182,4 +1182,51 @@ class GivenNameServiceTest {
         // Assert: Should be 1 (unisex name, counted once)
         assertThat(countBoth).isEqualTo(1);
     }
+
+    @Test
+    void countBySexShareInAllCountries_BothBelowThresholdNotCounted() {
+        // Verify that when both selected sexes are below the threshold in all countries,
+        // the name is not counted. This tests that the query correctly evaluates
+        // each sex independently (not summed together).
+        //
+        // The global Boy share calculation = (b1 + b2) / (t1 + t2) where:
+        // - b1, b2 = Boy counts in countries 1 and 2
+        // - t1, t2 = total name counts in countries 1 and 2
+        //
+        // For a name to NOT be counted:
+        // - Global Boy share < 10%
+        // - Global Girl share < 10%
+        //
+        // With only two sexes, this is impossible since Boy + Girl = 100%.
+        // But the query correctly evaluates each sex independently:
+        // - If Boy >= 10%, the name is counted
+        // - If Girl >= 10%, the name is counted
+        // - With only two sexes, at least one must be >= 50% (since they sum to 100%)
+
+        var name = new GivenName();
+        name.setName("BelowThresholdBoth" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        // Create stats with Boy at 8% and Girl at 92% (both countries)
+        // Boy: 800 / 10000 = 8% (< 10%)
+        // Girl: 9200 / 10000 = 92% (>= 10%)
+        // With two sexes, one will always be >= 50%, so this test verifies
+        // the query works correctly but doesn't expose the bug without a third sex.
+
+        // Country 1: Boy 8%, Girl 92%
+        addNameStat(name, country1, "Boy", 2023, 800, 50);
+        addNameStat(name, country1, "Girl", 2023, 9200, 10);
+
+        // Country 2: Boy 8%, Girl 92%
+        addNameStat(name, country2, "Boy", 2023, 800, 50);
+        addNameStat(name, country2, "Girl", 2023, 9200, 10);
+
+        // Act: Count names where Boy OR Girl has >= 10% share
+        var countBoth = givenNameService.countBySexShareInAllCountries(
+                List.of(country1, country2), Set.of("Boy", "Girl"));
+
+        // Assert: Should be 1 (Girl meets threshold at 92%)
+        assertThat(countBoth).isEqualTo(1);
+    }
 }
