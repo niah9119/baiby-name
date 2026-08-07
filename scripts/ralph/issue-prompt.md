@@ -48,6 +48,10 @@ say in your PR comment which point each change answers.
   work away) and branches from main otherwise. Untracked files from an earlier attempt
   may be present — inspect and build on them.
 
+- **`tasks/` is scratch space.** Durable documents live in `docs/`
+  (e.g., `docs/lessons.md`, `docs/ralph-handover.md`). If you need to write a plan,
+  create `tasks/issue-{{ISSUE}}.md`. Per-issue plan files become stale after merge.
+
 - **Do NOT rebase your branch onto main.** Work on top of the branch as it exists.
   Let the merge handle divergence; if there's a genuine conflict, report it. Rebasing
   is unsafe because the agent loop cannot safely push rebased commits without risking
@@ -58,6 +62,10 @@ say in your PR comment which point each change answers.
   the shared branch and leaves your PR empty.
 
 ## Hard rules
+
+- **`tasks/` is scratch space.** Durable documents live in `docs/`
+  (e.g., `docs/lessons.md`, `docs/ralph-handover.md`). Per-issue plan files
+  (`tasks/issue-{{ISSUE}}.md`) become stale after merge and may be removed by future agents.
 
 - CONSERVE YOUR CONTEXT: your context window is limited and long command output can crash
   your session. ALWAYS pipe potentially long output through tail, e.g.
