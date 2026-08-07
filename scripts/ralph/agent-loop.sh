@@ -83,13 +83,29 @@ detect_trees() {
 
 # Verify we're in the agent's clone, not the human's tree
 verify_agent_tree() {
+  # First check: agent_tree must end with -agent (derived from path, not pwd)
+  if [[ "$agent_tree" != *-agent ]]; then
+    echo "ERROR: Agent tree '$agent_tree' does not end with '-agent'" >&2
+    echo "ERROR: This is NOT the agent's clone. Aborting." >&2
+    exit 1
+  fi
+
+  # Second check: human_tree must differ from agent_tree (derived from agent_tree)
+  if [[ "$human_tree" == "$agent_tree" ]]; then
+    echo "ERROR: Could not derive human tree from '$agent_tree'" >&2
+    echo "ERROR: Human tree equals agent tree - not the agent's clone. Aborting." >&2
+    exit 1
+  fi
+
+  # Third check (drift): pwd must still match agent_tree (catches cd during runtime)
   local cwd_resolved
   cwd_resolved=$(pwd -P)
   if [[ "$cwd_resolved" != "$agent_tree" ]]; then
     echo "ERROR: Current directory is '$cwd_resolved', expected agent tree '$agent_tree'" >&2
-    echo "ERROR: This is NOT the agent's clone. Aborting." >&2
+    echo "ERROR: Agent loop has drifted from its clone. Aborting." >&2
     exit 1
   fi
+
   echo "agent-loop: verified we are in the agent's clone"
 }
 
