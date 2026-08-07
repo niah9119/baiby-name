@@ -149,23 +149,27 @@ public class BrowseService {
         }
 
         // Apply popularity filter in memory (for simplicity with pagination)
+        // IMPORTANT: We need to compute the true total before filtering, then use it for pagination
         String popularityFilter = state.getPopularityFilter();
         if ("common_lately".equals(popularityFilter)) {
             int currentYear = Year.now().getValue();
+            long totalCount = givenNameService.countCommonLatelyInAllCountries(countries, currentYear);
             List<GivenName> commonNames = givenNameService.findCommonLatelyInAllCountries(countries, currentYear);
             Set<Long> commonIds = commonNames.stream().map(GivenName::getId).collect(java.util.stream.Collectors.toSet());
             List<GivenName> filteredContent = result.getContent().stream()
                     .filter(gn -> commonIds.contains(gn.getId()))
                     .toList();
-            result = new PageImpl<>(filteredContent, pageable, filteredContent.size());
+            result = new PageImpl<>(filteredContent, pageable, totalCount);
         } else if ("uncommon_lately".equals(popularityFilter)) {
             int currentYear = Year.now().getValue();
+            // Count uncommon lately names
+            long totalCount = givenNameService.countByNameKnownInAllCountries(countries) - givenNameService.countCommonLatelyInAllCountries(countries, currentYear);
             List<GivenName> uncommonNames = givenNameService.findUncommonLatelyInCountries(countries, currentYear);
             Set<Long> uncommonIds = uncommonNames.stream().map(GivenName::getId).collect(java.util.stream.Collectors.toSet());
             List<GivenName> filteredContent = result.getContent().stream()
                     .filter(gn -> uncommonIds.contains(gn.getId()))
                     .toList();
-            result = new PageImpl<>(filteredContent, pageable, filteredContent.size());
+            result = new PageImpl<>(filteredContent, pageable, totalCount);
         }
 
         return result;
@@ -184,6 +188,9 @@ public class BrowseService {
         if (page.isEmpty()) {
             return page;
         }
+
+        // Get the true total count before filtering
+        long totalCount = givenNameRepository.countByFamousBearerSubcategories(subcategories);
 
         List<GivenName> content = page.getContent();
         List<Long> ids = content.stream().map(GivenName::getId).toList();
@@ -217,7 +224,7 @@ public class BrowseService {
                 })
                 .toList();
 
-        return new PageImpl<>(filteredContent, page.getPageable(), filteredContent.size());
+        return new PageImpl<>(filteredContent, page.getPageable(), totalCount);
     }
 
     /**
@@ -229,9 +236,13 @@ public class BrowseService {
      * @return page of names where at least one selected sex has >= 10% share
      */
     private Page<GivenName> getNamesWithSexShareGlobal(Set<String> sexes, Pageable pageable) {
+        // Get the true total count using a single query with COUNT(DISTINCT gn)
+        // to avoid double-counting names that qualify for multiple sexes (unisex names)
+        long totalElements = givenNameService.countBySexShareGlobally(sexes);
+
+        // For the content, we need to fetch all matching names and deduplicate them
         // Collect results for each sex and merge them (union semantics)
         java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
-        int totalElements = 0;
 
         for (String sex : sexes) {
             Page<GivenName> sexResult = givenNameService.findBySexShareGlobally(
@@ -239,10 +250,9 @@ public class BrowseService {
                     pageable);
 
             mergedResult.addAll(sexResult.getContent());
-            totalElements += sexResult.getTotalElements();
         }
 
-        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, mergedResult.size());
+        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, totalElements);
     }
 
     /**
@@ -256,9 +266,13 @@ public class BrowseService {
      * @return page of names where at least one selected sex has >= 10% share in all countries
      */
     private Page<GivenName> getNamesWithSexShareInCountries(List<Country> countries, Set<String> sexes, Pageable pageable) {
+        // Get the true total count using a single query with COUNT(DISTINCT gn)
+        // to avoid double-counting names that qualify for multiple sexes (unisex names)
+        long totalElements = givenNameService.countBySexShareInAllCountries(countries, sexes);
+
+        // For the content, we need to fetch all matching names and deduplicate them
         // Collect results for each sex and merge them (union semantics)
         java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
-        int totalElements = 0;
 
         for (String sex : sexes) {
             Page<GivenName> sexResult = givenNameService.findBySexShareInAllCountries(
@@ -267,10 +281,9 @@ public class BrowseService {
                     pageable);
 
             mergedResult.addAll(sexResult.getContent());
-            totalElements += sexResult.getTotalElements();
         }
 
-        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, mergedResult.size());
+        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, totalElements);
     }
 
     /**
