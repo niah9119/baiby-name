@@ -110,3 +110,40 @@ query so an unscoped invocation can only ever touch throwaway test issues.
 
 **Rule.** Real runs need `--scope ""` explicitly. `scope-label='ralph-test'` in the first line of
 the loop output means nothing will be picked up.
+
+## Making a return value truthful breaks callers that relied on it lying
+
+**What happened.** #70 changed `run_agent` to return the agent's real exit status. The call site
+invoked it bare under `set -euo pipefail`, so the first genuine crash aborted the whole loop
+before the rescue-commit block could run. #120's run died on a router context overflow, the issue
+was left labelled `in-progress`, and ~140 lines of uncommitted test work survived only because it
+was committed by hand. Filed and fixed as #124.
+
+Before the change the status was always 0, so the bare call was safe by accident. Nobody had to
+think about the call site until the value became meaningful.
+
+**Rules.**
+
+- When a function starts returning a non-zero status it never returned before, check every call
+  site under the script's own `set -e`. Testing the function in isolation proves nothing about
+  what the caller does with a failure.
+- Capture with `rc=0; cmd || rc=$?`. Both `cmd || true; rc=$?` and `if ! cmd; then rc=$?; fi`
+  silently yield 0 — the first from `true`, the second from the negation. Verify by running the
+  snippet with a stub that returns 42.
+- A safety mechanism that has never executed is not evidence of anything. The rescue path, the
+  crash detector and the tree guard all shipped and all failed on first real use.
+
+## Verify a requested test is possible before demanding it
+
+**What happened.** I asked #120 for a test inserting a third `sex` value to prove the multi-sex
+count used union rather than summed semantics. Migration `V5__sex_canonical_constraint.sql` adds
+`CHECK (sex IN ('Boy', 'Girl'))`, so such a row cannot exist. The agent burned crashed runs
+attempting it, and each attempt was reverted because it could not pass.
+
+**Rules.**
+
+- Before requiring a test for a scenario, confirm the schema and constraints permit that scenario.
+  Grep the migrations for a `CHECK` on the column before writing the acceptance criterion.
+- When an agent removes a test it previously added, read why before assuming regression. Here the
+  agent had reasoned correctly and documented the impossibility in a comment.
+- A constraint that makes a bug unreachable is a legitimate answer to "add a test for this bug".
