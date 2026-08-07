@@ -1117,4 +1117,122 @@ class GivenNameServiceTest {
         assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
                 .contains(belowThresholdName.getName());
     }
+
+    @Test
+    void boyGirlShareCouplingWithThirdSex_X() {
+        // This test verifies the coupling bug fix.
+        //
+        // The original query used `sex IN :sexes` with a HAVING clause that sums
+        // ALL selected sexes together. This caused names to be incorrectly included
+        // when neither sex individually reached the threshold but their sum did.
+        //
+        // Scenario: Boy 6%, Girl 6%, X 88%
+        // - Neither Boy nor Girl reaches 10%
+        // - Boy + Girl = 12% which exceeds 10%
+        // - The buggy query would include this name when both Boy and Girl are selected
+        // - The correct query should NOT include it (each sex must independently meet threshold)
+
+        var thirdSexName = new GivenName();
+        thirdSexName.setName("ThirdSexName" + System.nanoTime());
+        thirdSexName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(thirdSexName);
+
+        // Boy: 600 out of 10000 = 6% (below 10% threshold)
+        addNameStat(thirdSexName, country1, "Boy", 2023, 600, 50);
+        // Girl: 600 out of 10000 = 6% (below 10% threshold)
+        addNameStat(thirdSexName, country1, "Girl", 2023, 600, 60);
+        // X: 8800 out of 10000 = 88%
+        addNameStat(thirdSexName, country1, "X", 2023, 8800, 20);
+
+        // Act: Find names where Boy OR Girl has >= 10% share in all countries
+        var boyGirlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), Set.of("Boy", "Girl"), PageRequest.of(0, 10));
+
+        // Assert: The name should NOT appear because neither Boy (6%) nor Girl (6%)
+        // reaches the 10% threshold. The buggy query would have included it
+        // because 6% + 6% = 12% >= 10%.
+        assertThat(boyGirlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(thirdSexName.getName());
+        assertThat(boyGirlResult.getTotalElements()).isEqualTo(0);
+
+        // Verify: Each sex individually has below threshold
+        var boyOnlyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+        assertThat(boyOnlyResult.getTotalElements()).isEqualTo(0);
+
+        var girlOnlyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+        assertThat(girlOnlyResult.getTotalElements()).isEqualTo(0);
+    }
+
+    @Test
+    void countBySexShareInAllCountries_WithThirdSex_X() {
+        // Verify the count method also works correctly with the coupling fix.
+        // Uses the same scenario: Boy 6%, Girl 6%, X 88% should NOT be counted
+        // when filtering by both Boy and Girl.
+
+        var thirdSexName = new GivenName();
+        thirdSexName.setName("CountThirdSex" + System.nanoTime());
+        thirdSexName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(thirdSexName);
+
+        addNameStat(thirdSexName, country1, "Boy", 2023, 600, 50);
+        addNameStat(thirdSexName, country1, "Girl", 2023, 600, 60);
+        addNameStat(thirdSexName, country1, "X", 2023, 8800, 20);
+
+        // Also create a name that should be counted (Boy 15%, Girl 85%)
+        var validName = new GivenName();
+        validName.setName("ValidName" + System.nanoTime());
+        validName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(validName);
+
+        addNameStat(validName, country1, "Boy", 2023, 1500, 50);
+        addNameStat(validName, country1, "Girl", 2023, 8500, 10);
+
+        // Act: Count names where Boy OR Girl has >= 10% share
+        var count = givenNameService.countBySexShareInAllCountries(
+                List.of(country1), Set.of("Boy", "Girl"));
+
+        // Assert: Only validName should be counted (1), not thirdSexName
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void boyGirlShareCoupling_EachSexMustIndividuallyReachThreshold() {
+        // Another verification: when Boy is 15% and Girl is 85%,
+        // the name should be counted under both Boy and Girl filters.
+
+        var validName = new GivenName();
+        validName.setName("EachSexValid" + System.nanoTime());
+        validName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(validName);
+
+        addNameStat(validName, country1, "Boy", 2023, 1500, 50);
+        addNameStat(validName, country1, "Girl", 2023, 8500, 10);
+
+        // Act: Count with both Boy and Girl
+        var count = givenNameService.countBySexShareInAllCountries(
+                List.of(country1), Set.of("Boy", "Girl"));
+
+        // Assert: Should count once (not double-counted)
+        assertThat(count).isEqualTo(1);
+
+        // Act: Find with Boy filter
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+
+        // Assert: Should find the name
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(validName.getName());
+        assertThat(boyResult.getTotalElements()).isEqualTo(1);
+
+        // Act: Find with Girl filter
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+
+        // Assert: Should find the name
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(validName.getName());
+        assertThat(girlResult.getTotalElements()).isEqualTo(1);
+    }
 }
