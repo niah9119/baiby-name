@@ -86,20 +86,6 @@ say in your PR comment which point each change answers.
   containers (`docker compose up`) to check something, stop them again before you finish —
   never leave a server holding port 8080 or a database container running.
 
-## Context economy
-
-Agent runs crash after ~1MB of transcript when the model's context window is exceeded.
-To avoid this, be frugal with context:
-
-- **Prefer targeted `grep` over reading whole files**: Use `grep -n "pattern" file` to find
-  what you need rather than `Read` on a large file. This is especially important for logs
-  and configuration files.
-- **Re-read only the region being changed**: When you need to modify code, read just the
-  file and specific lines around your change — not the entire file.
-- **Do not `cat` build output that is already summarised**: When build output is printed
-  inline by the harness or logged to a file, use `tail` to get summary information rather
-  than reading the full output.
-
 - NEVER make a test conditional, skipped, or disabled to get a green build
   (no @Disabled, no @EnabledIf..., no pytest.skip, no skipif on a missing env var).
   A test that does not run is a failure, not a success — if you cannot make it pass,
@@ -110,6 +96,17 @@ To avoid this, be frugal with context:
 - If a criterion needs a database, START one and test against it (Testcontainers for
   Java, a docker postgres for Python) — do not skip the test because no server is
   configured. Clean the container up when you are done.
+
+## Context economy
+
+Agent runs crash after ~1MB of transcript when the model's context window is exceeded.
+To avoid this, be frugal with context:
+
+- **Prefer targeted `grep` over reading whole files**: Use `grep -n "pattern" file` to find
+  what you need rather than `Read` on a large file. This is especially important for logs
+  and configuration files.
+- **Re-read only the region being changed**: When you need to modify code, read just the
+  file and specific lines around your change — not the entire file.
 
 ## When the work is done and the build/tests pass
 

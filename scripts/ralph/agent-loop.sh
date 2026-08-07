@@ -214,11 +214,11 @@ run_agent() {
   echo "agent-loop: started agent with PID $agent_pid (in group $(ps -o pgid= -p $agent_pid 2>/dev/null | tr -d ' '))"
 
   # Wait for the agent to complete (or be killed)
-  if ! wait "$agent_pid"; then
-    agent_exit=$?
-  else
-    agent_exit=0
-  fi
+  # Use || to capture the exit code correctly. $? inside a then branch is the status of
+  # the negation (always 0), not the original command. The || form captures properly:
+  # wait succeeds (exit 0) -> agent_exit stays 0; wait fails -> agent_exit gets wait's exit code.
+  agent_exit=0
+  wait "$agent_pid" || agent_exit=$?
 
   # Remove PID file after agent exits (or is killed)
   remove_agent_pid
