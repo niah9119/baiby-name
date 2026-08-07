@@ -1,4 +1,4 @@
-# Issue #114 Review
+# Issue #114 - Done
 
 ## Summary
 Fixed pagination bug in BrowseService where the page size was incorrectly used as the total element count.
@@ -26,9 +26,7 @@ Fixed 5 locations where content.size() was used as the total:
 5. Sex share in countries: Now uses totalElements from individual sex queries instead of merged result size
 
 ## Test Results
-All 269 tests pass, including:
-- 27 BrowseControllerTest tests
-- All other existing tests
+All 269 tests pass.
 
 ## PR
 Created PR #119 with the fix.
