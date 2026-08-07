@@ -103,6 +103,8 @@ class BrowseControllerTest {
     void setUp() {
         sweden = countryRepository.findByCode("SE").orElseThrow();
         norway = countryRepository.findByCode("NO").orElseThrow();
+        // Reset filter state to ensure clean test isolation
+        filterStateService.reset();
     }
 
     @DynamicPropertySource
@@ -423,6 +425,9 @@ class BrowseControllerTest {
     @Test
     void nextButtonVisibleWhenMultiplePages() throws Exception {
         // Setup: create 25 names (25 items / 10 per page = 3 pages)
+        // Add sex filter to ensure only the Boy names created in this test are returned
+        filterStateService.addSex("Boy");
+
         for (int i = 0; i < 25; i++) {
             GivenName name = new GivenName();
             name.setName("NextButtonTestName" + i);
@@ -468,6 +473,9 @@ class BrowseControllerTest {
     @Test
     void nextButtonNotVisibleWhenSinglePage() throws Exception {
         // Setup: create 5 names (5 items / 10 per page = 1 page)
+        // Add sex filter to ensure only the Boy names created in this test are returned
+        filterStateService.addSex("Boy");
+
         for (int i = 0; i < 5; i++) {
             GivenName name = new GivenName();
             name.setName("SinglePageNextTest" + i);

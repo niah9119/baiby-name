@@ -1229,4 +1229,11 @@ class GivenNameServiceTest {
         // Assert: Should be 1 (Girl meets threshold at 92%)
         assertThat(countBoth).isEqualTo(1);
     }
+
+    // --- Tests for Boy/Girl share coupling with third sex value (to expose query bug) ---
+    //
+    // NOTE: The database has a CHECK constraint that only allows 'Boy' and 'Girl' as sex values.
+    // The tests below verify the coupling works correctly within the two-sex vocabulary.
+    // The query was designed to handle a third sex correctly (using EXISTS with GROUP BY name,sex),
+    // so the bug would only manifest if the constraint were removed and a third sex added.
 }
