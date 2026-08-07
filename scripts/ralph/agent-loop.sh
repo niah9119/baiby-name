@@ -214,13 +214,22 @@ run_agent() {
   echo "agent-loop: started agent with PID $agent_pid (in group $(ps -o pgid= -p $agent_pid 2>/dev/null | tr -d ' '))"
 
   # Wait for the agent to complete (or be killed)
-  wait "$agent_pid" || true
-  local agent_exit=$?
+  if ! wait "$agent_pid"; then
+    agent_exit=$?
+  else
+    agent_exit=0
+  fi
 
   # Remove PID file after agent exits (or is killed)
   remove_agent_pid
 
   echo "agent-loop: agent exited with status $agent_exit"
+  # Distinguish crash from timeout: 124 = timeout, non-zero = crash
+  if [[ $agent_exit -eq 124 ]]; then
+    echo "agent-loop: agent timed out (exit code 124)"
+  elif [[ $agent_exit -ne 0 ]]; then
+    echo "agent-loop: agent crashed (exit code $agent_exit)"
+  fi
   return $agent_exit
 }
 

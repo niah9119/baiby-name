@@ -82,6 +82,10 @@ say in your PR comment which point each change answers.
 - Spend the budget on the acceptance criteria, not on exploration. If you find yourself
   investigating rather than writing code, commit what you have first.
 
+- CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
+  containers (`docker compose up`) to check something, stop them again before you finish —
+  never leave a server holding port 8080 or a database container running.
+
 ## Context economy
 
 Agent runs crash after ~1MB of transcript when the model's context window is exceeded.
@@ -95,11 +99,6 @@ To avoid this, be frugal with context:
 - **Do not `cat` build output that is already summarised**: When build output is printed
   inline by the harness or logged to a file, use `tail` to get summary information rather
   than reading the full output.
-
-These rules are quoted in PR comments when changes are made to address context economy.
-- CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
-  containers (`docker compose up`) to check something, stop them again before you finish —
-  never leave a server holding port 8080 or a database container running.
 
 - NEVER make a test conditional, skipped, or disabled to get a green build
   (no @Disabled, no @EnabledIf..., no pytest.skip, no skipif on a missing env var).
