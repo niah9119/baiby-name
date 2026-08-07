@@ -48,6 +48,14 @@ say in your PR comment which point each change answers.
   work away) and branches from main otherwise. Untracked files from an earlier attempt
   may be present — inspect and build on them.
 
+- **Do NOT delete human-authored files in `tasks/`.** The directory contains durable documents
+  like `tasks/lessons.md` and `tasks/todo.md` that outlive individual issues. If you need to
+  write a plan, create `tasks/issue-{{ISSUE}}.md` instead of overwriting existing files.
+
+- **Plan location:** Write your plan to `tasks/issue-{{ISSUE}}.md`, not to `tasks/todo.md` or
+  `tasks/lessons.md`. Per-issue plans avoid collisions between concurrent branches and
+  preserve durable documents on main after merge.
+
 - **Do NOT rebase your branch onto main.** Work on top of the branch as it exists.
   Let the merge handle divergence; if there's a genuine conflict, report it. Rebasing
   is unsafe because the agent loop cannot safely push rebased commits without risking
@@ -58,6 +66,11 @@ say in your PR comment which point each change answers.
   the shared branch and leaves your PR empty.
 
 ## Hard rules
+
+- **Do not delete files in `tasks/`.** The `tasks/` directory contains durable human-authored
+  documents like `tasks/lessons.md` and `tasks/todo.md`. Only write to `tasks/issue-{{ISSUE}}.md`
+  for your plans. After merge, your per-issue plan file becomes stale and may be deleted by
+  future agents working on new issues — that is expected.
 
 - CONSERVE YOUR CONTEXT: your context window is limited and long command output can crash
   your session. ALWAYS pipe potentially long output through tail, e.g.
