@@ -194,8 +194,15 @@ run_agent() {
   # default so it can kill that group on deadline, which would place the pipeline outside
   # the group we just created. Verified: without --foreground, a `timeout` process survived
   # the abort with a process group of its own.
+  #
+  # Use PIPESTATUS to capture the actual exit code of the agent (not tee's 0). The pipeline
+  # is: sed | timeout --foreground claude-qwen 2>&1 | tee ... >/dev/null
+  # With pipefail, the pipeline's exit code is the rightmost non-zero exit code; without it,
+  # the exit code is just from `tee`, which always returns 0 on success. This masks router
+  # crashes where claude-qwen exits non-zero but tee succeeds.
   AGENT_ISSUE="$issue_num" AGENT_LOG="$log_file" AGENT_PROMPT="$PROMPT_TMPL" \
   setsid bash -c '
+    set -o pipefail
     sed "s/{{ISSUE}}/$AGENT_ISSUE/g" "$AGENT_PROMPT" \
       | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout --foreground 90m \
           claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
@@ -207,13 +214,22 @@ run_agent() {
   echo "agent-loop: started agent with PID $agent_pid (in group $(ps -o pgid= -p $agent_pid 2>/dev/null | tr -d ' '))"
 
   # Wait for the agent to complete (or be killed)
-  wait "$agent_pid" || true
-  local agent_exit=$?
+  # Use || to capture the exit code correctly. $? inside a then branch is the status of
+  # the negation (always 0), not the original command. The || form captures properly:
+  # wait succeeds (exit 0) -> agent_exit stays 0; wait fails -> agent_exit gets wait's exit code.
+  agent_exit=0
+  wait "$agent_pid" || agent_exit=$?
 
   # Remove PID file after agent exits (or is killed)
   remove_agent_pid
 
   echo "agent-loop: agent exited with status $agent_exit"
+  # Distinguish crash from timeout: 124 = timeout, non-zero = crash
+  if [[ $agent_exit -eq 124 ]]; then
+    echo "agent-loop: agent timed out (exit code 124)"
+  elif [[ $agent_exit -ne 0 ]]; then
+    echo "agent-loop: agent crashed (exit code $agent_exit)"
+  fi
   return $agent_exit
 }
 
