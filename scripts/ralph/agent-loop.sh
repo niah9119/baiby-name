@@ -364,8 +364,13 @@ for i in $(seq 1 "$MAX"); do
   # on `git status`, the first command of the commit step. Losing completed work costs a
   # rescue-commit or a whole re-run; an over-long run only costs local GPU time, which is free.
 
-  run_agent "$N" "$log"
-  agent_exit=$?
+  # run_agent returns the agent's real exit status (#70). Under `set -e` a bare call would
+  # abort the whole loop on any non-zero, skipping the rescue-commit block below and leaving
+  # the issue stuck in 'in-progress'. That is exactly what happened to #120 on 2026-08-07:
+  # a router context overflow exited 1, the loop died, and ~140 lines of uncommitted test
+  # work had to be rescued by hand. Capture the status instead of letting it propagate.
+  agent_exit=0
+  run_agent "$N" "$log" || agent_exit=$?
 
   # --- post-run audit (only lines starting with '{' are JSON) ---
   if [[ -f "$log" ]]; then
