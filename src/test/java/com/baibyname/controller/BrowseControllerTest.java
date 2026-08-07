@@ -217,6 +217,51 @@ class BrowseControllerTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void sexFilterChipRemovalViaRemoveButton() throws Exception {
+        // Setup: create a girl name with stats
+        GivenName girlName = new GivenName();
+        girlName.setName("GirlName" + System.nanoTime());
+        girlName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(girlName);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(girlName);
+        stat1.setCountry(sweden);
+        stat1.setSex("Girl");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        // Use a shared session across requests to persist filter state
+        MockHttpSession session = new MockHttpSession();
+
+        // First apply the sex filter
+        mockMvc.perform(post("/browse/filter/sex/Girl").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("GirlName")))
+                // Verify the sex filter chip is displayed (Sex followed by Girl)
+                .andExpect(content().string(containsString("Sex")))
+                .andExpect(content().string(containsString("Girl")));
+
+        // Then remove the sex filter via the remove button
+        // The URL should be: /browse/filter/sex/Girl with the sex parameter set to the actual value
+        mockMvc.perform(post("/browse/filter/sex/Girl").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Candidate Names")))
+                .andExpect(content().string(containsString("GirlName")));
+
+        // Verify filter state is updated (no sex filters active)
+        String response = mockMvc.perform(get("/browse/filter/state").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(response).doesNotContain("Girl");
+    }
+
     // --- Tests for country filter ---
 
     @Test
@@ -1073,4 +1118,87 @@ class BrowseControllerTest {
                 .andExpect(content().string(containsString("hx-post=\"/shortlist/add/")))
                 .andExpect(content().string(containsString("data-given-name-id")));
     }
+
+    /**
+     * Test that posting an invalid sex value is rejected with 400 Bad Request.
+     * This tests the validation in BrowseController.toggleSexFilter.
+     */
+    @Test
+    void invalidSexValueIsRejected() throws Exception {
+        // Act & Assert: POST with invalid sex should return 400
+        mockMvc.perform(post("/browse/filter/sex/{sex}", "Invalid").with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Invalid filter value")));
+    }
+
+    /**
+     * Test that posting a valid sex value works correctly.
+     */
+    @Test
+    void validSexValueWorks() throws Exception {
+        // Setup: create a girl name with stats
+        GivenName girlName = new GivenName();
+        girlName.setName("ValidSexTest" + System.nanoTime());
+        girlName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(girlName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(girlName);
+        stat.setCountry(sweden);
+        stat.setSex("Girl");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act: POST with valid "Girl" sex should return 200
+        mockMvc.perform(post("/browse/filter/sex/Girl").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("ValidSexTest")));
+    }
+
+    /**
+     * Test that no rendered hx-post or hx-get URLs contain unresolved {..} placeholders.
+     * This is a regression test for the bug where {sex} was not being substituted.
+     */
+    @Test
+    void noUnresolvedPathVariablesInRenderedHtml() throws Exception {
+        // Setup: create a name with stats so the page renders
+        GivenName testName = new GivenName();
+        testName.setName("UnresolvedPathTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act: render the browse page
+        String responseHtml = mockMvc.perform(get("/browse"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Assert: no hx-post URLs contain unresolved {..} placeholders
+        java.util.regex.Pattern unresolvedPattern = java.util.regex.Pattern.compile(
+                "hx-(?:post|get)=\"[^\"]*\\{[^}]+\\}[^\"]*\"");
+        java.util.regex.Matcher matcher = unresolvedPattern.matcher(responseHtml);
+        String unresolvedMatches = "";
+        while (matcher.find()) {
+            unresolvedMatches += matcher.group(0) + "\n";
+        }
+
+        assertThat(unresolvedMatches).as(
+                "Found hx-post or hx-get URLs with unresolved path variables:\n" + unresolvedMatches)
+                .isEmpty();
+    }
+
 }
