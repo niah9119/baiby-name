@@ -296,6 +296,8 @@ for i in $(seq 1 "$MAX"); do
       # queue so the next iteration can continue from the branch we just pushed.
       if echo "$result" | grep -q "ISSUE $N BLOCKED"; then
         echo "-- #$N reported BLOCKED; leaving 'in-progress' for a human"
+      elif grep -qx "blocked-rescue" <<<"$labels"; then
+        echo "-- #$N has blocked-rescue label (rescue push failed); leaving 'in-progress' for a human"
       else
         echo "-- #$N did not finish; returning it to the queue"
         gh issue edit "$N" --remove-label in-progress --add-label ready-for-agent >/dev/null 2>&1 \
@@ -321,6 +323,8 @@ for i in $(seq 1 "$MAX"); do
   # things then go wrong if we just switch branches: the work is lost, and (worse) the NEXT
   # iteration branches from a dirty tree and commits someone else's changes into its own PR.
   # That happened between #8 and #9: #9's PR arrived carrying #8's repository queries.
+  rescued=false
+  rescue_push_failed=false
   if [[ -n "$(git status --porcelain)" ]]; then
     echo "-- agent left uncommitted work; rescuing onto issue-$N"
     git checkout -q -B "issue-$N" 2>/dev/null || true
@@ -330,8 +334,61 @@ for i in $(seq 1 "$MAX"); do
 The agent run ended before committing (time limit, or a context-window
 overflow). Committed by agent-loop.sh so the work survives and cannot leak
 into the next iteration. Unverified." || true
-    git push -q -u origin "issue-$N" 2>/dev/null && echo "-- pushed issue-$N" \
-      || echo "-- WARN: could not push issue-$N (work is committed locally)"
+    rescued=true
+
+    # Get the local commit SHA on the branch
+    local_sha=$(git rev-parse issue-$N 2>/dev/null || echo "")
+    # Get the remote commit SHA (may not exist yet)
+    remote_sha=$(git ls-remote origin "issue-$N" 2>/dev/null | cut -f1 || echo "")
+
+    # Use --force-with-lease to safely handle rebase cases: it only succeeds if the remote
+    # hasn't advanced since we last fetched, or if we're pushing the exact commit that's there.
+    # Since the branch belongs to one issue and one agent at a time, this is safe.
+    # If the push fails, it means the branch has diverged from origin in a way we cannot
+    # safely resolve automatically. We must stop this iteration to prevent the next one
+    # from resetting over our work.
+    if [[ -n "$local_sha" ]]; then
+      if git push -q --force-with-lease origin "issue-$N" 2>/dev/null; then
+        echo "-- pushed issue-$N (local: $local_sha)"
+      else
+        rescue_push_failed=true
+        echo "!"
+        echo "! ==============================================="
+        echo "! CRITICAL: could not push issue-$N"
+        echo "! Local commit SHA:  $local_sha"
+        if [[ -n "$remote_sha" ]]; then
+          echo "! Remote commit SHA: $remote_sha"
+        else
+          echo "! Remote branch:     (does not exist yet)"
+        fi
+        echo "! Work is committed locally but cannot be pushed."
+        echo "! The next iteration will reset this branch, losing this work."
+        echo "! This likely means the agent rebased the branch (which is unsafe)."
+        echo "! To fix: fetch the branch and manually resolve the divergence."
+        echo "! ==============================================="
+        echo "!"
+
+        # Mark the issue as blocked so it won't be picked by future iterations
+        # until a human resolves the divergence
+        echo "-- marking issue #$N as BLOCKED due to push failure"
+        gh issue edit "$N" --add-label blocked-rescue 2>/dev/null || echo "! Could not add blocked-rescue label"
+        gh issue comment "$N" --body "
+**CRITICAL WARNING**: This agent iteration left uncommitted work that could not be pushed to the remote branch. The local branch has diverged from the remote.
+
+- Local commit SHA: \`$local_sha\`
+- Remote commit SHA: \`${remote_sha:-none}\`
+
+The work is committed locally but **will be lost** when the next iteration runs because
+`git checkout -B issue-$N origin/issue-$N` will reset over it. This typically happens when
+the agent rebased the branch (which is not safe and has been forbidden per issue #77).
+
+The issue has been marked with the `blocked-rescue` label. A human must:
+1. Fetch the branch: `git fetch origin issue-$N`
+2. Inspect the divergence: `git log --oneline --graph --all`
+3. Manually resolve by force-pushing the correct commit or discarding the work
+" 2>/dev/null || echo "! Could not add comment to issue #$N"
+      fi
+    fi
   fi
 
   # Back to main so the next iteration starts clean even if the agent left a branch checked out.
