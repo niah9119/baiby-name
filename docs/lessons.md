@@ -79,3 +79,34 @@ merging it would have reintroduced `LazyInitializationException` under `open-in-
 **Rule.** Run the loop `--max 1` and merge before starting the next issue, so each branch forks
 from a main that already contains the last one. A larger `--max` is only safe when the queued
 issues touch disjoint files, which is hard to guarantee in advance.
+
+## `pgrep -f` matches its own command line
+
+**What happened.** Checking whether the loop and the demo app were running, `pgrep -f
+'agent-loop.sh'` and `pgrep -f 'BaibyNameApplication'` both reported a live process when neither
+existed. The pattern is a literal substring of the `bash -c` command line that runs the `pgrep`, so
+the search matched itself. This produced three wrong readings in one session: a loop reported
+running after it had stopped, an app reported running after it was killed, and — worst — a
+background waiter whose exit condition was built on the same `pgrep` fired instantly and announced
+`LOOP FINISHED` while the loop was still on iteration 1 of 4.
+
+**Rules.**
+
+- Never use `pgrep -f <pattern>` where the pattern is a substring of the invoking command. Prefer a
+  fact the grep cannot forge: a listening port (`ss -ltn`), a PID file, or `pgrep -x <exact-name>`.
+- To wait for a known process, wait on its PID: `while [ -d /proc/$PID ]; do sleep 60; done`. Read
+  the PID from the script's own output (`acquired lock (PID …)`) or its PID file, and verify it
+  with `/proc/$PID/cmdline` before trusting the wait.
+- A "process is running" check that returns a PID equal to the current shell's child is the
+  signature of this bug. Print the matched cmdline whenever the answer is surprising.
+- The dangerous form is the negative: a self-matching `pgrep` inside a loop condition makes
+  "finished" fire immediately, which reads as success rather than as an error.
+
+## The loop's default scope is a dry-run guard
+
+**What happened.** `./agent-loop.sh --max 4` reported `Queue empty or fully blocked` with four
+eligible issues waiting. `SCOPE_LABEL` defaults to `ralph-test`, which is ANDed onto the queue
+query so an unscoped invocation can only ever touch throwaway test issues.
+
+**Rule.** Real runs need `--scope ""` explicitly. `scope-label='ralph-test'` in the first line of
+the loop output means nothing will be picked up.
