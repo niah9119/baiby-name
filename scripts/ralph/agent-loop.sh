@@ -341,6 +341,11 @@ into the next iteration. Unverified." || true
     # Get the remote commit SHA (may not exist yet)
     remote_sha=$(git ls-remote origin "issue-$N" 2>/dev/null | cut -f1 || echo "")
 
+    # Fetch the remote branch first so --force-with-lease can compare against the actual remote ref.
+    # This is required because --force-with-lease uses the remote-tracking ref (origin/issue-$N),
+    # not the ls-remote output. Without the fetch, the lease would be checked against a stale ref.
+    git fetch origin "issue-$N" 2>/dev/null || true
+
     # Use --force-with-lease to safely handle rebase cases: it only succeeds if the remote
     # hasn't advanced since we last fetched, or if we're pushing the exact commit that's there.
     # Since the branch belongs to one issue and one agent at a time, this is safe.
@@ -348,7 +353,7 @@ into the next iteration. Unverified." || true
     # safely resolve automatically. We must stop this iteration to prevent the next one
     # from resetting over our work.
     if [[ -n "$local_sha" ]]; then
-      if git push -q --force-with-lease origin "issue-$N" 2>/dev/null; then
+      if git push -q --force-with-lease=issue-$N:$(git rev-parse FETCH_HEAD) origin "issue-$N" 2>/dev/null; then
         echo "-- pushed issue-$N (local: $local_sha)"
       else
         rescue_push_failed=true
@@ -372,21 +377,30 @@ into the next iteration. Unverified." || true
         # until a human resolves the divergence
         echo "-- marking issue #$N as BLOCKED due to push failure"
         gh issue edit "$N" --add-label blocked-rescue 2>/dev/null || echo "! Could not add blocked-rescue label"
-        gh issue comment "$N" --body "
+        # Build the comment body with a quoted heredoc to prevent backtick command substitution.
+        # Use __LOCAL__ and __REMOTE__ placeholders, then substitute the SHA values.
+        local body
+        body=$(cat <<'EOF'
 **CRITICAL WARNING**: This agent iteration left uncommitted work that could not be pushed to the remote branch. The local branch has diverged from the remote.
 
-- Local commit SHA: \`$local_sha\`
-- Remote commit SHA: \`${remote_sha:-none}\`
+- Local commit SHA: `__LOCAL__`
+- Remote commit SHA: `__REMOTE__`
 
 The work is committed locally but **will be lost** when the next iteration runs because
-`git checkout -B issue-$N origin/issue-$N` will reset over it. This typically happens when
+`git checkout -B issue-N origin/issue-N` will reset over it. This typically happens when
 the agent rebased the branch (which is not safe and has been forbidden per issue #77).
 
 The issue has been marked with the `blocked-rescue` label. A human must:
-1. Fetch the branch: `git fetch origin issue-$N`
+1. Fetch the branch: `git fetch origin issue-N`
 2. Inspect the divergence: `git log --oneline --graph --all`
 3. Manually resolve by force-pushing the correct commit or discarding the work
-" 2>/dev/null || echo "! Could not add comment to issue #$N"
+EOF
+)
+        # Substitute the placeholders with actual values
+        body=${body//__LOCAL__/$local_sha}
+        body=${body//__REMOTE__/${remote_sha:-none}}
+        body=${body//issue-N/issue-$N}
+        gh issue comment "$N" --body "$body" 2>/dev/null || echo "! Could not add comment to issue #$N"
       fi
     fi
   fi
