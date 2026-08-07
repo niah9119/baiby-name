@@ -2,6 +2,7 @@ package com.baibyname.controller;
 
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
+import com.baibyname.exception.InvalidFilterValueException;
 import com.baibyname.service.BrowseService;
 import com.baibyname.service.FilterState;
 import com.baibyname.service.FilterStateService;
@@ -91,6 +92,10 @@ public class BrowseController {
                                   @RequestParam(defaultValue = "10") int pageSize,
                                   Model model,
                                   HttpSession session) {
+        // Validate sex against canonical vocabulary (Boy, Girl)
+        if (!"Boy".equals(sex) && !"Girl".equals(sex)) {
+            throw new InvalidFilterValueException(sex, "Boy, Girl");
+        }
         filterStateService.toggleSex(sex);
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();

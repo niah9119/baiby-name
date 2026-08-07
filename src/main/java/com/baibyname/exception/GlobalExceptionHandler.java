@@ -1,6 +1,7 @@
 package com.baibyname.exception;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -10,7 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Global exception handler for the application.
- * Handles NameNotFoundException and TokenNotFoundException and returns 404 status.
+ * Handles NameNotFoundException, TokenNotFoundException, and InvalidFilterValueException.
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -45,5 +46,21 @@ public class GlobalExceptionHandler {
             HttpServletRequest request,
             TokenNotFoundException ex) {
         return "Share link not found";
+    }
+
+    /**
+     * Handle InvalidFilterValueException by returning 400 Bad Request.
+     *
+     * @param request the HTTP request
+     * @param ex      the exception
+     * @return error message
+     */
+    @ExceptionHandler(InvalidFilterValueException.class)
+    @ResponseBody
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String handleInvalidFilterValueException(
+            HttpServletRequest request,
+            InvalidFilterValueException ex) {
+        return "Invalid filter value: " + ex.getMessage();
     }
 }
