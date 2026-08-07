@@ -81,6 +81,22 @@ say in your PR comment which point each change answers.
 
 - Spend the budget on the acceptance criteria, not on exploration. If you find yourself
   investigating rather than writing code, commit what you have first.
+
+## Context economy
+
+Agent runs crash after ~1MB of transcript when the model's context window is exceeded.
+To avoid this, be frugal with context:
+
+- **Prefer targeted `grep` over reading whole files**: Use `grep -n "pattern" file` to find
+  what you need rather than `Read` on a large file. This is especially important for logs
+  and configuration files.
+- **Re-read only the region being changed**: When you need to modify code, read just the
+  file and specific lines around your change — not the entire file.
+- **Do not `cat` build output that is already summarised**: When build output is printed
+  inline by the harness or logged to a file, use `tail` to get summary information rather
+  than reading the full output.
+
+These rules are quoted in PR comments when changes are made to address context economy.
 - CLEAN UP anything you start. If you launch the app (`spring-boot:run`, `java -jar`) or
   containers (`docker compose up`) to check something, stop them again before you finish —
   never leave a server holding port 8080 or a database container running.

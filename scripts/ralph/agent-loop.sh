@@ -194,8 +194,15 @@ run_agent() {
   # default so it can kill that group on deadline, which would place the pipeline outside
   # the group we just created. Verified: without --foreground, a `timeout` process survived
   # the abort with a process group of its own.
+  #
+  # Use PIPESTATUS to capture the actual exit code of the agent (not tee's 0). The pipeline
+  # is: sed | timeout --foreground claude-qwen 2>&1 | tee ... >/dev/null
+  # With pipefail, the pipeline's exit code is the rightmost non-zero exit code; without it,
+  # the exit code is just from `tee`, which always returns 0 on success. This masks router
+  # crashes where claude-qwen exits non-zero but tee succeeds.
   AGENT_ISSUE="$issue_num" AGENT_LOG="$log_file" AGENT_PROMPT="$PROMPT_TMPL" \
   setsid bash -c '
+    set -o pipefail
     sed "s/{{ISSUE}}/$AGENT_ISSUE/g" "$AGENT_PROMPT" \
       | CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192 timeout --foreground 90m \
           claude-qwen --dangerously-skip-permissions --print --verbose --output-format stream-json 2>&1 \
@@ -271,6 +278,12 @@ for i in $(seq 1 "$MAX"); do
   if [[ -f "$log" ]]; then
     result=$(grep '^{' "$log" | jq -r 'select(.type=="result") | .result' 2>/dev/null | tail -1)
     echo "-- agent result: ${result:-<none>}"
+
+    # Detect router crashes explicitly by looking for stack traces containing cli.js and "at async"
+    # These appear when the router hits a context window overflow and crashes
+    if grep -q "at async" "$log" && grep -q "cli.js" "$log"; then
+      echo "-- #$N CRASHED (router): context window overflow detected"
+    fi
 
     # Proof-of-verification: did the agent invoke the build/test runner as a Bash tool call?
     verify_cmds=$(grep '^{' "$log" \
