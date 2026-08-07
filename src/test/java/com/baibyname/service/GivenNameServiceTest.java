@@ -994,4 +994,127 @@ class GivenNameServiceTest {
         // Assert: The unisex name should be counted exactly once
         assertThat(count).isEqualTo(1);
     }
+
+    // --- Tests for getTotalPages() > 1 (pagination) ---
+
+    @Test
+    void getTotalPagesGreaterThanOneWithManyResults() {
+        // Setup: Create 25 names with Boy stats in Sweden (10 per page, should give 3 pages)
+        for (int i = 0; i < 25; i++) {
+            var name = new GivenName();
+            name.setName("PaginationTestName" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            addNameStat(name, country1, "Boy", 2023, 100, 50);
+        }
+
+        // Act: Get page 0 with page size 10
+        var page0 = givenNameService.findByNameKnownInAllCountries(
+                List.of(country1), PageRequest.of(0, 10));
+
+        // Assert: Verify pagination works correctly
+        assertThat(page0.getTotalElements()).isEqualTo(25);
+        assertThat(page0.getTotalPages()).isEqualTo(3);  // 25 items / 10 per page = 3 pages
+        assertThat(page0.getNumber()).isEqualTo(0);
+        assertThat(page0.getSize()).isEqualTo(10);
+        assertThat(page0.getContent()).hasSize(10);
+
+        // Act: Get page 1 with page size 10
+        var page1 = givenNameService.findByNameKnownInAllCountries(
+                List.of(country1), PageRequest.of(1, 10));
+
+        // Assert: Page 1 should have different content
+        assertThat(page1.getTotalElements()).isEqualTo(25);
+        assertThat(page1.getTotalPages()).isEqualTo(3);
+        assertThat(page1.getNumber()).isEqualTo(1);
+        assertThat(page1.getContent()).hasSize(10);
+
+        // Verify pages have different content (pagination is working)
+        var page0Names = page0.getContent().stream().map(GivenName::getName).toList();
+        var page1Names = page1.getContent().stream().map(GivenName::getName).toList();
+        assertThat(page0Names).isNotEqualTo(page1Names);
+    }
+
+    @Test
+    void getTotalPagesOneWhenResultsFitInOnePage() {
+        // Setup: Create 5 names with Boy stats in Sweden (10 per page, should give 1 page)
+        for (int i = 0; i < 5; i++) {
+            var name = new GivenName();
+            name.setName("SinglePageTestName" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            addNameStat(name, country1, "Boy", 2023, 100, 50);
+        }
+
+        // Act: Get page 0 with page size 10
+        var page0 = givenNameService.findByNameKnownInAllCountries(
+                List.of(country1), PageRequest.of(0, 10));
+
+        // Assert: All results fit on one page
+        assertThat(page0.getTotalElements()).isEqualTo(5);
+        assertThat(page0.getTotalPages()).isEqualTo(1);
+        assertThat(page0.getNumber()).isEqualTo(0);
+        assertThat(page0.getContent()).hasSize(5);
+    }
+
+    // --- Tests for Boy/Girl share coupling (10% threshold consistency) ---
+
+    @Test
+    void boyGirlShareCouplingUsesSameThreshold() {
+        // Setup: Create a name that is exactly at the 10% threshold
+        // Boy: 1000 out of 10000 = 10% (exactly at threshold)
+        // Girl: 9000 out of 10000 = 90%
+        var thresholdName = new GivenName();
+        thresholdName.setName("ExactlyAtThreshold");
+        thresholdName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(thresholdName);
+
+        addNameStat(thresholdName, country1, "Boy", 2023, 1000, 50);
+        addNameStat(thresholdName, country1, "Girl", 2023, 9000, 10);
+
+        // Act: Both Boy and Girl should use the same 10% threshold
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+
+        // Assert: The name should appear under both Boy and Girl filters
+        // because Boy has 10% (exactly at threshold) and Girl has 90%
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(thresholdName.getName());
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(thresholdName.getName());
+
+        // Verify both use the same threshold (10% from BrowseService)
+        assertThat(boyResult.getTotalElements()).isEqualTo(1);
+        assertThat(girlResult.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void boyGirlShareCouplingBelowThresholdNotIncluded() {
+        // Setup: Create a name with Boy share below 10% threshold
+        // Boy: 500 out of 10000 = 5% (below 10% threshold)
+        // Girl: 9500 out of 10000 = 95%
+        var belowThresholdName = new GivenName();
+        belowThresholdName.setName("BelowThreshold");
+        belowThresholdName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(belowThresholdName);
+
+        addNameStat(belowThresholdName, country1, "Boy", 2023, 500, 50);
+        addNameStat(belowThresholdName, country1, "Girl", 2023, 9500, 10);
+
+        // Act: Boy should NOT appear (5% < 10% threshold), Girl should appear (95% >= 10%)
+        var boyResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Boy", PageRequest.of(0, 10));
+        var girlResult = givenNameService.findBySexShareInAllCountries(
+                List.of(country1), "Girl", PageRequest.of(0, 10));
+
+        // Assert: Only Girl should include this name
+        assertThat(boyResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .doesNotContain(belowThresholdName.getName());
+        assertThat(girlResult.getContent().stream().map(GivenName::getName).collect(Collectors.toList()))
+                .contains(belowThresholdName.getName());
+    }
 }
