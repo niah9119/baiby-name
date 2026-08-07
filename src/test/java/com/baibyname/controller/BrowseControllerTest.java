@@ -426,11 +426,12 @@ class BrowseControllerTest {
     void nextButtonVisibleWhenMultiplePages() throws Exception {
         // Setup: create 25 names (25 items / 10 per page = 3 pages)
         // Add sex filter to ensure only the Boy names created in this test are returned
-        filterStateService.addSex("Boy");
+        // Use a shared session across requests to persist filter state
+        MockHttpSession session = new MockHttpSession();
 
         for (int i = 0; i < 25; i++) {
             GivenName name = new GivenName();
-            name.setName("NextButtonTestName" + i);
+            name.setName("PaginationTest" + i);
             name.setCreatedAt(OffsetDateTime.now());
             givenNameRepository.save(name);
 
@@ -445,10 +446,12 @@ class BrowseControllerTest {
             nameStatRepository.save(stat);
         }
 
+        // Apply sex filter using the shared session
+        mockMvc.perform(post("/browse/filter/sex/Boy").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
         // Act: Get page 0
-        String responsePage0 = mockMvc.perform(get("/browse")
-                .param("page", "0")
-                .param("pageSize", "10"))
+        String responsePage0 = mockMvc.perform(get("/browse").session(session))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
@@ -458,9 +461,7 @@ class BrowseControllerTest {
         assertThat(responsePage0).contains("Next");
 
         // Act: Get page 2 (the last page)
-        String responsePage2 = mockMvc.perform(get("/browse")
-                .param("page", "2")
-                .param("pageSize", "10"))
+        String responsePage2 = mockMvc.perform(get("/browse/page?page=2&pageSize=10").session(session))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
@@ -474,11 +475,12 @@ class BrowseControllerTest {
     void nextButtonNotVisibleWhenSinglePage() throws Exception {
         // Setup: create 5 names (5 items / 10 per page = 1 page)
         // Add sex filter to ensure only the Boy names created in this test are returned
-        filterStateService.addSex("Boy");
+        // Use a shared session across requests to persist filter state
+        MockHttpSession session = new MockHttpSession();
 
         for (int i = 0; i < 5; i++) {
             GivenName name = new GivenName();
-            name.setName("SinglePageNextTest" + i);
+            name.setName("SinglePageTest" + i);
             name.setCreatedAt(OffsetDateTime.now());
             givenNameRepository.save(name);
 
@@ -493,10 +495,12 @@ class BrowseControllerTest {
             nameStatRepository.save(stat);
         }
 
+        // Apply sex filter using the shared session
+        mockMvc.perform(post("/browse/filter/sex/Boy").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
         // Act: Get page 0 (the only page)
-        String responsePage0 = mockMvc.perform(get("/browse")
-                .param("page", "0")
-                .param("pageSize", "10"))
+        String responsePage0 = mockMvc.perform(get("/browse").session(session))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
