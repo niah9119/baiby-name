@@ -1,74 +1,64 @@
 public_name,subcategory,given_names,country,wikidata_id
 Viggo Mortensen,MOVIE_STAR,Viggo,DK,Q171363
-Asta Nielsen,MOVIE_STAR,Asta;Amalie;Sofie;Nielsen,DK,Q232404
+Asta Nielsen,MOVIE_STAR,Asta,DK,Q232404
 Anna Karina,MOVIE_STAR,Anna;Karina,DK,Q232113
 Nikolaj Coster-Waldau,MOVIE_STAR,Nikolaj,DK,Q445772
-Brigitte Nielsen,MOVIE_STAR,Brigitte;Nielsen,DK,Q154519
-Connie Nielsen,MOVIE_STAR,Connie;Nielsen,DK,Q231951
-Victor Borge,MOVIE_STAR,Victor;Børge,DK,Q251417
-Pilou Asbæk,MOVIE_STAR,Johan,DK,Q117906
-Helena Christensen,MOVIE_STAR,Helena;Christensen,DK,Q229397
-Erik Bruhn,MOVIE_STAR,Erik;Evers;Belton,DK,Q1320382
+Brigitte Nielsen,MOVIE_STAR,Brigitte,DK,Q154519
+Connie Nielsen,MOVIE_STAR,Connie,DK,Q231951
+Victor Borge,MOVIE_STAR,Victor,DK,Q251417
+Helena Christensen,MOVIE_STAR,Helena,DK,Q229397
+Erik Bruhn,MOVIE_STAR,Erik,DK,Q1320382
 Gabriel Axel,MOVIE_STAR,Gabriel,DK,Q553819
-Jean Hersholt,MOVIE_STAR,Pierre;Carl;Jean,DK,Q359251
-Nina Agdal,MOVIE_STAR,Nina,DK,Q7037835
-Anja Nissen,MOVIE_STAR,Anja,DK,Q17411318
+Jean Hersholt,MOVIE_STAR,Jean,DK,Q359251
 Ulrich Thomsen,MOVIE_STAR,Ulrich,DK,Q382210
-Rasmussen,MOVIE_STAR,Jonas,DK,Q48416873
+Anja Nissen,MOVIE_STAR,Anja,DK,Q17411318
+Nina Agdal,MOVIE_STAR,Nina,DK,Q7037835
 Birthe Wilke,MOVIE_STAR,Birthe,DK,Q273513
 Tobias Lindholm,MOVIE_STAR,Tobias,DK,Q246996
-Whigfield,MOVIE_STAR,Charlotte;Sannie,DK,Q237027
 Trine Dyrholm,MOVIE_STAR,Trine,DK,Q469983
 Benjamin Christensen,MOVIE_STAR,Benjamin,DK,Q817442
-Eugenio Barba,MOVIE_STAR,Eugenio;Barba,DK,Q469976
-Sussi la Cour,MOVIE_STAR,Katja,DK,Q274321
+Eugenio Barba,MOVIE_STAR,Eugenio,DK,Q469976
 Bodil Ipsen,MOVIE_STAR,Bodil,DK,Q292795
 Torben Ulrich,MOVIE_STAR,Torben,DK,Q785404
-Lauritz Melchior,MOVIE_STAR,Lauritz;Melchior,DK,Q542823
+Lauritz Melchior,MOVIE_STAR,Lauritz,DK,Q542823
 Viggo Larsen,MOVIE_STAR,Viggo,DK,Q731703
 Amanda Collin,MOVIE_STAR,Amanda,DK,Q38471178
-Sandi Toksvig,MOVIE_STAR,Sandra,DK,Q293020
-Simon Mathew,MOVIE_STAR,Simon;Mathew,DK,Q515027
-Jens Albinus,MOVIE_STAR,Jens,DK,Q1341671
+Simon Mathew,MOVIE_STAR,Simon,DK,Q515027
 Karl Dane,MOVIE_STAR,Karl,DK,Q918353
+Jens Albinus,MOVIE_STAR,Jens,DK,Q1341671
 Katy Bødtger,MOVIE_STAR,Katy,DK,Q289975
-Peter Freuchen,MOVIE_STAR,Lorenz;Peter;Elfred,DK,Q945641
-Svend Asmussen,MOVIE_STAR,Svend;Harald;Christian,DK,Q1338273
-Charlie Chaplin,MOVIE_STAR,Charlie;Charlot;Chaplin,GB,Q882
-Alfred Hitchcock,MOVIE_STAR,Alfred,GB,Q7374
-John Lennon,MOVIE_STAR,Winston;John;Lennon,GB,Q1203
-Paul McCartney,MOVIE_STAR,Paul,GB,Q2599
-Audrey Hepburn,MOVIE_STAR,Audrey;Kathleen,GB,Q42786
-Emma Watson,MOVIE_STAR,Emma;Watson,GB,Q39476
-Sean Connery,MOVIE_STAR,Sean,GB,Q4573
-Elizabeth Taylor,MOVIE_STAR,Elizabeth;Rosemond;Taylor,GB,Q34851
-David Beckham,MOVIE_STAR,David;Becks;Beckham,GB,Q10520
-David Bowie,MOVIE_STAR,Robert;David;Bowie,GB,Q5383
-Richard Dawkins,MOVIE_STAR,Richard;Dawkins,GB,Q44461
-Kate Winslet,MOVIE_STAR,Kate,GB,Q202765
-Charlotte Rampling,MOVIE_STAR,Charlotte;Tessa,GB,Q234679
-Salman Rushdie,MOVIE_STAR,Salman,GB,Q44306
-George Harrison,MOVIE_STAR,Harold;George,GB,Q2643
-Andrew Garfield,MOVIE_STAR,Russell;Andrew,GB,Q23891
-Kylie Minogue,MOVIE_STAR,Ann;Kylie,GB,Q11998
-Rowan Atkinson,MOVIE_STAR,Sebastian;Rowan,GB,Q23760
-Anthony Hopkins,MOVIE_STAR,Philip;Anthony,GB,Q65932
-Tom Holland,MOVIE_STAR,Stanley;Thomas,GB,Q2023710
-Elton John,MOVIE_STAR,Elton;Hercules,GB,Q2808
+Svend Asmussen,MOVIE_STAR,Svend,DK,Q1338273
+Peter Freuchen,MOVIE_STAR,Peter,DK,Q945641
+Anthony Hopkins,MOVIE_STAR,Anthony,GB,Q65932
+Elton John,MOVIE_STAR,Elton,GB,Q2808
+Christopher Lee,MOVIE_STAR,Christopher,GB,Q180338
 Harold Pinter,MOVIE_STAR,Harold,GB,Q41042
-Daniel Radcliffe,MOVIE_STAR,Jacob;Daniel;Radcliffe,GB,Q38119
-Christopher Lee,MOVIE_STAR,Christopher;Lee,GB,Q180338
-Michael Caine,MOVIE_STAR,Maurice;Michael;Caine,GB,Q123351
-Vivien Leigh,MOVIE_STAR,Vivien;Leigh,GB,Q129429
-Christopher Nolan,MOVIE_STAR,Christopher;Nolan,GB,Q25191
-Julianne Moore,MOVIE_STAR,Anne;Julie;Moore,GB,Q80405
-Keira Knightley,MOVIE_STAR,Keira;Christina;Knightley,GB,Q42581
-Hugh Jackman,MOVIE_STAR,Hugh;Michael;Jackman,GB,Q129591
+Daniel Radcliffe,MOVIE_STAR,Daniel,GB,Q38119
+Michael Caine,MOVIE_STAR,Michael,GB,Q123351
+Vivien Leigh,MOVIE_STAR,Vivien,GB,Q129429
+Christopher Nolan,MOVIE_STAR,Christopher,GB,Q25191
+Julianne Moore,MOVIE_STAR,Anne,GB,Q80405
+Keira Knightley,MOVIE_STAR,Keira,GB,Q42581
+Hugh Jackman,MOVIE_STAR,Hugh,GB,Q129591
 Simon Pegg,MOVIE_STAR,Simon,GB,Q238464
-Daniel Craig,MOVIE_STAR,Daniel;Craig,GB,Q4547
-Gary Oldman,MOVIE_STAR,Leonard;Gary,GB,Q83492
+Daniel Craig,MOVIE_STAR,Daniel,GB,Q4547
 Salman Khan,MOVIE_STAR,Salman,GB,Q9543
-Pierce Brosnan,MOVIE_STAR,Brendan;Brosnan,GB,Q81520
+Gary Oldman,MOVIE_STAR,Gary,GB,Q83492
+Peter O'Toole,MOVIE_STAR,Peter,GB,Q103876
+Gillian Anderson,MOVIE_STAR,Gillian,GB,Q485298
+Helen Mirren,MOVIE_STAR,Helen,GB,Q349391
+Catherine Zeta-Jones,MOVIE_STAR,Catherine;Cathy;Zeta,GB,Q47664
+Daniel Day-Lewis,MOVIE_STAR,Daniel,GB,Q166389
+Michael Douglas,MOVIE_STAR,Michael,GB,Q119798
+Christian Bale,MOVIE_STAR,Christian,GB,Q45772
+Julie Andrews,MOVIE_STAR,Julie,GB,Q161819
+Cary Grant,MOVIE_STAR,Cary,GB,Q83410
+Maggie Smith,MOVIE_STAR,Maggie,GB,Q172653
+Jason Statham,MOVIE_STAR,Jason,GB,Q169963
+Victoria Beckham,MOVIE_STAR,Victoria;Adams;Posh,GB,Q19810
+Judi Dench,MOVIE_STAR,Judi,GB,Q28054
+Roger Moore,MOVIE_STAR,Roger,GB,Q134333
+Orlando Bloom,MOVIE_STAR,Orlando,GB,Q44467
 Alexander Rybak,MOVIE_STAR,Alexander,NO,Q131259
 Sonja Henie,MOVIE_STAR,Sonja,NO,Q204205
 John Carew,MOVIE_STAR,John,NO,Q192986
@@ -78,115 +68,158 @@ Alisha Boe,MOVIE_STAR,Alisha,NO,Q19609745
 Kristofer Hivju,MOVIE_STAR,Kristofer,NO,Q6438398
 Linn Ullmann,MOVIE_STAR,Linn,NO,Q256738
 Maria Haukaas Mittet,MOVIE_STAR,Maria,NO,Q464459
-Aksel Hennie,MOVIE_STAR,Aksel;Hennie,NO,Q421471
+Aksel Hennie,MOVIE_STAR,Aksel,NO,Q421471
 Vicky Vette,MOVIE_STAR,Vicky,NO,Q242255
 Nils-Aslak Valkeapää,MOVIE_STAR,Aslak;Nils,NO,Q379684
 Astrid S,MOVIE_STAR,Astrid,NO,Q17107619
 Amrita Acharia,MOVIE_STAR,Amrita,NO,Q4748667
 Kirsti Sparboe,MOVIE_STAR,Kirsti,NO,Q265403
 Ulrikke Brandstorp,MOVIE_STAR,Ulrikke,NO,Q81293738
+Inger Jacobsen,MOVIE_STAR,Inger,NO,Q457474
 Hanne Krogh,MOVIE_STAR,Hanne,NO,Q273488
-Inger Jacobsen,MOVIE_STAR,Inger;Johanne,NO,Q457474
 Ingrid Bolsø Berdal,MOVIE_STAR,Ingrid,NO,Q2419067
 Pål Sverre Hagen,MOVIE_STAR,Pål,NO,Q2013068
 Ane Dahl Torp,MOVIE_STAR,Ane,NO,Q1779957
-Beate Eriksen,MOVIE_STAR,Beate;Eriksen,NO,Q235861
+Beate Eriksen,MOVIE_STAR,Beate,NO,Q235861
+Nadia Hasnaoui,MOVIE_STAR,Nadia,NO,Q1963310
 Tarjei Sandvik Moe,MOVIE_STAR,Tarjei,NO,Q27907316
 Christine Guldbrandsen,MOVIE_STAR,Christine,NO,Q234399
-Nadia Hasnaoui,MOVIE_STAR,Nadia,NO,Q1963310
-Inga Ibsdotter Lilleaas,MOVIE_STAR,Josefine;Inga,NO,Q28152938
+Inga Ibsdotter Lilleaas,MOVIE_STAR,Inga,NO,Q28152938
 Erik Solbakken,MOVIE_STAR,Erik,NO,Q460999
 Tommy Wirkola,MOVIE_STAR,Tommy,NO,Q2669356
 Anita Thallaug,MOVIE_STAR,Anita,NO,Q291633
-Agnes Kittelsen,MOVIE_STAR,Elisabet;Agnes,NO,Q394570
-Julie Ege,MOVIE_STAR,Julie,NO,Q254412
-Vera Zorina,MOVIE_STAR,Vera,NO,Q1791652
-Greta Nissen,MOVIE_STAR,Greta,NO,Q3048704
-Guri Schanke,MOVIE_STAR,Annika;Guri,NO,Q238212
-Josefine Frida,MOVIE_STAR,Josefine,NO,Q24293728
-Ingmar Bergman,MOVIE_STAR,Ernst;Ingmar,SE,Q7546
-Ingrid Bergman,MOVIE_STAR,Ingrid,SE,Q43247
+Agnes Kittelsen,MOVIE_STAR,Agnes,NO,Q394570
 Zlatan Ibrahimović,MOVIE_STAR,Zlatan,SE,Q46896
 Greta Garbo,MOVIE_STAR,Greta,SE,Q5443
-Loreen,MOVIE_STAR,Zineb;Lorine;Loreen;Lorin,SE,Q483376
-Anita Ekberg,MOVIE_STAR,Kerstin,SE,Q230662
-Alicia Vikander,MOVIE_STAR,Amanda;Alicia,SE,Q439314
+Loreen,MOVIE_STAR,Lorin,SE,Q483376
+Alicia Vikander,MOVIE_STAR,Alicia,SE,Q439314
 Dolph Lundgren,MOVIE_STAR,Dolph,SE,Q181678
-Max von Sydow,MOVIE_STAR,Carl;Max;Adolf,SE,Q203215
-Måns Zelmerlöw,MOVIE_STAR,Albert;Petter,SE,Q372460
+Max von Sydow,MOVIE_STAR,Max,SE,Q203215
 Liv Ullmann,MOVIE_STAR,Liv,SE,Q191064
 Isabella Rossellini,MOVIE_STAR,Isabella,SE,Q203840
-Stellan Skarsgård,MOVIE_STAR,Stellan;John,SE,Q208667
-Zara Larsson,MOVIE_STAR,Zara;Maria,SE,Q4177928
-Jenny Lind,MOVIE_STAR,Jenny;Lind,SE,Q231345
-Sven Hedin,MOVIE_STAR,Sven;Anders,SE,Q154759
+Stellan Skarsgård,MOVIE_STAR,Stellan,SE,Q208667
+Zara Larsson,MOVIE_STAR,Zara,SE,Q4177928
+Jenny Lind,MOVIE_STAR,Jenny,SE,Q231345
+Sven Hedin,MOVIE_STAR,Sven,SE,Q154759
 Helena Paparizou,MOVIE_STAR,Elena;Eleni,SE,Q183008
 Rebecca Ferguson,MOVIE_STAR,Rebecca,SE,Q4947838
-Alexander Skarsgård,MOVIE_STAR,Alexander,SE,Q310637
-Noomi Rapace,MOVIE_STAR,Hilda;Noomi,SE,Q228676
 Malin Akerman,MOVIE_STAR,Malin,SE,Q229669
-Victoria Silvstedt,MOVIE_STAR,Victoria;Karin,SE,Q127423
-Bibi Andersson,MOVIE_STAR,Bibi;Andersson,SE,Q234921
+Noomi Rapace,MOVIE_STAR,Noomi,SE,Q228676
+Alexander Skarsgård,MOVIE_STAR,Alexander,SE,Q310637
+Victoria Silvstedt,MOVIE_STAR,Victoria,SE,Q127423
+Bibi Andersson,MOVIE_STAR,Bibi,SE,Q234921
 Britt Ekland,MOVIE_STAR,Britt,SE,Q233837
-Bill Skarsgård,MOVIE_STAR,Bill;Istvan,SE,Q862460
-Lena Olin,MOVIE_STAR,Lena;Maria;Jonna;Olin,SE,Q228862
+Bill Skarsgård,MOVIE_STAR,Bill,SE,Q862460
+Lena Olin,MOVIE_STAR,Lena,SE,Q228862
 Joel Kinnaman,MOVIE_STAR,Joel,SE,Q28262
-Malena Ernman,MOVIE_STAR,Magdalena;Sara,SE,Q187210
 Maher Zain,MOVIE_STAR,Maher,SE,Q2750368
-Izabella Scorupco,MOVIE_STAR,Dorota;Izabela;Izabella,SE,Q230055
+Izabella Scorupco,MOVIE_STAR,Izabella,SE,Q230055
 Ingrid Thulin,MOVIE_STAR,Ingrid,SE,Q233732
-RedOne,MOVIE_STAR,Nadir,SE,Q323470
-Peter Stormare,MOVIE_STAR,Ingvar;Peter;Rolf,SE,Q295148
-Zarah Leander,MOVIE_STAR,Stina;Sara;Leander,SE,Q46479
+Peter Stormare,MOVIE_STAR,Peter,SE,Q295148
 Victor Sjöström,MOVIE_STAR,Victor,SE,Q55170
-Donald Trump,MOVIE_STAR,Donald,US,Q22686
-Ronald Reagan,MOVIE_STAR,Ronald,US,Q9960
-Marilyn Monroe,MOVIE_STAR,Marilyn;Monroe,US,Q4616
-Corbin Bleu,MOVIE_STAR,Corbin;Corbie,US,Q4617
-Walt Disney,MOVIE_STAR,Walter;Elias;Disney,US,Q8704
-Marlene Dietrich,MOVIE_STAR,Marie;Marlene;Magdalene;Dietrich,US,Q4612
-Madonna,MOVIE_STAR,Veronica;Louise;Madge,US,Q1744
-Bob Dylan,MOVIE_STAR,Robert;Allen;Dylan;Alias,US,Q392
-Louis Armstrong,MOVIE_STAR,Louis;Daniel,US,Q1779
-Selena Gomez,MOVIE_STAR,Marie;Selena;Gomez,US,Q83287
-Eminem,MOVIE_STAR,Bruce;Marshall;Shady;Slim,US,Q5608
-Beyoncé,MOVIE_STAR,Giselle,US,Q36153
-Angelina Jolie,MOVIE_STAR,Angelina,US,Q13909
-Steven Spielberg,MOVIE_STAR,Allan;Steven,US,Q8877
-Bruce Lee,MOVIE_STAR,Bruce,US,Q16397
-Jackie Chan,MOVIE_STAR,Jackie;Chan,US,Q36970
-Robin Williams,MOVIE_STAR,Robin;Williams,US,Q83338
-Lana Del Rey,MOVIE_STAR,Elizabeth;Lana,US,Q37150
-Woody Allen,MOVIE_STAR,Allan;Woody;Stewart,US,Q25089
-Marlon Brando,MOVIE_STAR,Marlon;Brando,US,Q34012
-Scarlett Johansson,MOVIE_STAR,Ingrid;Scarlett,US,Q34436
-Arnold Schwarzenegger,MOVIE_STAR,Alois;Arnold;Arnie,US,Q2685
-Judy Garland,MOVIE_STAR,Judy;Martina,US,Q11637
-Leonardo DiCaprio,MOVIE_STAR,Wilhelm;Leonardo,US,Q38111
-Jim Morrison,MOVIE_STAR,Douglas;James;Jimbo;Morrison,US,Q44301
-Brad Pitt,MOVIE_STAR,Bradley;Brad;William,US,Q35332
-Johnny Depp,MOVIE_STAR,Christopher;John,US,Q37175
-Stephen King,MOVIE_STAR,Stephen;King,US,Q39829
-Britney Spears,MOVIE_STAR,Jean;Britney,US,Q11975
-Miley Cyrus,MOVIE_STAR,Miley;Ray,US,Q4235
-Ariana Grande,MOVIE_STAR,Ariana,US,Q151892
-Robert De Niro,MOVIE_STAR,Robert,US,Q36949
-Jennifer Lopez,MOVIE_STAR,Jennifer;Lynn;Lopez;Jenny,US,Q40715
-Natalie Portman,MOVIE_STAR,Natalie;Nat,US,Q37876
-Whitney Houston,MOVIE_STAR,Elizabeth;Whitney;Houston,US,Q34389
-Margrethe II of Denmark,ROYALTY,Margrethe;Ingrid;Alexandrine,DK,Q102139
+Lykke Li,MOVIE_STAR,Lykke;Li,SE,Q270724
+Erland Josephson,MOVIE_STAR,Erland,SE,Q321344
+Jane Fonda,MOVIE_STAR,Jane,US,Q41142
+Jennifer Lawrence,MOVIE_STAR,Jennifer;Lorensa,US,Q189490
+John Wayne,MOVIE_STAR,John;Duke,US,Q40531
+Halle Berry,MOVIE_STAR,Halle,US,Q1033016
+Cher,MOVIE_STAR,Cleo,US,Q12003
+Charlize Theron,MOVIE_STAR,Charlize,US,Q80046
+Grace Kelly,MOVIE_STAR,Grace,US,Q3925
+Jodie Foster,MOVIE_STAR,Jodie,US,Q41351
+John Travolta,MOVIE_STAR,John,US,Q80938
+Johnny Cash,MOVIE_STAR,Johnny,US,Q42775
+Humphrey Bogart,MOVIE_STAR,Humphrey,US,Q16390
+Josh Duhamel,MOVIE_STAR,Josh,US,Q19794
+Harrison Ford,MOVIE_STAR,Harrison,US,Q81328
+Lila Downs,MOVIE_STAR,Lila,US,Q23880
+Martin Scorsese,MOVIE_STAR,Martin,US,Q41148
+Taylor Lautner,MOVIE_STAR,Taylor,US,Q23359
+Matt Damon,MOVIE_STAR,Matt,US,Q175535
+Orson Welles,MOVIE_STAR,Orson,US,Q24829
+Kim Kardashian,MOVIE_STAR,Kimmie,US,Q186304
+Dwayne Johnson,MOVIE_STAR,Dwayne;Dewey,US,Q10738
+Jessica Alba,MOVIE_STAR,Jessica,US,Q44077
+Megan Fox,MOVIE_STAR,Megan,US,Q80069
+Ben Affleck,MOVIE_STAR,Ben,US,Q483118
+Denzel Washington,MOVIE_STAR,Denzel,US,Q42101
+Demi Moore,MOVIE_STAR,Demi,US,Q43044
+Prince,MOVIE_STAR,Prince;Camille;Christopher,US,Q7542
+James Dean,MOVIE_STAR,James,US,Q83359
+Mae West,MOVIE_STAR,Mae,US,Q202878
+Robert Downey Jr.,MOVIE_STAR,Robert,US,Q165219
+Justin Timberlake,MOVIE_STAR,Justin,US,Q43432
+William Shakespeare,MOVIE_STAR,William,WW,Q692
+Donald Trump,MOVIE_STAR,Donald,WW,Q22686
+Ronald Reagan,MOVIE_STAR,Ronald,WW,Q9960
+Pablo Picasso,MOVIE_STAR,Pablo,WW,Q5593
+Charlie Chaplin,MOVIE_STAR,Charlie;Charlot,WW,Q882
+Shakira,MOVIE_STAR,Shakira,WW,Q34424
+Salvador Dalí,MOVIE_STAR,Salvador;Dali;Dari,WW,Q5577
+Marilyn Monroe,MOVIE_STAR,Marilyn,WW,Q4616
+Pope Francis,MOVIE_STAR,Francesco;Francisco;Franciscus,WW,Q450675
+Corbin Bleu,MOVIE_STAR,Corbin;Corbie,WW,Q4617
+Fidel Castro,MOVIE_STAR,Fidel,WW,Q11256
+Albert Camus,MOVIE_STAR,Albert,WW,Q34670
+Mikhail Gorbachev,MOVIE_STAR,Mikhail,WW,Q30487
+Marlene Dietrich,MOVIE_STAR,Marlene,WW,Q4612
+Sarah Bernhardt,MOVIE_STAR,Sarah,WW,Q4605
+Madonna,MOVIE_STAR,Madge,WW,Q1744
+Alfred Hitchcock,MOVIE_STAR,Alfred,WW,Q7374
+Bob Dylan,MOVIE_STAR,Alias,WW,Q392
+Simone de Beauvoir,MOVIE_STAR,Simone;Castor,WW,Q7197
+John Lennon,MOVIE_STAR,John,WW,Q1203
+Pelé,MOVIE_STAR,Pele,WW,Q12897
+Louis Armstrong,MOVIE_STAR,Louis,WW,Q1779
+Eminem,MOVIE_STAR,Marshall;Shady;Slim,WW,Q5608
+Selena Gomez,MOVIE_STAR,Selena,WW,Q83287
+Diego Maradona,MOVIE_STAR,Diego,WW,Q17515
+Angelina Jolie,MOVIE_STAR,Angelina,WW,Q13909
+Steven Spielberg,MOVIE_STAR,Steven,WW,Q8877
+Anna Netrebko,MOVIE_STAR,Anna,WW,Q78516
+Bruce Lee,MOVIE_STAR,Bruce,WW,Q16397
+Ingmar Bergman,MOVIE_STAR,Ingmar,WW,Q7546
+Jackie Chan,MOVIE_STAR,Jackie,WW,Q36970
+Robin Williams,MOVIE_STAR,Robin,WW,Q83338
+Lana Del Rey,MOVIE_STAR,Lana,WW,Q37150
+Woody Allen,MOVIE_STAR,Woody,WW,Q25089
+Marlon Brando,MOVIE_STAR,Marlon,WW,Q34012
+Rihanna,MOVIE_STAR,Rihanna;Rhianna;Rihana;Riana,WW,Q36844
+Scarlett Johansson,MOVIE_STAR,Scarlett,WW,Q34436
+Arnold Schwarzenegger,MOVIE_STAR,Arnold;Arnie,WW,Q2685
+Judy Garland,MOVIE_STAR,Judy;Martina,WW,Q11637
+Brigitte Bardot,MOVIE_STAR,Brigitte,WW,Q36268
+Hebe Camargo,MOVIE_STAR,Hebe,WW,Q6105
+Leonardo DiCaprio,MOVIE_STAR,Leonardo,WW,Q38111
+Jim Morrison,MOVIE_STAR,Jimbo,WW,Q44301
+Paul McCartney,MOVIE_STAR,Paul,WW,Q2599
+Johnny Depp,MOVIE_STAR,John,WW,Q37175
+Brad Pitt,MOVIE_STAR,Brad,WW,Q35332
+Audrey Hepburn,MOVIE_STAR,Audrey,WW,Q42786
+Stephen King,MOVIE_STAR,Stephen,WW,Q39829
+Britney Spears,MOVIE_STAR,Britney,WW,Q11975
+Sean Connery,MOVIE_STAR,Sean,WW,Q4573
+Emma Watson,MOVIE_STAR,Emma,WW,Q39476
+Elizabeth Taylor,MOVIE_STAR,Elizabeth,WW,Q34851
+Miley Cyrus,MOVIE_STAR,Miley,WW,Q4235
+Justin Trudeau,MOVIE_STAR,Justin,WW,Q3099714
+Ariana Grande,MOVIE_STAR,Ariana,WW,Q151892
+Leonid Brezhnev,MOVIE_STAR,Leonid,WW,Q765165
+Avril Lavigne,MOVIE_STAR,Avril,WW,Q30449
+Alain Delon,MOVIE_STAR,Alain,WW,Q106529
+Robert De Niro,MOVIE_STAR,Robert,WW,Q36949
+David Beckham,MOVIE_STAR,David;Becks,WW,Q10520
+Margrethe II of Denmark,ROYALTY,Margrethe,DK,Q102139
 Cnut the Great,ROYALTY,Canuto;Knut,DK,Q134128
-Frederik X of Denmark,ROYALTY,Henrik;Christian;Frederik,DK,Q1004037
-Constantine II of Greece,ROYALTY,Konstantinos,DK,Q151773
-Christian X of Denmark,ROYALTY,Alexander;Carl;Albert;Christian;Vilhelm;Frederik,DK,Q156617
-George I of Greece,ROYALTY,Georgios;Ferdinand;Christian;Adolf;Vilhelm,DK,Q17142
+Frederik X of Denmark,ROYALTY,Frederik,DK,Q1004037
+George I of Greece,ROYALTY,Vilhelm,DK,Q17142
+Christian X of Denmark,ROYALTY,Christian,DK,Q156617
+Frederik IX of Denmark,ROYALTY,Frederik,DK,Q151312
 Christian IX of Denmark,ROYALTY,Christian,DK,Q151305
-Frederik VIII of Denmark,ROYALTY,Carl;Christian;Vilhelm;Frederik,DK,Q152756
-Frederick V of Denmark,ROYALTY,Frederick;Frederik,DK,Q156187
+Frederik VIII of Denmark,ROYALTY,Frederik,DK,Q152756
 Harald Bluetooth,ROYALTY,Harald,DK,Q201041
-Christian VIII of Denmark,ROYALTY,Frederik;Christian,DK,Q157781
-Frederick VII of Denmark,ROYALTY,Carl;Frederik;Christian,DK,Q94941
-Frederick VI of Denmark,ROYALTY,Frederik,DK,Q155002
+Frederick V of Denmark,ROYALTY,Frederick,DK,Q156187
+Christian VIII of Denmark,ROYALTY,Christian,DK,Q157781
 Christopher of Bavaria,ROYALTY,Christophe,DK,Q58056
 Valdemar I of Denmark,ROYALTY,Valdemar,DK,Q297194
 Canute IV of Denmark,ROYALTY,Knut,DK,Q212284
@@ -195,73 +228,61 @@ Harald II of Denmark,ROYALTY,Harald,DK,Q311011
 Abel of Denmark,ROYALTY,Abel,DK,Q27932
 Valdemar IV of Denmark,ROYALTY,Valdemar;Waldemar,DK,Q216630
 Gorm the Old,ROYALTY,Gorm,DK,Q314490
-Eric I of Denmark,ROYALTY,Erik,DK,Q318478
-Sweyn III of Denmark,ROYALTY,Sven;Svend,DK,Q381042
-Sweyn II of Denmark,ROYALTY,Svend,DK,Q246812
-Christopher I of Denmark,ROYALTY,Christoffer,DK,Q206315
-Eric II of Denmark,ROYALTY,Erik,DK,Q365085
-Eric IV of Denmark,ROYALTY,Erik,DK,Q350226
-Christopher II of Denmark,ROYALTY,Christoffer,DK,Q350186
-Olaf I of Denmark,ROYALTY,Oluf,DK,Q266495
 Harald III of Denmark,ROYALTY,Harald,DK,Q225212
-Eric V of Denmark,ROYALTY,Erik,DK,Q359588
-Eric III of Denmark,ROYALTY,Erik,DK,Q365064
-Niels,ROYALTY,Niels;Nils,DK,Q364751
+Niels,ROYALTY,Niels,DK,Q364751
 Magnus I of Sweden,ROYALTY,Magnus,DK,Q347954
-Eric VI of Denmark,ROYALTY,Erik,DK,Q359601
-Elizabeth II,ROYALTY,Elizabeth;Elisabeth;Lilibet,GB,Q9682
-George VI,ROYALTY,George;Albert;Arthur;Frederick;Bertie,GB,Q280856
-George V,ROYALTY,Ernest;Albert;Frederick;George,GB,Q269412
+Harald Klak,ROYALTY,Harald,DK,Q714874
+Edward VIII,ROYALTY,Edward,GB,Q590227
+George V,ROYALTY,George,GB,Q269412
 Michael I of Romania,ROYALTY,Mihai,GB,Q930013
 Harald V of Norway,ROYALTY,Harald,NO,Q57287
-Olav V of Norway,ROYALTY,Alexander;Edward;Olav;Frederik;Christian,NO,Q154912
+Haakon VII of Norway,ROYALTY,Haakon,NO,Q154927
+Olav V of Norway,ROYALTY,Olav,NO,Q154912
 Christian II of Denmark,ROYALTY,Christian,NO,Q154460
 Christian III of Denmark,ROYALTY,Christian,NO,Q154998
 Harald Fairhair,ROYALTY,Harald,NO,Q206123
 "Margaret, Maid of Norway",ROYALTY,Margaret,NO,Q229159
 Olaf II of Norway,ROYALTY,Olaf;Olav,NO,Q208331
-Frederick I of Denmark,ROYALTY,Frederik,NO,Q157789
 Olaf I of Norway,ROYALTY,Olaf,NO,Q213801
 Magnus the Good,ROYALTY,Magnus,NO,Q310999
 Magnus Barefoot,ROYALTY,Magnus,NO,Q311996
-Olaf II of Denmark,ROYALTY,Olav;Olof;Oluf,NO,Q313879
 Magnus VI of Norway,ROYALTY,Magnus,NO,Q334673
 Harald Greycloak,ROYALTY,Harald,NO,Q182680
 Sigurd II of Norway,ROYALTY,Sigurd,NO,Q350498
 Magnus V of Norway,ROYALTY,Magnus,NO,Q350213
-Olav Magnusson of Norway,ROYALTY,Olavi,NO,Q350385
 Inge II of Norway,ROYALTY,Inge,NO,Q365035
-Carl XVI Gustaf of Sweden,ROYALTY,Folke;Carl;Gustaf,SE,Q45068
-Christina of Sweden,ROYALTY,Christina;Christine;Cristina,SE,Q52937
-Charles XIV John of Sweden,ROYALTY,Charles;Johann;Karl,SE,Q52927
-Carl XII of Sweden,ROYALTY,Karl,SE,Q52934
+Carl XVI Gustaf of Sweden,ROYALTY,Carl;Gustaf,SE,Q45068
+Christina of Sweden,ROYALTY,Christina;Cristina,SE,Q52937
+Charles XIV John of Sweden,ROYALTY,Charles,SE,Q52927
 Gustav I of Sweden,ROYALTY,Gustav,SE,Q52947
-Gustaf V of Sweden,ROYALTY,Oscar;Gustaf;Adolf,SE,Q52890
-Carl XV of Sweden,ROYALTY,Karl,SE,Q52925
-Gustaf VI Adolf of Sweden,ROYALTY,Oscar;Olaf;Fredrik;Wilhelm;Gustaf;Adolf,SE,Q52878
-Oscar II of Sweden,ROYALTY,Oscar;Fredrik,SE,Q52924
+Gustaf V of Sweden,ROYALTY,Gustaf,SE,Q52890
+Gustaf VI Adolf of Sweden,ROYALTY,Adolf;Gustaf,SE,Q52878
+Oscar II of Sweden,ROYALTY,Oscar,SE,Q52924
 Oscar I of Sweden,ROYALTY,Oscar;Oskar,SE,Q52926
-Charles IX of Sweden,ROYALTY,Karl,SE,Q52939
 Christian I of Denmark,ROYALTY,Christian,SE,Q153940
-Charles X Gustav of Sweden,ROYALTY,Gustav;Karl,SE,Q52936
-John III of Sweden,ROYALTY,Johan,SE,Q52944
-Charles XIII of Sweden,ROYALTY,Charles;Karl,SE,Q52928
-Charles XI of Sweden,ROYALTY,Charles;Karl,SE,Q52935
+Charles X Gustav of Sweden,ROYALTY,Gustav,SE,Q52936
+Charles XIII of Sweden,ROYALTY,Charles,SE,Q52928
+Charles XI of Sweden,ROYALTY,Charles,SE,Q52935
 Gustav IV Adolf of Sweden,ROYALTY,Gustav,SE,Q52929
-Eric XIV of Sweden,ROYALTY,Erik,SE,Q52945
 "John, King of Denmark",ROYALTY,Hans,SE,Q157776
 Adolf Fredrik of Sweden,ROYALTY,Adolf,SE,Q52931
-Frederick I of Sweden,ROYALTY,Fredrik,SE,Q52932
-Eric IX of Sweden,ROYALTY,Erik,SE,Q310152
-Eric the Victorious,ROYALTY,Erik,SE,Q318912
 Magnus III of Sweden,ROYALTY,Magnus,SE,Q350220
-Anund Jacob,ROYALTY,Jakob,SE,Q352133
 Magnus Henriksson,ROYALTY,Magnus,SE,Q856159
 Emund the Old,ROYALTY,Edmund,SE,Q382156
-Inge the Younger,ROYALTY,Ingo,SE,Q471475
-Canute II of Sweden,ROYALTY,Knut,SE,Q463518
 Halsten Stenkilsson,ROYALTY,Halsten,SE,Q375664
 Ragnvald Knaphövde,ROYALTY,Ragnvald,SE,Q1342231
+Elizabeth II,ROYALTY,Elizabeth;Lilibet;Elisabeth,WW,Q9682
+Genghis Khan,ROYALTY,Genghis;Temujin,WW,Q720
+Louis XIV of France,ROYALTY,Louis;Ludvig,WW,Q7742
+Victoria,ROYALTY,Victoria;Victoire,WW,Q9439
+Cleopatra,ROYALTY,Kleopatra,WW,Q635
+Catherine II of Russia,ROYALTY,Catherine,WW,Q36450
+Cyrus the Great,ROYALTY,Cyrus;Kurosh,WW,Q8423
+Wilhelm II,ROYALTY,Wilhelm,WW,Q2677
+Louis XVI of France,ROYALTY,Louis,WW,Q7732
+Charles V,ROYALTY,Charles,WW,Q32500
+Mehmed II,ROYALTY,Mehmed;Mehmet;Mohammed;Muhammad;Avni,WW,Q34503
+George VI,ROYALTY,George;Bertie,WW,Q280856
 Caroline Wozniacki,SPORTS_STAR,Caroline,DK,Q30767
 Michael Laudrup,SPORTS_STAR,Michael,DK,Q188720
 Christian Eriksen,SPORTS_STAR,Christian,DK,Q294951
@@ -281,65 +302,55 @@ Christian Poulsen,SPORTS_STAR,Christian,DK,Q204141
 Brian Steen Nielsen,SPORTS_STAR,Brian,DK,Q2076659
 Kasper Dolberg,SPORTS_STAR,Kasper,DK,Q19973862
 Martin Braithwaite,SPORTS_STAR,Martin,DK,Q2440999
-Lasse Schöne,SPORTS_STAR,Lasse,DK,Q313112
 Emre Mor,SPORTS_STAR,Emre,DK,Q22007007
 Thomas Delaney,SPORTS_STAR,Thomas,DK,Q961878
-Dennis Rommedahl,SPORTS_STAR,Dennis,DK,Q207665
+Lasse Schöne,SPORTS_STAR,Lasse,DK,Q313112
 Jannik Vestergaard,SPORTS_STAR,Jannik,DK,Q66358
+Dennis Rommedahl,SPORTS_STAR,Dennis,DK,Q207665
 Rasmus Højlund,SPORTS_STAR,Rasmus,DK,Q66467324
+Joakim Mæhle,SPORTS_STAR,Joakim,DK,Q26405209
 William Kvist,SPORTS_STAR,William,DK,Q298480
 Daniel Wass,SPORTS_STAR,Daniel,DK,Q316854
-Joakim Mæhle,SPORTS_STAR,Joakim,DK,Q26405209
 Mathias Jørgensen,SPORTS_STAR,Mathias,DK,Q248938
 Viktor Fischer,SPORTS_STAR,Viktor,DK,Q74152
-Thomas Sørensen,SPORTS_STAR,Thomas,DK,Q211120
-Andreas Cornelius,SPORTS_STAR,Andreas,DK,Q84077
-Harald Bohr,SPORTS_STAR,Harald,DK,Q310009
-Nadia Nadim,SPORTS_STAR,Nadia,DK,Q531727
-Preben Elkjær,SPORTS_STAR,Preben,DK,Q167393
-Alex Ferguson,SPORTS_STAR,Alex;Ferguson;Fergie,GB,Q44980
+Alex Ferguson,SPORTS_STAR,Alex;Fergie,GB,Q44980
 Frank Lampard,SPORTS_STAR,Frank,GB,Q41533
 Wayne Rooney,SPORTS_STAR,Wayne,GB,Q266613
-Steven Gerrard,SPORTS_STAR,Steven;Gerrard,GB,Q459830
+Steven Gerrard,SPORTS_STAR,Steven,GB,Q459830
 Harry Kane,SPORTS_STAR,Harry,GB,Q969725
-Gareth Bale,SPORTS_STAR,Frank;Gareth;Bale,GB,Q184586
-Andy Murray,SPORTS_STAR,Andrew;Barron,GB,Q10125
+Gareth Bale,SPORTS_STAR,Gareth,GB,Q184586
 Gary Lineker,SPORTS_STAR,Gary,GB,Q47778
 George Best,SPORTS_STAR,George,GB,Q164521
-Ryan Giggs,SPORTS_STAR,Joseph;Ryan,GB,Q10524
+Ryan Giggs,SPORTS_STAR,Ryan,GB,Q10524
 Marcus Rashford,SPORTS_STAR,Marcus;Rashidi,GB,Q22951255
-Bobby Charlton,SPORTS_STAR,Bobby;Charlton,GB,Q171583
-John Terry,SPORTS_STAR,John;Terry,GB,Q83456
-Michael Owen,SPORTS_STAR,Michael;Owen,GB,Q128829
-Jude Belligoal,SPORTS_STAR,Jude,GB,Q66241169
-Jordan Henderson,SPORTS_STAR,Brian;Jordan;Henderson,GB,Q273715
+Bobby Charlton,SPORTS_STAR,Bobby,GB,Q171583
+John Terry,SPORTS_STAR,John,GB,Q83456
+Michael Owen,SPORTS_STAR,Michael,GB,Q128829
+Jordan Henderson,SPORTS_STAR,Jordan,GB,Q273715
+Jude Bellingham,SPORTS_STAR,Jude,GB,Q66241169
 Raheem Sterling,SPORTS_STAR,Raheem,GB,Q312157
 Alan Shearer,SPORTS_STAR,Alan,GB,Q483583
-Rio Ferdinand,SPORTS_STAR,Rio;Ferdinand,GB,Q483417
+Rio Ferdinand,SPORTS_STAR,Rio,GB,Q483417
 Paul Scholes,SPORTS_STAR,Paul,GB,Q45613
-Aaron Ramsey,SPORTS_STAR,James;Aaron;Ramsey,GB,Q213427
-Ashley Cole,SPORTS_STAR,Ashley;Cole,GB,Q133556
+Aaron Ramsey,SPORTS_STAR,Aaron,GB,Q213427
+Ashley Cole,SPORTS_STAR,Ashley,GB,Q133556
 Ashley Young,SPORTS_STAR,Ashley,GB,Q10602
 Harry Maguire,SPORTS_STAR,Harry,GB,Q165772
 Bruce Dickinson,SPORTS_STAR,Bruce,GB,Q190151
-Charles Scott Sherrington,SPORTS_STAR,Scott;Charles,GB,Q213504
-Michael Carrick,SPORTS_STAR,Michael;Carrick,GB,Q29566
+Charles Scott Sherrington,SPORTS_STAR,Charles;Scott,GB,Q213504
+Michael Carrick,SPORTS_STAR,Michael,GB,Q29566
 Theo Walcott,SPORTS_STAR,Theo,GB,Q29516
 Jamie Vardy,SPORTS_STAR,Jamie,GB,Q6147586
 Jordan Pickford,SPORTS_STAR,Jordan,GB,Q13014035
-Luke Shaw,SPORTS_STAR,Luke;Paul,GB,Q93563
-Bill Shankly,SPORTS_STAR,Bill;William,GB,Q207457
-Gary Neville,SPORTS_STAR,Gary;Neville,GB,Q348857
-Phil Foden,SPORTS_STAR,Phil;Foden,GB,Q30729096
-Jamie Carragher,SPORTS_STAR,Jamie;Carra,GB,Q172211
-Erling Haaland,SPORTS_STAR,Erling;Haaland,NO,Q28967995
+Luke Shaw,SPORTS_STAR,Luke,GB,Q93563
+Erling Haaland,SPORTS_STAR,Erling,NO,Q28967995
 Ole Gunnar Solskjær,SPORTS_STAR,Gunnar;Ole;Sunny,NO,Q18976
 Martin Ødegaard,SPORTS_STAR,Martin,NO,Q16902219
 Jo Nesbø,SPORTS_STAR,Jo,NO,Q202693
 John Arne Riise,SPORTS_STAR,John,NO,Q189827
 Alexander Sørloth,SPORTS_STAR,Alexander,NO,Q13784739
 Frode Johnsen,SPORTS_STAR,Frode,NO,Q1071098
-Ada Hegerberg,SPORTS_STAR,Ada;Martine,NO,Q129118
+Ada Hegerberg,SPORTS_STAR,Ada,NO,Q129118
 Tore Pedersen,SPORTS_STAR,Tore,NO,Q166703
 Julian Ryerson,SPORTS_STAR,Julian,NO,Q28717698
 Ørjan Nyland,SPORTS_STAR,Ørjan,NO,Q869214
@@ -351,59 +362,59 @@ Andreas Schjelderup,SPORTS_STAR,Andreas,NO,Q106099213
 Ståle Solbakken,SPORTS_STAR,Ståle,NO,Q455291
 Casper Ruud,SPORTS_STAR,Casper,NO,Q18810082
 Tarik Elyounoussi,SPORTS_STAR,Tarik,NO,Q609141
-Joshua King,SPORTS_STAR,Joshua;King,NO,Q436237
+Joshua King,SPORTS_STAR,Joshua,NO,Q436237
 Leo Østigård,SPORTS_STAR,Leo,NO,Q30330390
 Håvard Nordtveit,SPORTS_STAR,Håvard,NO,Q313936
-Steffen Iversen,SPORTS_STAR,Steffen;Iversen,NO,Q311659
-Henning Berg,SPORTS_STAR,Henning;Berg,NO,Q343093
+Steffen Iversen,SPORTS_STAR,Steffen,NO,Q311659
+Henning Berg,SPORTS_STAR,Henning,NO,Q343093
 Kristoffer Ajer,SPORTS_STAR,Kristoffer,NO,Q18157457
 Sander Berge,SPORTS_STAR,Sander,NO,Q20675980
+Jørgen Strand Larsen,SPORTS_STAR,Jørgen,NO,Q28933132
 Antonio Nusa,SPORTS_STAR,Antonio,NO,Q107357509
 Oscar Bobb,SPORTS_STAR,Oscar,NO,Q110466658
 Caroline Graham Hansen,SPORTS_STAR,Caroline;Caro,NO,Q5045087
-Patrick Berg,SPORTS_STAR,Patrick,NO,Q18066870
-Jørgen Strand Larsen,SPORTS_STAR,Jørgen,NO,Q28933132
-Ronny Johnsen,SPORTS_STAR,Ronny,NO,Q381460
-Kristian Thorstvedt,SPORTS_STAR,Kristian,NO,Q61721648
-Rune Jarstein,SPORTS_STAR,Rune,NO,Q719584
-Nora Mørk,SPORTS_STAR,Nora,NO,Q3499591
 Freddie Ljungberg,SPORTS_STAR,Freddie,SE,Q10560
 Marta,SPORTS_STAR,Marta,SE,Q228616
 Henrik Larsson,SPORTS_STAR,Henrik,SE,Q179334
 Alexander Isak,SPORTS_STAR,Alexander,SE,Q23759917
-Sven-Göran Eriksson,SPORTS_STAR,Eriksson,SE,Q218369
 Viktor Gyökeres,SPORTS_STAR,Viktor,SE,Q47075606
-Stefan Edberg,SPORTS_STAR,Stefan;Edberg,SE,Q189542
+Stefan Edberg,SPORTS_STAR,Stefan,SE,Q189542
 Mats Wilander,SPORTS_STAR,Mats,SE,Q16475
-Gunnar Nordahl,SPORTS_STAR,Gunnar;Nordahl,SE,Q110111
+Gunnar Nordahl,SPORTS_STAR,Gunnar,SE,Q110111
 Victor Lindelöf,SPORTS_STAR,Victor,SE,Q4125587
 Sebastian Larsson,SPORTS_STAR,Sebastian,SE,Q83638
+Marcus Berg,SPORTS_STAR,Marcus,SE,Q311910
 Emil Forsberg,SPORTS_STAR,Emil,SE,Q5371234
-Marcus Berg,SPORTS_STAR,Marcus;Berg,SE,Q311910
 Olof Mellberg,SPORTS_STAR,Olof,SE,Q192491
 Andreas Granqvist,SPORTS_STAR,Andreas,SE,Q178270
 Kim Källström,SPORTS_STAR,Kim,SE,Q214124
 Ola Toivonen,SPORTS_STAR,Ola,SE,Q11956
 Andreas Isaksson,SPORTS_STAR,Andreas,SE,Q205773
-Robin Söderling,SPORTS_STAR,Bo;Robin;Carl,SE,Q192801
+Robin Söderling,SPORTS_STAR,Robin,SE,Q192801
 Nils Liedholm,SPORTS_STAR,Nils,SE,Q312633
-Albin Ekdal,SPORTS_STAR,Albin,SE,Q371652
 Viktor Claesson,SPORTS_STAR,Viktor,SE,Q973265
+Albin Ekdal,SPORTS_STAR,Albin,SE,Q371652
 John Guidetti,SPORTS_STAR,John,SE,Q372276
 Dejan Kulusevski,SPORTS_STAR,Dejan,SE,Q59914139
-Mikael Lustig,SPORTS_STAR,Mikael,SE,Q316932
 Anders Svensson,SPORTS_STAR,Anders,SE,Q296219
-Kurt Hamrin,SPORTS_STAR,Kurt,SE,Q363766
+Mikael Lustig,SPORTS_STAR,Mikael,SE,Q316932
 Gunnar Gren,SPORTS_STAR,Gunnar,SE,Q314511
 Ludwig Augustinsson,SPORTS_STAR,Ludwig,SE,Q4806248
 Johan Elmander,SPORTS_STAR,Johan,SE,Q244806
+Kurt Hamrin,SPORTS_STAR,Kurt,SE,Q363766
 Robin Olsen,SPORTS_STAR,Robin,SE,Q6799321
-Thomas Johansson,SPORTS_STAR,Thomas,SE,Q277802
-Lennart Johansson,SPORTS_STAR,Lennart,SE,Q158133
-Martin Olsson,SPORTS_STAR,Tony;Martin,SE,Q312935
-Lucas Bergvall,SPORTS_STAR,Lucas,SE,Q115371638
-Elie Wiesel,SPORTS_STAR,Elie;Eliezer,US,Q18391
+Elie Wiesel,SPORTS_STAR,Elie,US,Q18391
 Andre Agassi,SPORTS_STAR,Andre,US,Q7407
 Martina Navratilova,SPORTS_STAR,Martina,US,Q54545
-Venus Williams,SPORTS_STAR,Venus;Ebony,US,Q11578
+Venus Williams,SPORTS_STAR,Venus,US,Q11578
 Anna Kournikova,SPORTS_STAR,Anna,US,Q131120
+Lionel Messi,SPORTS_STAR,Lionel;Leo;Lio,WW,Q615
+Cristiano Ronaldo,SPORTS_STAR,Cristiano;Ronaldo,WW,Q11571
+Roger Federer,SPORTS_STAR,Roger,WW,Q1426
+Neymar,SPORTS_STAR,Neymar;Ney,WW,Q142794
+Rafael Nadal,SPORTS_STAR,Rafael;Rafa,WW,Q10132
+Novak Djokovic,SPORTS_STAR,Novak;Nole,WW,Q5812
+Zinedine Zidane,SPORTS_STAR,Zinedine;Zidan,WW,Q1835
+Kylian Mbappé,SPORTS_STAR,Kylian,WW,Q21621995
+Francesco Totti,SPORTS_STAR,Francesco,WW,Q20110
+Ronaldo,SPORTS_STAR,Ronaldo,WW,Q529207
