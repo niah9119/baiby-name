@@ -409,17 +409,21 @@ for i in $(seq 1 "$MAX"); do
         echo "!"
 
         # Check if there are commits on the remote branch
-        if git ls-remote origin "issue-$N" >/dev/null 2>&1; then
+        # Use -n to test output, not exit code: git ls-remote exits 0 even for non-existent refs
+        if [[ -n "$(git ls-remote origin "issue-$N" 2>/dev/null)" ]]; then
           echo "-- Branch 'issue-$N' exists on remote; creating PR now..."
 
           # Get the issue title for the PR
           issue_title=$(gh issue view "$N" --json title --jq '.title')
-          # Get the issue body for the PR description
-          issue_body=$(gh issue view "$N" --json body --jq '.body')
 
-          # Create the PR with "Closes #N" in the body
-          gh pr create --title "Implement #$N: $issue_title" \
-            --body "Closes #$N. $(echo "$issue_body" | head -c 60000)" \
+          # Create the PR with "Closes #N" in the body and explicit branch reference
+          # Use a concise body: link the issue and state why the PR was opened
+          gh pr create --head "issue-$N" --base main \
+            --title "Implement #$N: $issue_title" \
+            --body "Closes #$N.
+
+Opened automatically by the agent loop because the agent completed work
+but did not open a pull request. The branch 'issue-$N' contains the completed work." \
             2>/dev/null && echo "-- PR created successfully"
 
           # Verify PR was created
