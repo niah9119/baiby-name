@@ -64,6 +64,7 @@ class I18nIntegrationTest {
         "footer.copyright",
 
         // Index Page
+        "index.title",
         "index.hero.title",
         "index.hero.subtitle",
         "index.cta.browse",
@@ -76,7 +77,213 @@ class I18nIntegrationTest {
         "index.feature.llm.description",
         "index.signup.title",
         "index.signup.subtitle",
-        "index.signup.cta"
+        "index.signup.cta",
+
+        // Browse Page
+        "browse.title",
+        "browse.description",
+        "browse.filters.title",
+        "browse.filters.active",
+
+        // Filter labels
+        "filter.sex.label",
+        "filter.sex.all",
+        "filter.sex.boy",
+        "filter.sex.girl",
+        "filter.country.label",
+        "filter.country.all",
+        "filter.country.select",
+        "filter.celebrity.label",
+        "filter.celebrity.all",
+        "filter.celebrity.with",
+        "filter.celebrity.without",
+        "filter.popularity.label",
+        "filter.popularity.all",
+        "filter.popularity.common",
+        "filter.popularity.uncommon",
+        "filter.subcategory.label",
+        "filter.subcategory.royalty",
+        "filter.subcategory.movie_star",
+        "filter.subcategory.sports_star",
+
+        // Filter chips
+        "chip.remove",
+        "chip.sex",
+        "chip.country",
+        "chip.celebrity",
+        "chip.popularity",
+
+        // Candidate list
+        "candidate.list.title",
+        "candidate.list.empty",
+        "candidate.list.count",
+        "candidate.shortlist.add",
+
+        // Re-rank
+        "rerank.button",
+        "rerank.rerank",
+
+        // Name card
+        "namecard.popularity.common",
+        "namecard.popularity.uncommon",
+        "namecard.famous.bearer",
+        "namecard.famous.bearer.count",
+
+        // Pagination
+        "pagination.previous",
+        "pagination.next",
+        "pagination.page",
+
+        // Advice Page
+        "advice.title",
+        "advice.description",
+        "advice.familyName.title",
+        "advice.familyName.placeholder",
+        "advice.familyName.save",
+        "advice.familyName.remove",
+        "advice.shortlist.title",
+        "advice.shortlist.empty",
+        "advice.generate.title",
+        "advice.select.names",
+        "advice.select.names.hint",
+        "advice.select.addMore",
+        "advice.countries.hint",
+        "advice.language.label",
+        "advice.generate.button",
+        "advice.result.title",
+        "advice.unavailable",
+
+        // Interview Page
+        "interview.description",
+        "introduction.message",
+
+        // Chat
+        "chat.send",
+        "chat.busy",
+
+        // Name Landing Page
+        "name.page.title",
+        "name.description",
+        "name.style",
+        "name.popularity",
+        "name.famousBearers",
+        "name.similar",
+        "name.added",
+        "name.noSimilar",
+        "name.boy",
+        "name.girl",
+        "name.traditional",
+        "name.modern",
+        "name.neutral",
+        "name.soft",
+        "name.strong",
+        "name.yes",
+        "name.no",
+        "name.origin",
+        "name.syllables",
+        "name.sound",
+        "name.international",
+        "name.highestRank",
+        "name.count",
+        "name.top100",
+        "name.bestRank",
+
+        // CountryStat display labels
+        "countrystat.yearsInTop100",
+        "countrystat.bestRank",
+
+        // Forms
+        "form.email",
+        "form.email.placeholder",
+        "form.email.required",
+        "form.email.invalid",
+        "form.email.max",
+        "form.password",
+        "form.password.placeholder",
+        "form.password.required",
+        "form.password.size",
+        "form.password.confirm",
+        "form.password.confirm.required",
+        "form.register",
+        "form.login",
+        "form.register.link",
+        "form.login.link",
+
+        // Registration
+        "registration.title",
+        "registration.subtitle",
+        "registration.success.title",
+        "registration.success.message",
+
+        // Login
+        "login.title",
+        "login.subtitle",
+
+        // Consent Banner
+        "consent.title",
+        "consent.description",
+        "consent.accept",
+        "consent.decline",
+
+        // Privacy Policy
+        "privacy.title",
+        "privacy.intro.title",
+        "privacy.intro.text",
+        "privacy.data.title",
+        "privacy.data.text",
+        "privacy.cookies.title",
+        "privacy.cookies.text",
+        "privacy.shortlist.title",
+        "privacy.shortlist.text",
+        "privacy.shared.title",
+        "privacy.shared.text",
+        "privacy.erasure.title",
+        "privacy.right.access",
+        "privacy.right.rectify",
+        "privacy.right.erase",
+        "privacy.right.object",
+        "privacy.contact.title",
+        "privacy.contact.text",
+        "privacy.thirdparty.text",
+
+        // Ad slots
+        "ad.label",
+        "ad.slot.notconfigured",
+        "ad.consent.required",
+
+        // Claim and Share
+        "claim.title",
+        "claim.description",
+        "claim.email.title",
+        "claim.email.label",
+        "claim.email.placeholder",
+        "claim.email.help",
+        "claim.email.description",
+        "claim.name.label",
+        "claim.name.placeholder",
+        "claim.name.help",
+        "claim.confirmation.text",
+        "claim.submit",
+        "claim.back.link",
+        "claim.cta.title",
+        "claim.cta.description",
+        "claim.cta.action",
+
+        // Shared shortlist
+        "shared.shortlist.description",
+        "shared.shortlist.info",
+
+        // Shortlist
+        "shortlist.title",
+        "shortlist.description",
+        "shortlist.empty.title",
+        "shortlist.empty.description",
+        "shortlist.entries.count",
+        "shortlist.member.limit",
+        "shortlist.added",
+        "shortlist.by",
+        "shortlist.you",
+        "shortlist.remove"
     );
 
     @Test
