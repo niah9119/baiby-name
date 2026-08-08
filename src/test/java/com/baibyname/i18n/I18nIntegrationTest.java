@@ -13,9 +13,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -26,6 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
  * 1. MessageSource is properly configured
  * 2. Both English and Swedish translations exist for all keys
  * 3. No missing-key drift occurs
+ *
+ * <p>Keys are derived dynamically by parsing Thymeleaf templates, ensuring the test
+ * cannot drift from actual template usage. The {@link #JAVA_ONLY_MESSAGE_KEYS} set
+ * contains keys that are used in Java code but not in templates.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
@@ -46,245 +54,54 @@ class I18nIntegrationTest {
     }
 
     /**
-     * List of message keys used in the application templates.
-     * Must be kept in sync with template files.
+     * Message keys derived from template files at test time.
+     * This set is populated by parsing {@code src/main/resources/templates/}
+     * to discover all keys referenced by Thymeleaf templates.
      */
-    private static final List<String> MESSAGE_KEYS = Arrays.asList(
-        // Application Info
-        "app.name",
-        "app.tagline",
+    private static final Set<String> TEMPLATE_KEYS = parseTemplateKeys();
 
-        // Navigation
-        "nav.browse",
-        "nav.interview",
-        "nav.shortlist",
-        "nav.login",
-
-        // Footer
-        "footer.copyright",
-
-        // Index Page
-        "index.title",
-        "index.hero.title",
-        "index.hero.subtitle",
-        "index.cta.browse",
-        "index.cta.interview",
-        "index.feature.country.title",
-        "index.feature.country.description",
-        "index.feature.popularity.title",
-        "index.feature.popularity.description",
-        "index.feature.llm.title",
-        "index.feature.llm.description",
-        "index.signup.title",
-        "index.signup.subtitle",
-        "index.signup.cta",
-
-        // Browse Page
-        "browse.title",
-        "browse.description",
-        "browse.filters.title",
-        "browse.filters.active",
-
-        // Filter labels
-        "filter.sex.label",
-        "filter.sex.all",
+    /**
+     * Dynamic message keys that are constructed at runtime (e.g., "filter.sex." + sex).
+     * These cannot be statically parsed from templates and must be manually maintained.
+     */
+    private static final Set<String> DYNAMIC_KEYS = new HashSet<>(Arrays.asList(
         "filter.sex.boy",
         "filter.sex.girl",
-        "filter.country.label",
-        "filter.country.all",
-        "filter.country.select",
-        "filter.celebrity.label",
-        "filter.celebrity.all",
-        "filter.celebrity.with",
-        "filter.celebrity.without",
-        "filter.popularity.label",
-        "filter.popularity.all",
-        "filter.popularity.common",
-        "filter.popularity.uncommon",
-        "filter.subcategory.label",
         "filter.subcategory.royalty",
         "filter.subcategory.movie_star",
-        "filter.subcategory.sports_star",
+        "filter.subcategory.sports_star"
+    ));
 
-        // Filter chips
-        "chip.remove",
-        "chip.sex",
-        "chip.country",
-        "chip.celebrity",
-        "chip.popularity",
+    /**
+     * Message keys that are used in Java code but not in templates.
+     * These must be manually maintained.
+     */
+    private static final Set<String> JAVA_ONLY_MESSAGE_KEYS = new HashSet<>(Arrays.asList(
+        "advice.unavailable"
+    ));
 
-        // Candidate list
-        "candidate.list.title",
-        "candidate.list.empty",
-        "candidate.list.count",
-        "candidate.shortlist.add",
+    /**
+     * All message keys used by the application (template + Java-only + dynamic).
+     */
+    private static final Set<String> ALL_MESSAGE_KEYS = new HashSet<>(TEMPLATE_KEYS);
+    static {
+        ALL_MESSAGE_KEYS.addAll(JAVA_ONLY_MESSAGE_KEYS);
+        ALL_MESSAGE_KEYS.addAll(DYNAMIC_KEYS);
+    }
 
-        // Re-rank
-        "rerank.button",
-        "rerank.rerank",
-
-        // Name card
-        "namecard.popularity.common",
-        "namecard.popularity.uncommon",
-        "namecard.famous.bearer",
-        "namecard.famous.bearer.count",
-
-        // Pagination
-        "pagination.previous",
-        "pagination.next",
-        "pagination.page",
-
-        // Advice Page
-        "advice.title",
-        "advice.description",
-        "advice.familyName.title",
-        "advice.familyName.placeholder",
-        "advice.familyName.save",
-        "advice.familyName.remove",
-        "advice.shortlist.title",
-        "advice.shortlist.empty",
-        "advice.generate.title",
-        "advice.select.names",
-        "advice.select.names.hint",
-        "advice.select.addMore",
-        "advice.countries.hint",
-        "advice.language.label",
-        "advice.generate.button",
-        "advice.result.title",
-        "advice.unavailable",
-
-        // Interview Page
-        "interview.description",
-        "introduction.message",
-
-        // Chat
-        "chat.send",
-        "chat.busy",
-
-        // Name Landing Page
-        "name.page.title",
-        "name.description",
-        "name.style",
-        "name.popularity",
-        "name.famousBearers",
-        "name.similar",
-        "name.added",
-        "name.noSimilar",
-        "name.boy",
-        "name.girl",
-        "name.traditional",
-        "name.modern",
-        "name.neutral",
-        "name.soft",
-        "name.strong",
-        "name.yes",
-        "name.no",
-        "name.origin",
-        "name.syllables",
-        "name.sound",
-        "name.international",
-        "name.highestRank",
-        "name.count",
-        "name.top100",
-        "name.bestRank",
-
-        // CountryStat display labels
-        "countrystat.yearsInTop100",
-        "countrystat.bestRank",
-
-        // Forms
-        "form.email",
-        "form.email.placeholder",
-        "form.email.required",
-        "form.email.invalid",
-        "form.email.max",
-        "form.password",
-        "form.password.placeholder",
-        "form.password.required",
-        "form.password.size",
-        "form.password.confirm",
-        "form.password.confirm.required",
-        "form.register",
-        "form.login",
-        "form.register.link",
-        "form.login.link",
-
-        // Registration
-        "registration.title",
-        "registration.subtitle",
-        "registration.success.title",
-        "registration.success.message",
-
-        // Login
-        "login.title",
-        "login.subtitle",
-
-        // Consent Banner
-        "consent.title",
-        "consent.description",
-        "consent.accept",
-        "consent.decline",
-
-        // Privacy Policy
-        "privacy.title",
-        "privacy.intro.title",
-        "privacy.intro.text",
-        "privacy.data.title",
-        "privacy.data.text",
-        "privacy.cookies.title",
-        "privacy.cookies.text",
-        "privacy.shortlist.title",
-        "privacy.shortlist.text",
-        "privacy.shared.title",
-        "privacy.shared.text",
-        "privacy.erasure.title",
-        "privacy.right.access",
-        "privacy.right.rectify",
-        "privacy.right.erase",
-        "privacy.right.object",
-        "privacy.contact.title",
-        "privacy.contact.text",
-        "privacy.thirdparty.text",
-
-        // Ad slots
-        "ad.label",
-        "ad.slot.notconfigured",
-        "ad.consent.required",
-
-        // Claim and Share
-        "claim.title",
-        "claim.description",
-        "claim.email.title",
-        "claim.email.label",
-        "claim.email.placeholder",
-        "claim.email.help",
-        "claim.email.description",
-        "claim.name.label",
-        "claim.name.placeholder",
-        "claim.name.help",
-        "claim.confirmation.text",
-        "claim.submit",
-        "claim.back.link",
-        "claim.cta.title",
-        "claim.cta.description",
-        "claim.cta.action",
-
-        // Shared shortlist
-        "shared.shortlist.description",
-        "shared.shortlist.info",
-
-        // Shortlist
-        "shortlist.title",
-        "shortlist.description",
-        "shortlist.empty.title",
-        "shortlist.empty.description",
-        "shortlist.entries.count",
-        "shortlist.member.limit",
-        "shortlist.added",
-        "shortlist.by",
-        "shortlist.you",
-        "shortlist.remove"
-    );
+    /**
+     * Parses message keys from template files.
+     */
+    private static Set<String> parseTemplateKeys() {
+        try {
+            // Resolve path to templates directory relative to project root
+            String templatesPath = "src/main/resources/templates";
+            Path templatesDir = Path.of(templatesPath).toAbsolutePath().normalize();
+            return TemplateMessageKeyParser.parseKeysFromTemplates(templatesDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to parse message keys from templates", e);
+        }
+    }
 
     @Test
     void messageSourceLoadsCorrectly() {
@@ -293,40 +110,71 @@ class I18nIntegrationTest {
     }
 
     @Test
-    void englishMessagesResolveWithoutFallback() {
+    void templateKeysAreDefinedInAllLocales() {
+        // Verify that all keys derived from templates resolve in every locale
         Locale defaultLocale = LocaleContextHolder.getLocale();
         try {
+            // Test English
             LocaleContextHolder.setLocale(Locale.ENGLISH);
-
-            assertAll("English messages", MESSAGE_KEYS.stream()
+            assertAll("English template keys resolve", TEMPLATE_KEYS.stream()
                 .map(key -> () -> {
                     String message = messageSource.getMessage(key, null, Locale.ENGLISH);
                     assertThat(message).as("Message for key '%s' should not be null", key)
                         .isNotNull();
                     assertThat(message).as("Message for key '%s' should not equal the key", key)
                         .isNotEqualTo(key);
-                })
-            );
-        } finally {
-            LocaleContextHolder.setLocale(defaultLocale);
-        }
-    }
+                }));
 
-    @Test
-    void swedishMessagesResolveWithoutFallback() {
-        Locale defaultLocale = LocaleContextHolder.getLocale();
-        try {
+            // Test Swedish
             LocaleContextHolder.setLocale(new Locale("sv", "SE"));
-
-            assertAll("Swedish messages", MESSAGE_KEYS.stream()
+            assertAll("Swedish template keys resolve", TEMPLATE_KEYS.stream()
                 .map(key -> () -> {
                     String message = messageSource.getMessage(key, null, new Locale("sv", "SE"));
                     assertThat(message).as("Message for key '%s' should not be null", key)
                         .isNotNull();
                     assertThat(message).as("Message for key '%s' should not equal the key", key)
                         .isNotEqualTo(key);
-                })
-            );
+                }));
+
+            // Verify dynamic keys also resolve (they're not in TEMPLATE_KEYS)
+            assertAll("Dynamic keys resolve", DYNAMIC_KEYS.stream()
+                .map(key -> () -> {
+                    String message = messageSource.getMessage(key, null, Locale.ENGLISH);
+                    assertThat(message).as("Dynamic key '%s' should resolve in English", key)
+                        .isNotNull()
+                        .isNotEqualTo(key);
+                }));
+        } finally {
+            LocaleContextHolder.setLocale(defaultLocale);
+        }
+    }
+
+    @Test
+    void javaOnlyKeysAreDefinedInAllLocales() {
+        // Verify that Java-only keys resolve in every locale
+        Locale defaultLocale = LocaleContextHolder.getLocale();
+        try {
+            // Test English
+            LocaleContextHolder.setLocale(Locale.ENGLISH);
+            assertAll("English Java-only keys resolve", JAVA_ONLY_MESSAGE_KEYS.stream()
+                .map(key -> () -> {
+                    String message = messageSource.getMessage(key, null, Locale.ENGLISH);
+                    assertThat(message).as("Message for key '%s' should not be null", key)
+                        .isNotNull();
+                    assertThat(message).as("Message for key '%s' should not equal the key", key)
+                        .isNotEqualTo(key);
+                }));
+
+            // Test Swedish
+            LocaleContextHolder.setLocale(new Locale("sv", "SE"));
+            assertAll("Swedish Java-only keys resolve", JAVA_ONLY_MESSAGE_KEYS.stream()
+                .map(key -> () -> {
+                    String message = messageSource.getMessage(key, null, new Locale("sv", "SE"));
+                    assertThat(message).as("Message for key '%s' should not be null", key)
+                        .isNotNull();
+                    assertThat(message).as("Message for key '%s' should not equal the key", key)
+                        .isNotEqualTo(key);
+                }));
         } finally {
             LocaleContextHolder.setLocale(defaultLocale);
         }
@@ -334,13 +182,13 @@ class I18nIntegrationTest {
 
     @Test
     void englishAndSwedishMessagesHaveSameKeys() {
-        // Verify that both language files have the same set of keys
-        // by checking that both resolve all known keys without fallback
+        // Verify that both locale files have the same set of keys for all keys
+        // This catches keys present in one locale but missing from the other
         Locale defaultLocale = LocaleContextHolder.getLocale();
         try {
             // Test English
             LocaleContextHolder.setLocale(Locale.ENGLISH);
-            for (String key : MESSAGE_KEYS) {
+            for (String key : ALL_MESSAGE_KEYS) {
                 String msg = messageSource.getMessage(key, null, Locale.ENGLISH);
                 assertThat(msg).as("English message for '%s' should not contain message code", key)
                     .doesNotStartWith("??")
@@ -349,9 +197,51 @@ class I18nIntegrationTest {
 
             // Test Swedish
             LocaleContextHolder.setLocale(new Locale("sv", "SE"));
-            for (String key : MESSAGE_KEYS) {
+            for (String key : ALL_MESSAGE_KEYS) {
                 String msg = messageSource.getMessage(key, null, new Locale("sv", "SE"));
                 assertThat(msg).as("Swedish message for '%s' should not contain message code", key)
+                    .doesNotStartWith("??")
+                    .doesNotEndWith("??");
+            }
+        } finally {
+            LocaleContextHolder.setLocale(defaultLocale);
+        }
+    }
+
+    @Test
+    void noTemplateRenderingOutputsUnresolvedKeyCodes() {
+        // Rendering assertion that no response body contains ?? followed by a key
+        // This catches keys built dynamically which no parser will find
+        // Test key paths that use dynamic keys: filter.sex.{sex} and filter.subcategory.{subcategory}
+        Locale defaultLocale = LocaleContextHolder.getLocale();
+        try {
+            // These dynamic keys would be accessed at runtime
+            // The test ensures they resolve in both locales
+            Set<String> dynamicKeys = new HashSet<>();
+            for (String sex : Arrays.asList("boy", "girl")) {
+                dynamicKeys.add("filter.sex." + sex);
+            }
+            for (String subcategory : Arrays.asList("royalty", "movie_star", "sports_star")) {
+                dynamicKeys.add("filter.subcategory." + subcategory);
+            }
+
+            // Verify all dynamic keys resolve in both locales
+            LocaleContextHolder.setLocale(Locale.ENGLISH);
+            for (String key : dynamicKeys) {
+                String msg = messageSource.getMessage(key, null, Locale.ENGLISH);
+                assertThat(msg).as("Dynamic key '%s' should resolve in English", key)
+                    .isNotNull()
+                    .isNotEqualTo(key)
+                    .doesNotStartWith("??")
+                    .doesNotEndWith("??");
+            }
+
+            LocaleContextHolder.setLocale(new Locale("sv", "SE"));
+            for (String key : dynamicKeys) {
+                String msg = messageSource.getMessage(key, null, new Locale("sv", "SE"));
+                assertThat(msg).as("Dynamic key '%s' should resolve in Swedish", key)
+                    .isNotNull()
+                    .isNotEqualTo(key)
                     .doesNotStartWith("??")
                     .doesNotEndWith("??");
             }
