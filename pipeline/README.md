@@ -249,6 +249,23 @@ Load the canonical CSV into the database (idempotent - safe to re-run):
 python -m pipeline.load
 ```
 
+### Loading Famous Bearers
+
+The famous bearers CSV can be loaded separately using the same `pipeline.load` module.
+This is useful when you want to load bearers after the name statistics are already in the database:
+
+```bash
+python -m pipeline.load --csv pipeline/data/famous_bearers/famous_bearers.csv
+```
+
+The famous bearers loader:
+- Matches existing bearers on `wikidata_id`, not on `public_name`
+- Links bearers to given names that already exist in the database
+- Reports counts of bearers and links created/skipped
+- **Fails with exit code 1** if any names in the CSV cannot be resolved to the `given_name` table
+
+This ensures data integrity: a bearer can only be linked to names that exist in your name universe.
+
 ## Real Download Row Counts
 
 When processing the complete SSA archive, here are the actual row counts:

@@ -658,6 +658,7 @@ def load_all(dry_run: bool = False) -> dict:
 
 if __name__ == "__main__":
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(description="Load canonical CSV into PostgreSQL")
     parser.add_argument("--csv", type=str, help="Path to canonical CSV file")
@@ -672,10 +673,13 @@ if __name__ == "__main__":
             db_url=args.db_url,
             dry_run=args.dry_run,
         )
-        print("\nLoad Statistics:")
 
         # Check if this is a famous_bearers CSV (has different stats structure)
-        if "inserted_bearers" in stats:
+        is_famous_bearers = "inserted_bearers" in stats
+
+        print("\nLoad Statistics:")
+
+        if is_famous_bearers:
             print(f"  Total rows in CSV: {stats['total_rows']}")
             print(f"  Inserted bearers: {stats['inserted_bearers']}")
             print(f"  Skipped bearers (already exists): {stats['skipped_bearers']}")
@@ -703,6 +707,24 @@ if __name__ == "__main__":
                 print(f"  Errors: {len(stats['errors'])}")
                 for error in stats["errors"][:5]:
                     print(f"    - {error}")
+
+        # Fail loudly on unresolved names (this is a data integrity issue)
+        if is_famous_bearers and stats["unresolved_names"]:
+            print(
+                f"\nERROR: {len(stats['unresolved_names'])} names in the famous bearers CSV "
+                f"could not be resolved to a given_name in the database."
+            )
+            print(
+                "These names must exist in the given_name table before they can be linked to bearers. "
+                "Load the name statistics CSV first, then re-run this command."
+            )
+            sys.exit(1)
+
+        # Fail on errors
+        if stats["errors"]:
+            print(f"\nERROR: {len(stats['errors'])} errors occurred during load.")
+            sys.exit(1)
+
     except Exception as e:
         print(f"Error: {e}")
-        raise
+        sys.exit(1)
