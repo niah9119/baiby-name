@@ -19,6 +19,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -261,6 +262,56 @@ class NavigationCrawlIntegrationTest {
         assertThat(response).contains("href=\"/browse\"");
         assertThat(response).contains("href=\"/interview\"");
         assertThat(response).contains("href=\"/shortlist\"");
+    }
+
+    /**
+     * Test that anonymous visitors do not see the Advice nav link.
+     * The Advice page requires authentication and shows the user's shortlist.
+     */
+    @Test
+    void anonymousVisitorsDoNotSeeAdviceLink() throws Exception {
+        // Act - get landing page without authentication
+        String response = mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Assert - Advice link should not be present for anonymous users
+        assertThat(response).doesNotContain("href=\"/advice\"");
+    }
+
+    /**
+     * Test that authenticated users see the Advice nav link.
+     */
+    @Test
+    @WithMockUser(username = "test@example.com")
+    void authenticatedUsersSeeAdviceLink() throws Exception {
+        // Setup - create a name so pages can render properly
+        GivenName testName = new GivenName();
+        testName.setName("AdviceAuthTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Act - get landing page with authentication
+        String response = mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Assert - Advice link should be present for authenticated users
+        assertThat(response).contains("href=\"/advice\"");
     }
 
     /**
