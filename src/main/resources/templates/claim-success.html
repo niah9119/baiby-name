@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="layout :: head">
+    <title th:text="#{claim.success.title}">Claim Success - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                    <i class="fa-solid fa-check-circle text-green-600 text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{claim.success.title}">
+                    Shortlist Claimed!
+                </h1>
+                <p class="text-gray-600" th:text="#{claim.success.description}">
+                    Your shortlist has been claimed and is ready to share.
+                </p>
+            </div>
+
+            <div class="card">
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2" th:text="#{claim.token.title}">
+                        Your Deletion Token
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-4" th:text="#{claim.token.description}">
+                        Keep this token safe. You will need it to delete your claimed shortlist later.
+                        It is the only way to delete your shortlist without an account.
+                    </p>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+                    <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                        Owner Token
+                    </label>
+                    <div class="font-mono text-sm text-gray-800 break-all p-3 bg-white border border-gray-200 rounded"
+                         th:text="${ownerToken}">
+                        <!-- Token will be filled here -->
+                        placeholder-token
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 rounded-lg p-4 mb-6 border border-yellow-200">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-circle-exclamation text-yellow-600 text-xl mt-0.5"></i>
+                        <div class="text-sm text-gray-700">
+                            <p class="font-semibold text-gray-900 mb-1" th:text="#{claim.token.warning.title}">
+                                Warning: Save this token now
+                            </p>
+                            <p class="text-gray-600" th:text="#{claim.token.warning.text}">
+                                This token is displayed only once. If you lose it, you cannot delete your shortlist.
+                                Store it in a secure place like your password manager.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-gray-600" th:text="#{claim.shortlist.info}">
+                        <i class="fa-solid fa-link text-blue-600 mr-2"></i>
+                        You can now share your shortlist with others. They can view it at your unique link,
+                        but only you can delete it using this token.
+                    </p>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    <a href="/shortlist" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-center">
+                        <i class="fa-solid fa-arrow-left mr-2"></i>
+                        <span th:text="#{claim.back.link}">Back to your shortlist</span>
+                    </a>
+                    <a href="/s/{ownerToken}" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-center">
+                        <i class="fa-solid fa-share-nodes mr-2"></i>
+                        <span th:text="#{claim.view.link}">View your shared shortlist</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <p class="text-sm text-gray-600">
+                    <span th:text="#{claim.privacy.note}">Your data is protected by our</span>
+                    <a href="/privacy-policy" class="text-blue-600 hover:underline" th:text="#{claim.privacy.link}">Privacy Policy</a>
+                    <span th:text="#{claim.privacy.deletion.note}">which includes your right to delete your data.</span>
+                </p>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

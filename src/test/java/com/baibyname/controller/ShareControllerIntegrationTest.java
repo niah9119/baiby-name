@@ -25,6 +25,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -198,6 +199,80 @@ class ShareControllerIntegrationTest {
                         .content("unknown-token-12345")
                         .contentType("text/plain")
                         .with(csrf()))
+                .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Test that the delete page shows with a valid owner token.
+     * This tests the deletion flow that works from the link alone.
+     */
+    @Test
+    void deletePageShowsWithOwnerToken() throws Exception {
+        // Create a shortlist and share link with owner token
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Test Shortlist for Deletion");
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        String shareToken = "share-" + System.nanoTime();
+        String ownerToken = "owner-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("owner@example.com");
+        shareLink.setDisplayName("Owner User");
+        shareLink.setShareToken(shareToken);
+        shareLink.setOwnerToken(ownerToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // Verify the delete page shows with the owner token
+        mockMvc.perform(get("/delete")
+                        .param("ownerToken", ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(content -> assertThat(content.getResponse().getContentAsString()).contains("Enter your owner token"));
+
+        // Verify the delete page returns 404 for unknown token
+        mockMvc.perform(get("/delete")
+                        .param("ownerToken", "unknown-token-" + System.nanoTime()))
+                .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Test that deleting via the /delete POST endpoint works with owner token.
+     */
+    @Test
+    void deleteViaPostEndpointWorks() throws Exception {
+        // Create a shortlist and share link with owner token
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Test Shortlist for Deletion");
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        String shareToken = "share-" + System.nanoTime();
+        String ownerToken = "owner-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("owner@example.com");
+        shareLink.setDisplayName("Owner User");
+        shareLink.setShareToken(shareToken);
+        shareLink.setOwnerToken(ownerToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // Verify the share link exists
+        mockMvc.perform(get("/s/" + shareToken))
+                .andExpect(status().isOk());
+
+        // Delete via POST endpoint
+        mockMvc.perform(post("/delete")
+                        .param("ownerToken", ownerToken)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        // Verify the list is gone
+        mockMvc.perform(get("/s/" + shareToken))
                 .andExpect(status().isNotFound());
     }
 }
