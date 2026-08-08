@@ -9,6 +9,8 @@ from pathlib import Path
 from unittest import mock
 
 import pandas as pd
+import sqlalchemy
+from sqlalchemy import text
 import pytest
 
 from pipeline.config import CANONICAL_CSV_PATH, SSA_DATA_DIR, USA_COUNTRY_CODE
@@ -19,8 +21,6 @@ from pipeline.normalize import _extract_year_from_filename, normalize_ssa_file
 
 def _load_flyway_schema(engine):
     """Load the Flyway V2 and V7 migrations into the database."""
-    from sqlalchemy import text
-
     migration_dir = Path(__file__).resolve().parent.parent.parent / "src" / "main" / "resources" / "db" / "migration"
 
     # Load V2 schema
@@ -492,6 +492,104 @@ class TestLoad:
                 # Both names should be linked to Max von Sydow
                 assert ("Max", "Max von Sydow") in links
                 assert ("Adolf", "Max von Sydow") in links
+
+
+class TestLoadCli:
+    """Tests for the load.py CLI entry point."""
+
+    def test_load_cli_famous_bearers_success(self, tmp_path):
+        """Test CLI load with famous bearers CSV that has all names resolved."""
+        import subprocess
+        import sys
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Create a temporary CSV file with famous bearers data
+        csv_path = tmp_path / "famous_bearers.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["public_name", "subcategory", "given_names", "country", "wikidata_id"])
+            writer.writerow(["Lionel Messi", "SPORTS_STAR", "Lionel", "AR", "Q1033"])
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
+
+            # Create the given names that will be linked
+            with engine.connect() as conn:
+                conn.execute(text("INSERT INTO given_name (name, created_at) VALUES ('Lionel', CURRENT_TIMESTAMP)"))
+                conn.commit()
+
+            # Run the CLI
+            pipeline_dir = Path(__file__).resolve().parent.parent
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pipeline.load",
+                    "--csv",
+                    str(csv_path),
+                    "--db-url",
+                    db_url,
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(pipeline_dir),
+            )
+
+            assert result.returncode == 0, f"CLI failed: {result.stderr}"
+            assert "Inserted bearers: 1" in result.stdout
+            assert "Inserted links: 1" in result.stdout
+
+    def test_load_cli_famous_bearers_unresolved_names_fail(self, tmp_path):
+        """Test CLI load fails when there are unresolved names."""
+        import subprocess
+        import sys
+
+        from testcontainers.community.postgres import PostgresContainer
+
+        # Create a temporary CSV file with famous bearers data
+        csv_path = tmp_path / "famous_bearers.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["public_name", "subcategory", "given_names", "country", "wikidata_id"])
+            # Use a name that doesn't exist in the database
+            writer.writerow(["Some Person", "SPORTS_STAR", "UnknownName;AnotherFake", "US", "Q999999"])
+
+        # Start a PostgreSQL container for testing
+        with PostgresContainer("postgres:15-alpine") as postgres:
+            db_url = postgres.get_connection_url()
+
+            # Load the Flyway schema
+            engine = sqlalchemy.create_engine(db_url)
+            _load_flyway_schema(engine)
+
+            # Run the CLI - should fail with exit code 1
+            pipeline_dir = Path(__file__).resolve().parent.parent
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pipeline.load",
+                    "--csv",
+                    str(csv_path),
+                    "--db-url",
+                    db_url,
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(pipeline_dir),
+            )
+
+            # CLI should fail because names are unresolved
+            assert result.returncode == 1, f"CLI should have failed but got exit code {result.returncode}"
+            assert "Unresolved names: 2" in result.stdout
+            assert "ERROR" in result.stdout
+            assert "could not be resolved" in result.stdout
 
 
 @pytest.fixture
