@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -114,6 +116,36 @@ public class ShareController {
             throw new TokenNotFoundException(ownerToken);
         }
         return new ShareDeletionResponse(true);
+    }
+
+    /**
+     * Deletion form, reachable without an account (ADR 0004: a claimer has no password).
+     *
+     * <p>The owner token is pasted into the form rather than passed as a query parameter,
+     * so it does not land in browser history, access logs or Referer headers. It is a
+     * bearer credential for destroying data; a URL is the wrong place for it.
+     */
+    @GetMapping("/delete")
+    public String showDeletePage() {
+        return "delete-shortlist";
+    }
+
+    /**
+     * Delete a claimed shortlist. Requires the owner token; a share token is rejected by
+     * {@code deleteByToken}, so recipients cannot delete a list they were merely sent.
+     */
+    @PostMapping("/delete")
+    public String processDelete(@RequestParam String ownerToken, Model model) {
+        if (!shareLinkService.deleteByToken(ownerToken)) {
+            model.addAttribute("deleteError", true);
+            return "delete-shortlist";
+        }
+        return "redirect:/delete/success";
+    }
+
+    @GetMapping("/delete/success")
+    public String showDeleteSuccess() {
+        return "delete-success";
     }
 
     /**
