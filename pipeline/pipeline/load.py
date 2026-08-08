@@ -272,6 +272,9 @@ def load_famous_bearers_csv(
 
     # Only insert bearers and links if all names resolve (transactional load)
     if unresolved_names:
+        # Reset counters since no bearers or links were inserted (transaction rolled back)
+        stats["inserted_bearers"] = 0
+        stats["inserted_links"] = 0
         return stats
 
     if dry_run:
@@ -834,6 +837,7 @@ if __name__ == "__main__":
                 "These names must exist in the given_name table before they can be linked to bearers. "
                 "Load the name statistics CSV first, then re-run this command."
             )
+            print("\nRolled back — no rows written")
             sys.exit(1)
 
         # Fail on errors
