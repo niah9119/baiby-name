@@ -8,6 +8,7 @@ import com.baibyname.service.FilterState;
 import com.baibyname.service.FilterStateService;
 import com.baibyname.service.RankerService;
 import com.baibyname.service.RankedCandidatesService;
+import com.baibyname.service.ShortlistService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,12 +39,16 @@ public class BrowseController {
     private final RankerService rankerService;
     private final RankedCandidatesService rankedCandidatesService;
 
+    private final ShortlistService shortlistService;
+
     public BrowseController(BrowseService browseService, FilterStateService filterStateService,
-                            RankerService rankerService, RankedCandidatesService rankedCandidatesService) {
+                            RankerService rankerService, RankedCandidatesService rankedCandidatesService,
+                            ShortlistService shortlistService) {
         this.browseService = browseService;
         this.filterStateService = filterStateService;
         this.rankerService = rankerService;
         this.rankedCandidatesService = rankedCandidatesService;
+        this.shortlistService = shortlistService;
     }
 
     /**
@@ -323,5 +328,27 @@ public class BrowseController {
                 "total", ranked.getTotalElements(),
                 "threshold", threshold
         );
+    }
+
+    /**
+     * Toggle a given name's presence in the current user's shortlist.
+     * Used by the browse page heart button to add or remove a name.
+     * Returns the updated heart button fragment.
+     *
+     * @param givenNameId the ID of the given name to toggle
+     * @param model the Thymeleaf model
+     * @return fragment name for HTMX response
+     */
+    @PostMapping("/toggle-shortlist/{givenNameId}")
+    public String toggleShortlist(@PathVariable Long givenNameId, Model model) {
+        boolean isInShortlist = shortlistService.isNameInShortlist(givenNameId);
+        if (isInShortlist) {
+            shortlistService.removeFromShortlist(givenNameId);
+        } else {
+            shortlistService.addToShortlist(givenNameId);
+        }
+        model.addAttribute("givenNameId", givenNameId);
+        model.addAttribute("isInShortlist", !isInShortlist);
+        return "browse :: heart-button";
     }
 }

@@ -281,13 +281,7 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                                th:data-given-name-id="${candidate.id}"
-                                                th:hx-post="@{/shortlist/add/{id}(id=${candidate.id})}"
-                                                hx-swap="none"
-                                                th:title="#{candidate.shortlist.add}">
-                                            <i class="fa-solid fa-heart"></i>
-                                        </button>
+                                        <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist})}" />
                                     </div>
                                 </div>
                             </div>
@@ -464,13 +458,7 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                                th:data-given-name-id="${candidate.id}"
-                                                th:hx-post="@{/shortlist/add/{id}(id=${candidate.id})}"
-                                                hx-swap="none"
-                                                th:title="#{candidate.shortlist.add}">
-                                            <i class="fa-solid fa-heart"></i>
-                                        </button>
+                                        <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist})}" />
                                     </div>
                                 </div>
                             </div>
@@ -548,6 +536,20 @@
             </div>
         </div>
     </main>
+
+    <!-- Heart button fragment for toggling shortlist -->
+    <th:block th:fragment="heart-button(givenNameId, isInShortlist)">
+        <button class="heart-toggle px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200"
+                th:data-given-name-id="${givenNameId}"
+                th:hx-post="@{/browse/toggle-shortlist/{id}(id=${givenNameId})}"
+                hx-target="this"
+                hx-swap="outerHTML"
+                th:classappend="${isInShortlist} ? 'text-red-600' : 'text-gray-700'"
+                th:title="${isInShortlist ? #{candidate.shortlist.remove} : #{candidate.shortlist.add}}">
+            <i class="fa-solid fa-heart" th:if="${isInShortlist}"></i>
+            <i class="fa-regular fa-heart" th:unless="${isInShortlist}"></i>
+        </button>
+    </th:block>
 
     <!-- HTMX Script Configuration -->
     <script>
