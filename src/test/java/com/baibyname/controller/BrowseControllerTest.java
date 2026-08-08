@@ -1291,4 +1291,146 @@ class BrowseControllerTest {
                 .isEmpty();
     }
 
+    /**
+     * Test that the heart button toggles correctly - after adding a name,
+     * the button should have hx-post="/shortlist/remove/{id}" and clicking
+     * remove should change it back.
+     */
+    @Test
+    void heartButtonToggleAddsThenRemoves() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("ToggleTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Use a shared session for all requests
+        MockHttpSession session = new MockHttpSession();
+
+        // First, get the CSRF token from the browse page
+        String responseHtml = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String csrfToken = extractCsrfToken(responseHtml);
+        String csrfHeaderName = extractCsrfHeaderName(responseHtml);
+
+        // Verify initial state: button should have hx-post="/shortlist/add/{id}"
+        assertThat(responseHtml).contains("hx-post=\"/shortlist/add/" + testName.getId() + "\"");
+
+        // Add the name to shortlist
+        mockMvc.perform(post("/shortlist/add/" + testName.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk())
+                // Verify the response is the updated button fragment
+                .andExpect(content().string(containsString("hx-post=\"/shortlist/remove/" + testName.getId() + "\"")));
+
+        // Verify the page now shows the name as in shortlist
+        String afterAddHtml = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(afterAddHtml).contains("hx-post=\"/shortlist/remove/" + testName.getId() + "\"");
+
+        // Remove the name from shortlist
+        mockMvc.perform(post("/shortlist/remove/" + testName.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("hx-post=\"/shortlist/add/" + testName.getId() + "\"")));
+
+        // Verify the page now shows the name as not in shortlist
+        String afterRemoveHtml = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(afterRemoveHtml).contains("hx-post=\"/shortlist/add/" + testName.getId() + "\"");
+    }
+
+    /**
+     * Test that clicking the heart button twice (add then remove) results in
+     * the name being absent from the shortlist.
+     * This is the user-visible contract.
+     */
+    @Test
+    void doubleClickRemoveReturnsToOriginalState() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("DoubleClickTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Use a shared session
+        MockHttpSession session = new MockHttpSession();
+
+        // Get CSRF token
+        String responseHtml = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String csrfToken = extractCsrfToken(responseHtml);
+        String csrfHeaderName = extractCsrfHeaderName(responseHtml);
+
+        // Add to shortlist
+        mockMvc.perform(post("/shortlist/add/" + testName.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk());
+
+        // Verify name is in shortlist by visiting /shortlist page
+        String shortlistHtml = mockMvc.perform(get("/shortlist").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("DoubleClickTest")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Verify the name appears on the shortlist page
+        assertThat(shortlistHtml).contains("DoubleClickTest");
+
+        // Remove from shortlist via the button
+        mockMvc.perform(post("/shortlist/remove/" + testName.getId())
+                .header(csrfHeaderName, csrfToken)
+                .session(session))
+                .andExpect(status().isOk());
+
+        // Verify name is no longer on the shortlist page
+        String shortlistHtmlAfter = mockMvc.perform(get("/shortlist").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(shortlistHtmlAfter).doesNotContain("DoubleClickTest");
+    }
+
 }

@@ -20,6 +20,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -421,6 +422,51 @@ public class ShortlistService {
             return shortlistEntryRepository.findByShortlistAndGivenNameIdAndSessionToken(shortlist, givenNameId, member.getSessionToken())
                     .isPresent();
         }
+    }
+
+    /**
+     * Get all given name IDs in the current user's shortlist.
+     * Used by the browse page to show which names are already on the shortlist.
+     *
+     * @return set of given name IDs, or empty set if no shortlist exists
+     */
+    public Set<Long> getShortlistNameIds() {
+        Owner owner = resolveOwner();
+        if (owner == null) {
+            return Set.of();
+        }
+
+        // Find the user's/session's shortlist
+        Optional<Shortlist> shortlistOpt;
+        if (owner.account != null) {
+            shortlistOpt = getShortlistForAccount(owner.account);
+        } else {
+            shortlistOpt = getShortlistForSession(owner.sessionToken);
+        }
+
+        if (shortlistOpt.isEmpty()) {
+            return Set.of();
+        }
+
+        Shortlist shortlist = shortlistOpt.get();
+
+        Optional<ShortlistMember> memberOpt;
+        if (owner.account != null) {
+            memberOpt = shortlistMemberRepository.findByShortlistAndAccount(shortlist, owner.account);
+        } else {
+            memberOpt = shortlistMemberRepository.findByShortlistAndSessionToken(shortlist, owner.sessionToken);
+        }
+
+        if (memberOpt.isEmpty()) {
+            return Set.of();
+        }
+
+        ShortlistMember member = memberOpt.get();
+        // Get all entry IDs for this member's shortlist
+        List<ShortlistEntry> entries = shortlistEntryRepository.findEntriesByMember(member);
+        return entries.stream()
+                .map(entry -> entry.getGivenName().getId())
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     /**

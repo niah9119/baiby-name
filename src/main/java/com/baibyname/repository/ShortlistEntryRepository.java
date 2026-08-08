@@ -1,5 +1,7 @@
 package com.baibyname.repository;
 
+import com.baibyname.domain.Account;
+import com.baibyname.domain.Account;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.Shortlist;
 import com.baibyname.domain.ShortlistEntry;
@@ -61,10 +63,20 @@ public interface ShortlistEntryRepository extends JpaRepository<ShortlistEntry, 
 
     @Query("""
         SELECT se FROM ShortlistEntry se
-        JOIN FETCH se.shortlist
+        JOIN FETCH se.givenName
         WHERE se.member = :member
         """)
     List<ShortlistEntry> findEntriesByMember(@Param("member") ShortlistMember member);
+
+    @Query("""
+        SELECT se FROM ShortlistEntry se
+        JOIN FETCH se.givenName
+        WHERE se.shortlist = :shortlist
+        AND se.member.account = :account
+        """)
+    List<ShortlistEntry> findEntriesByShortlistAndAccount(
+        @Param("shortlist") Shortlist shortlist,
+        @Param("account") Account account);
 
     @Modifying
     @Query("DELETE FROM ShortlistEntry se WHERE se.member.account.id = :accountId")

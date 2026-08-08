@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Controller for shortlist management.
@@ -53,28 +54,34 @@ public class ShortlistController {
 
     /**
      * Add a given name to the current user's shortlist.
-     * Returns a fragment indicating success/failure.
+     * Returns the updated heart button fragment.
      *
      * @param givenNameId the ID of the given name to add
+     * @param model the Thymeleaf model
      * @return fragment name for HTMX response
      */
     @PostMapping("/add/{givenNameId}")
-    public String addToShortlist(@PathVariable Long givenNameId) {
-        boolean success = shortlistService.addToShortlist(givenNameId);
-        return "shortlist :: add-result-" + (success ? "success" : "failure");
+    public String addToShortlist(@PathVariable Long givenNameId, Model model) {
+        shortlistService.addToShortlist(givenNameId);
+        model.addAttribute("givenNameId", givenNameId);
+        model.addAttribute("isInShortlist", true);
+        return "browse :: heart-button";
     }
 
     /**
      * Remove a given name from the current user's shortlist.
-     * Returns a fragment indicating success.
+     * Returns the updated heart button fragment.
      *
      * @param givenNameId the ID of the given name to remove
+     * @param model the Thymeleaf model
      * @return fragment name for HTMX response
      */
     @PostMapping("/remove/{givenNameId}")
-    public String removeFromShortlist(@PathVariable Long givenNameId) {
+    public String removeFromShortlist(@PathVariable Long givenNameId, Model model) {
         shortlistService.removeFromShortlist(givenNameId);
-        return "shortlist :: remove-result-success";
+        model.addAttribute("givenNameId", givenNameId);
+        model.addAttribute("isInShortlist", false);
+        return "browse :: heart-button";
     }
 
     /**
