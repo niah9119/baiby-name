@@ -3,6 +3,7 @@ package com.baibyname.service;
 import com.baibyname.config.ReRankConfig;
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
+import com.baibyname.dto.CandidateWithMembership;
 import com.baibyname.repository.CountryRepository;
 import com.baibyname.repository.FamousBearerRepository;
 import com.baibyname.repository.GivenNameRepository;
@@ -76,6 +77,7 @@ public class BrowseService {
     private final RankerService rankerService;
     private final ReRankConfig reRankConfig;
     private final RankedCandidatesService rankedCandidatesService;
+    private final ShortlistService shortlistService;
 
     public BrowseService(
             GivenNameService givenNameService,
@@ -85,7 +87,8 @@ public class BrowseService {
             FilterStateService filterStateService,
             RankerService rankerService,
             ReRankConfig reRankConfig,
-            RankedCandidatesService rankedCandidatesService) {
+            RankedCandidatesService rankedCandidatesService,
+            ShortlistService shortlistService) {
         this.givenNameService = givenNameService;
         this.givenNameRepository = givenNameRepository;
         this.countryRepository = countryRepository;
@@ -94,6 +97,7 @@ public class BrowseService {
         this.rankerService = rankerService;
         this.reRankConfig = reRankConfig;
         this.rankedCandidatesService = rankedCandidatesService;
+        this.shortlistService = shortlistService;
     }
 
     /**
@@ -364,6 +368,49 @@ public class BrowseService {
         // No valid cache - return plain candidates
         Page<GivenName> candidates = getCandidates(pageable);
         return toRankedPage(candidates);
+    }
+
+    /**
+     * Get candidates for a page with shortlist membership status included.
+     * This is used by the browse page to show which names are already on the shortlist.
+     *
+     * <p>This method fetches candidates and adds membership status to each one.
+     * For cached ranked candidates, it uses the cached list; for plain candidates,
+     * it fetches them and wraps them with membership data.</p>
+     *
+     * @param pageable pagination parameters
+     * @return page of candidates with membership status
+     */
+    @Transactional(readOnly = true)
+    public Page<CandidateWithMembership> getCandidatesForPageWithMembership(Pageable pageable) {
+        // Get the current filter version
+        int currentFilterVersion = filterStateService.getFilterVersion();
+
+        // Get all shortlisted name IDs for the current user
+        Set<Long> shortlistNameIds = shortlistService.getShortlistNameIds();
+
+        // Check if we have valid cached ranked candidates
+        if (rankedCandidatesService.isRankingValid(currentFilterVersion)) {
+            // Use cached ranked candidates, paginated, with membership status
+            List<RankerService.RankedName> cached = rankedCandidatesService.getRankedCandidates();
+            int fromIndex = (int) pageable.getOffset();
+            int toIndex = Math.min(fromIndex + pageable.getPageSize(), cached.size());
+            List<CandidateWithMembership> paginated = cached.subList(fromIndex, toIndex).stream()
+                    .map(name -> CandidateWithMembership.from(name, shortlistNameIds.contains(name.id())))
+                    .collect(Collectors.toList());
+            return new PageImpl<>(paginated, pageable, cached.size());
+        }
+
+        // No valid cache - return plain candidates with membership status
+        Page<GivenName> candidates = getCandidates(pageable);
+        List<CandidateWithMembership> withMembership = candidates.getContent().stream()
+                .map(name -> {
+                    RankerService.RankedName rankedName = new RankerService.RankedName(
+                            name.getName(), "", name);
+                    return CandidateWithMembership.from(rankedName, shortlistNameIds.contains(name.getId()));
+                })
+                .collect(Collectors.toList());
+        return new PageImpl<>(withMembership, pageable, candidates.getTotalElements());
     }
 
     /**

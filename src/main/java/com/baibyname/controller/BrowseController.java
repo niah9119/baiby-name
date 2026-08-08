@@ -2,13 +2,16 @@ package com.baibyname.controller;
 
 import com.baibyname.domain.Country;
 import com.baibyname.domain.GivenName;
+import com.baibyname.dto.CandidateWithMembership;
 import com.baibyname.exception.InvalidFilterValueException;
 import com.baibyname.service.BrowseService;
 import com.baibyname.service.FilterState;
 import com.baibyname.service.FilterStateService;
 import com.baibyname.service.RankerService;
 import com.baibyname.service.RankedCandidatesService;
+import com.baibyname.service.ShortlistService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
@@ -16,7 +19,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Controller for the browse and filter UI.
@@ -37,13 +43,16 @@ public class BrowseController {
     private final FilterStateService filterStateService;
     private final RankerService rankerService;
     private final RankedCandidatesService rankedCandidatesService;
+    private final ShortlistService shortlistService;
 
     public BrowseController(BrowseService browseService, FilterStateService filterStateService,
-                            RankerService rankerService, RankedCandidatesService rankedCandidatesService) {
+                            RankerService rankerService, RankedCandidatesService rankedCandidatesService,
+                            ShortlistService shortlistService) {
         this.browseService = browseService;
         this.filterStateService = filterStateService;
         this.rankerService = rankerService;
         this.rankedCandidatesService = rankedCandidatesService;
+        this.shortlistService = shortlistService;
     }
 
     /**
@@ -69,9 +78,10 @@ public class BrowseController {
                 com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
         ));
         model.addAttribute("filterState", filterStateService.getState());
-        // Use candidates (ranked if available and valid, plain otherwise)
-        model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
-        model.addAttribute("page", browseService.getCandidatesForPage(pageable));
+        // Use candidates with membership status
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
+        model.addAttribute("page", browseService.getCandidatesForPageWithMembership(pageable));
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
 
         return "browse";
     }
@@ -100,9 +110,10 @@ public class BrowseController {
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use plain candidates with membership status - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -126,9 +137,10 @@ public class BrowseController {
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use plain candidates with membership status - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -154,9 +166,10 @@ public class BrowseController {
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use plain candidates with membership status - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -180,9 +193,10 @@ public class BrowseController {
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use plain candidates with membership status - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -210,9 +224,10 @@ public class BrowseController {
             // Invalid subcategory - ignore
         }
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use plain candidates with membership status - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -234,9 +249,10 @@ public class BrowseController {
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
+        // Use plain candidates with membership status - re-ranking only happens on explicit user request
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -253,10 +269,11 @@ public class BrowseController {
                              @RequestParam(defaultValue = "10") int pageSize,
                              Model model) {
         Pageable pageable = PageRequest.of(page, pageSize);
-        // Use candidates (ranked if available and valid, plain otherwise)
-        model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
-        model.addAttribute("page", browseService.getCandidatesForPage(pageable));
+        // Use candidates with membership status (ranked if available and valid, plain otherwise)
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
+        model.addAttribute("page", browseService.getCandidatesForPageWithMembership(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -292,13 +309,24 @@ public class BrowseController {
         // Get the current filter state first (for the taste notes)
         FilterState currentState = filterStateService.getState();
 
+        // Get all shortlisted name IDs for the current user
+        Set<Long> shortlistNameIds = shortlistService.getShortlistNameIds();
+
         // Call the browse service for re-ranked candidates
         Page<RankerService.RankedName> rankedCandidates = browseService.getReRankedCandidates(
                 pageable, threshold, rankerService);
 
-        model.addAttribute("candidates", rankedCandidates);
+        // Add membership status to each candidate
+        List<CandidateWithMembership> candidatesWithMembership = rankedCandidates.getContent().stream()
+                .map(name -> CandidateWithMembership.from(name, shortlistNameIds.contains(name.id())))
+                .collect(Collectors.toList());
+        Page<CandidateWithMembership> candidatesWithMembershipPage = new PageImpl<>(
+                candidatesWithMembership, pageable, rankedCandidates.getTotalElements());
+
+        model.addAttribute("candidates", candidatesWithMembershipPage);
         model.addAttribute("filterState", currentState);
         model.addAttribute("hasExplanations", true);
+        model.addAttribute("shortlistNameIds", shortlistNameIds);
         return "browse :: browse-content";
     }
 

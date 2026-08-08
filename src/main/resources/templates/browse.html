@@ -281,12 +281,14 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                        <button class="heart-toggle px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
                                                 th:data-given-name-id="${candidate.id}"
-                                                th:hx-post="@{/shortlist/add/{id}(id=${candidate.id})}"
+                                                th:classappend="${candidate.isInShortlist()} ? 'text-red-600' : 'text-gray-700'"
+                                                th:hx-post="${candidate.isInShortlist()} ? @{/shortlist/remove/{id}(id=${candidate.id})} : @{/shortlist/add/{id}(id=${candidate.id})}"
                                                 hx-swap="none"
                                                 th:title="#{candidate.shortlist.add}">
-                                            <i class="fa-solid fa-heart"></i>
+                                            <i class="fa-solid fa-heart" th:if="${not candidate.isInShortlist()}"></i>
+                                            <i class="fa-solid fa-heart fa-bounce" th:if="${candidate.isInShortlist()}"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -464,12 +466,14 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <button class="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                        <button class="heart-toggle px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
                                                 th:data-given-name-id="${candidate.id}"
-                                                th:hx-post="@{/shortlist/add/{id}(id=${candidate.id})}"
+                                                th:classappend="${candidate.isInShortlist()} ? 'text-red-600' : 'text-gray-700'"
+                                                th:hx-post="${candidate.isInShortlist()} ? @{/shortlist/remove/{id}(id=${candidate.id})} : @{/shortlist/add/{id}(id=${candidate.id})}"
                                                 hx-swap="none"
                                                 th:title="#{candidate.shortlist.add}">
-                                            <i class="fa-solid fa-heart"></i>
+                                            <i class="fa-solid fa-heart" th:if="${not candidate.isInShortlist()}"></i>
+                                            <i class="fa-solid fa-heart fa-bounce" th:if="${candidate.isInShortlist()}"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -561,5 +565,6 @@
             }
         });
     </script>
+
 </body>
 </html>
