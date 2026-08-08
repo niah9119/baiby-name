@@ -3,11 +3,8 @@ package com.baibyname.web;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,34 +27,25 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class FontAwesomeValidationTest {
 
-    private static final String FONT_AWESOME_CSS_URL =
-            "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
     private static final Path TEMPLATE_DIR = Paths.get("src/main/resources/templates");
+    private static final Path ICONS_FILE = Paths.get("src/test/resources/font-awesome-icons-6.5.0.txt");
     private static Set<String> VALID_ICONS = new HashSet<>();
 
     /**
-     * Fetch the Font Awesome CSS and extract all valid icon names.
+     * Load the Font Awesome icon names from the local resource file.
      */
     @BeforeAll
-    static void fetchValidIcons() throws Exception {
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(FONT_AWESOME_CSS_URL))
-                .GET()
-                .build();
-
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        String cssContent = response.body();
-
-        // Extract all .fa-[icon-name] patterns from the CSS
-        Pattern pattern = Pattern.compile("\\.fa-([a-z0-9-]+)");
-        Matcher matcher = pattern.matcher(cssContent);
-
-        while (matcher.find()) {
-            VALID_ICONS.add(matcher.group(1));
+    static void loadValidIcons() throws Exception {
+        try (BufferedReader reader = Files.newBufferedReader(ICONS_FILE, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.isEmpty()) {
+                    VALID_ICONS.add(line);
+                }
+            }
         }
 
-        assertThat(VALID_ICONS).as("Should have found Font Awesome icons in CSS").isNotEmpty();
+        assertThat(VALID_ICONS).as("Should have loaded Font Awesome icons from resource file").isNotEmpty();
     }
 
     /**
@@ -65,7 +53,7 @@ class FontAwesomeValidationTest {
      * Font Awesome 6.5.0 stylesheet.
      */
     @Test
-    void allFontAwesomeIconsExistInCss() throws Exception {
+    void allFontAwesomeIconsExistInResourceFile() throws Exception {
         List<String> templateFiles = Files.list(TEMPLATE_DIR)
                 .filter(p -> p.toString().endsWith(".html"))
                 .map(p -> {

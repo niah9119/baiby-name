@@ -66,11 +66,11 @@ public class ShortlistController {
 
     /**
      * Remove a given name from the current user's shortlist.
-     * Returns the updated shortlist page.
+     * Returns the updated shortlist entries fragment.
      *
      * @param givenNameId the ID of the given name to remove
      * @param model the model to populate
-     * @return view name for the shortlist page
+     * @return fragment name for HTMX response
      */
     @PostMapping("/remove/{givenNameId}")
     public String removeFromShortlist(@PathVariable Long givenNameId, Model model) {
@@ -78,7 +78,7 @@ public class ShortlistController {
         List<ShortlistEntry> entries = shortlistService.getCurrentUserEntries();
         model.addAttribute("entries", entries);
         model.addAttribute("hasEntries", !entries.isEmpty());
-        return "shortlist";
+        return "shortlist :: entries";
     }
 
     /**

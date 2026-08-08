@@ -22,6 +22,9 @@ import com.baibyname.repository.AccountRepository;
 import com.baibyname.repository.CountryRepository;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
+import com.baibyname.repository.ShortlistEntryRepository;
+import com.baibyname.repository.ShortlistMemberRepository;
+import com.baibyname.repository.ShortlistRepository;
 
 import java.time.OffsetDateTime;
 
@@ -43,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 @WithMockUser(username = "test@example.com")
 class ShortlistNoTransactionTest {
 
@@ -67,11 +70,25 @@ class ShortlistNoTransactionTest {
     @Autowired
     private NameStatRepository nameStatRepository;
 
+    @Autowired
+    private ShortlistRepository shortlistRepository;
+
+    @Autowired
+    private ShortlistMemberRepository shortlistMemberRepository;
+
+    @Autowired
+    private ShortlistEntryRepository shortlistEntryRepository;
+
     private Country sweden;
 
     @BeforeEach
     void setUp() {
         sweden = countryRepository.findByCode("SE").orElseThrow();
+        // Clean up any existing data before each test
+        shortlistEntryRepository.deleteAll();
+        shortlistMemberRepository.deleteAll();
+        shortlistRepository.deleteAll();
+
         // Create the account that matches the WithMockUser email
         Account account = new Account();
         account.setEmail("test@example.com");
@@ -134,5 +151,44 @@ class ShortlistNoTransactionTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString(name1.getName())))
                 .andExpect(content().string(containsString(name2.getName())));
+    }
+
+    @Test
+    void removingLastEntryRendersEmptyState() throws Exception {
+        // Given: create one name and add it to the shortlist
+        GivenName name1 = new GivenName();
+        name1.setName("SingleName" + System.nanoTime());
+        name1.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name1);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(name1);
+        stat1.setCountry(sweden);
+        stat1.setSex("Girl");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        // Add the name to shortlist
+        mockMvc.perform(post("/shortlist/add/{givenNameId}", name1.getId()).with(csrf()))
+                .andExpect(status().isOk());
+
+        // Verify the entry appears before removal
+        mockMvc.perform(get("/shortlist"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(name1.getName())));
+
+        // When: remove the last entry
+        mockMvc.perform(post("/shortlist/remove/{givenNameId}", name1.getId()).with(csrf()))
+                .andExpect(status().isOk());
+
+        // Then: the empty state should be rendered (not the list)
+        // The empty state contains these specific elements
+        mockMvc.perform(get("/shortlist"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Your shortlist is empty")))
+                .andExpect(content().string(containsString("Browse")));
     }
 }
