@@ -1295,8 +1295,15 @@ class BrowseControllerTest {
      * Test that the browse toggle-shortlist endpoint adds a name to the shortlist.
      */
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser@example.com", password = "password")
     void toggleShortlistAddsName() throws Exception {
+        // Setup: create an account and authenticate the user
+        Account account = new Account();
+        account.setEmail("testuser@example.com");
+        account.setPasswordHash("$2a$10$dummyhash");
+        account.setCreatedAt(OffsetDateTime.now());
+        account = accountRepository.save(account);
+
         // Setup: create a name with stats
         GivenName testName = new GivenName();
         testName.setName("ToggleAddTest" + System.nanoTime());
@@ -1337,8 +1344,15 @@ class BrowseControllerTest {
      * Test that the browse toggle-shortlist endpoint removes a name from the shortlist.
      */
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser@example.com", password = "password")
     void toggleShortlistRemovesName() throws Exception {
+        // Setup: create an account and authenticate the user
+        Account account = new Account();
+        account.setEmail("testuser@example.com");
+        account.setPasswordHash("$2a$10$dummyhash");
+        account.setCreatedAt(OffsetDateTime.now());
+        account = accountRepository.save(account);
+
         // Setup: create a name with stats
         GivenName testName = new GivenName();
         testName.setName("ToggleRemoveTest" + System.nanoTime());
@@ -1383,8 +1397,15 @@ class BrowseControllerTest {
      * containing the correct icon based on isInShortlist status.
      */
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser@example.com", password = "password")
     void toggleShortlistReturnsCorrectIcon() throws Exception {
+        // Setup: create an account and authenticate the user
+        Account account = new Account();
+        account.setEmail("testuser@example.com");
+        account.setPasswordHash("$2a$10$dummyhash"); // Dummy hash for testing
+        account.setCreatedAt(OffsetDateTime.now());
+        account = accountRepository.save(account);
+
         // Setup: create a name with stats
         GivenName testName = new GivenName();
         testName.setName("ToggleIconTest" + System.nanoTime());
@@ -1401,19 +1422,15 @@ class BrowseControllerTest {
         stat.setCreatedAt(OffsetDateTime.now());
         nameStatRepository.save(stat);
 
-        // When not in shortlist, should show outline heart (fa-regular)
-        mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("fa-regular fa-heart")));
-
-        // Add the name to shortlist using the existing endpoint
-        mockMvc.perform(post("/shortlist/add/" + testName.getId()).with(csrf()))
-                .andExpect(status().isOk());
-
-        // When in shortlist, should show solid heart (fa-solid)
+        // When not in shortlist, toggle adds it - should show solid heart (fa-solid)
         mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("fa-solid fa-heart")));
+
+        // When in shortlist, toggle removes it - should show outline heart (fa-regular)
+        mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("fa-regular fa-heart")));
     }
 
 }

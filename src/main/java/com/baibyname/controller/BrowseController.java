@@ -139,6 +139,7 @@ public class BrowseController {
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -167,6 +168,7 @@ public class BrowseController {
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -193,6 +195,7 @@ public class BrowseController {
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -223,6 +226,7 @@ public class BrowseController {
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -247,6 +251,7 @@ public class BrowseController {
         // Use plain candidates - re-ranking only happens on explicit user request
         model.addAttribute("candidates", browseService.toRankedPage(browseService.getCandidates(pageable)));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -267,6 +272,7 @@ public class BrowseController {
         model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
         model.addAttribute("page", browseService.getCandidatesForPage(pageable));
         model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
@@ -309,6 +315,7 @@ public class BrowseController {
         model.addAttribute("candidates", rankedCandidates);
         model.addAttribute("filterState", currentState);
         model.addAttribute("hasExplanations", true);
+        model.addAttribute("shortlistedNameIds", shortlistService.getCurrentUserShortlistNameIds());
         return "browse :: browse-content";
     }
 
