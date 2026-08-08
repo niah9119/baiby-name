@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="layout :: head">
+    <title th:text="#{claim.success.title}">Claim Successful - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8 text-center">
+                <i class="fa-solid fa-check-circle text-6xl text-green-500 mb-4"></i>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{claim.success.title}">
+                    Shortlist Claimed Successfully!
+                </h1>
+                <p class="text-gray-600" th:text="#{claim.success.description}">
+                    Your shortlist is now ready to share.
+                </p>
+            </div>
+
+            <div class="card">
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2" th:text="#{claim.success.link.title}">
+                        Your share link
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-4" th:text="#{claim.success.link.description}">
+                        Share this link with family and friends. They can view your shortlist but cannot edit it.
+                    </p>
+
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-1">
+                                <input type="text" id="shareUrl" readonly
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       th:value="${shareUrl}">
+                            </div>
+                            <button type="button" onclick="copyToClipboard('shareUrl')"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium whitespace-nowrap"
+                                    th:text="#{claim.copy}">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2" th:text="#{claim.success.token.title}">
+                        Your deletion token
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-4" th:text="#{claim.success.token.description}">
+                        Keep this token safe. It's the only way to delete your claimed shortlist.
+                        Anyone with this token can delete the list.
+                    </p>
+
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-1">
+                                <input type="text" id="ownerToken" readonly
+                                       class="w-full px-3 py-2 border border-red-300 rounded-lg bg-white text-red-700 font-mono text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                       th:value="${ownerToken}">
+                            </div>
+                            <button type="button" onclick="copyToClipboard('ownerToken')"
+                                    class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium whitespace-nowrap"
+                                    th:text="#{claim.copy}">
+                                Copy
+                            </button>
+                        </div>
+                        <p class="text-xs text-red-600 mt-2" th:text="#{claim.success.token.warning}">
+                            ⚠️ This token is shown only once. If you lose it, you won't be able to delete this shortlist.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 mt-6">
+                    <a href="/" class="flex-1 text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                        <i class="fa-solid fa-house mr-2"></i>
+                        <span th:text="#{nav.browse}">Browse Names</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    <span th:text="#{claim.success.note}">Note:</span>
+                    <span th:text="#{claim.success.note.text}">
+                        Your email and the names in your shortlist are covered by our Privacy Policy.
+                    </span>
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function copyToClipboard(inputId) {
+            const input = document.getElementById(inputId);
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = "Copied!";
+                btn.classList.remove("bg-blue-600", "hover:bg-blue-700", "bg-red-600", "hover:bg-red-700");
+                btn.classList.add("bg-green-600", "hover:bg-green-700");
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    if (inputId === "shareUrl") {
+                        btn.classList.remove("bg-green-600", "hover:bg-green-700");
+                        btn.classList.add("bg-blue-600", "hover:bg-blue-700");
+                    } else {
+                        btn.classList.remove("bg-green-600", "hover:bg-green-700");
+                        btn.classList.add("bg-red-600", "hover:bg-red-700");
+                    }
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

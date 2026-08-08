@@ -3,11 +3,14 @@ package com.baibyname.controller;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.ShortlistEntry;
 import com.baibyname.service.GivenNameService;
+import com.baibyname.service.ShareLinkService;
 import com.baibyname.service.ShortlistService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -16,7 +19,8 @@ import java.util.Set;
  * Controller for shortlist management.
  *
  * <p>Provides the shortlist page and HTMX endpoints for adding/removing names.
- * Requires authentication - anonymous users are redirected to login.</p>
+ * Also provides endpoints for claiming a shortlist via email, which allows
+ * anonymous visitors to keep and share their list without creating an account.</p>
  */
 @Controller
 @RequestMapping("/shortlist")
@@ -24,10 +28,14 @@ public class ShortlistController {
 
     private final ShortlistService shortlistService;
     private final GivenNameService givenNameService;
+    private final ShareLinkService shareLinkService;
 
-    public ShortlistController(ShortlistService shortlistService, GivenNameService givenNameService) {
+    public ShortlistController(ShortlistService shortlistService,
+                               GivenNameService givenNameService,
+                               ShareLinkService shareLinkService) {
         this.shortlistService = shortlistService;
         this.givenNameService = givenNameService;
+        this.shareLinkService = shareLinkService;
     }
 
     /**
@@ -120,5 +128,98 @@ public class ShortlistController {
     @ResponseBody
     public boolean isInShortlist(@PathVariable Long givenNameId) {
         return shortlistService.isNameInShortlist(givenNameId);
+    }
+
+    /**
+     * Display the claim form for anonymous users.
+     * Renders the form to claim a shortlist by email.
+     * This endpoint is public (permitAll) to allow anonymous users to claim their list.
+     *
+     * @param model the Thymeleaf model
+     * @return view name for the claim form
+     */
+    @GetMapping("/claim")
+    public String claimForm(Model model) {
+        return "claim-form";
+    }
+
+    /**
+     * Process the claim form submission.
+     * Validates email and display name, then claims the shortlist.
+     * Returns the claim success page with the share link and owner token.
+     *
+     * @param claimForm the claim form data
+     * @param result validation result
+     * @param model the Thymeleaf model
+     * @return view name for success or form re-display
+     */
+    @PostMapping("/claim")
+    public String claimShortlist(@Valid @ModelAttribute ClaimForm claimForm,
+                                  BindingResult result,
+                                  Model model) {
+        // Validate that the user has items in their shortlist
+        List<ShortlistEntry> entries = shortlistService.getCurrentUserEntries();
+        if (entries.isEmpty()) {
+            result.addError(new org.springframework.validation.ObjectError("shortlist",
+                    "Cannot claim an empty shortlist. Add names first."));
+        }
+
+        // Validate email format (in addition to Jakarta validation)
+        if (result.hasErrors()) {
+            model.addAttribute("email", claimForm.getEmail());
+            model.addAttribute("displayName", claimForm.getDisplayName());
+            return "claim-form";
+        }
+
+        // Claim the shortlist
+        Optional<String> ownerTokenOpt = shareLinkService.claimShortlist(
+                claimForm.getEmail(), claimForm.getDisplayName());
+
+        if (ownerTokenOpt.isEmpty()) {
+            // Empty shortlist - this should have been caught above, but handle it
+            result.addError(new org.springframework.validation.ObjectError("shortlist",
+                    "Cannot claim an empty shortlist. Add names first."));
+            model.addAttribute("email", claimForm.getEmail());
+            model.addAttribute("displayName", claimForm.getDisplayName());
+            return "claim-form";
+        }
+
+        // Get the share link info to display
+        Optional<com.baibyname.domain.ShareLink> shareLinkOpt =
+                shareLinkService.findByTokenForClaim(ownerTokenOpt.get());
+
+        model.addAttribute("ownerToken", ownerTokenOpt.get());
+        model.addAttribute("displayName", claimForm.getDisplayName());
+
+        if (shareLinkOpt.isPresent()) {
+            model.addAttribute("shareToken", shareLinkOpt.get().getShareToken());
+            model.addAttribute("shareUrl", "/s/" + shareLinkOpt.get().getShareToken());
+        }
+
+        return "claim-success";
+    }
+
+    /**
+     * Form backing object for the claim shortlist form.
+     */
+    public static class ClaimForm {
+        private String email;
+        private String displayName;
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public void setDisplayName(String displayName) {
+            this.displayName = displayName;
+        }
     }
 }
