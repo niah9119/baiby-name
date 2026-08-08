@@ -6,17 +6,17 @@
 <body>
     <main class="flex-grow" id="shortlist-container">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{shortlist.title}">
-                    Your Shortlist
-                </h1>
-                <p class="text-gray-600" th:text="#{shortlist.description}">
-                    Save names you like and review them here.
-                </p>
-            </div>
-
-            <!-- Shortlist content - fragment contains both empty state and entries -->
             <th:block th:fragment="entries">
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{shortlist.title}">
+                        Your Shortlist
+                    </h1>
+                    <p class="text-gray-600" th:text="#{shortlist.description}">
+                        Save names you like and review them here.
+                    </p>
+                </div>
+
+                <!-- Shortlist content - fragment contains both empty state and entries -->
                 <!-- Empty state -->
                 <th:block th:if="${not hasEntries}">
                     <div class="card text-center py-12">
@@ -98,6 +98,7 @@
                         </div>
                     </div>
                 </div>
+                </th:block>
             </th:block>
         </div>
     </main>

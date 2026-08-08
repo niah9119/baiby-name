@@ -28,6 +28,7 @@ import com.baibyname.repository.ShortlistRepository;
 
 import java.time.OffsetDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -181,8 +182,11 @@ class ShortlistNoTransactionTest {
                 .andExpect(content().string(containsString(name1.getName())));
 
         // When: remove the last entry
+        // The fragment should not contain <html> (it's just a fragment)
         mockMvc.perform(post("/shortlist/remove/{givenNameId}", name1.getId()).with(csrf()))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Your shortlist is empty")))
+                .andExpect(content().string(containsString("Browse")));
 
         // Then: the empty state should be rendered (not the list)
         // The empty state contains these specific elements
@@ -190,5 +194,44 @@ class ShortlistNoTransactionTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Your shortlist is empty")))
                 .andExpect(content().string(containsString("Browse")));
+    }
+
+    /**
+     * Verifies that the remove endpoint returns a fragment containing the page heading.
+     * This ensures the fragment scope matches the HTMX target scope.
+     */
+    @Test
+    void removeEndpointReturnsFragmentWithHeading() throws Exception {
+        // Given: create a name and add it to the shortlist
+        GivenName name1 = new GivenName();
+        name1.setName("TestName" + System.nanoTime());
+        name1.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name1);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(name1);
+        stat1.setCountry(sweden);
+        stat1.setSex("Girl");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        // Add the name to shortlist
+        mockMvc.perform(post("/shortlist/add/{givenNameId}", name1.getId()).with(csrf()))
+                .andExpect(status().isOk());
+
+        // When: remove the entry
+        // The fragment response should contain the heading since the target
+        // is #shortlist-container and the fragment includes the heading
+        String response = mockMvc.perform(post("/shortlist/remove/{givenNameId}", name1.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Verify the fragment contains the heading (the target region includes it)
+        assertThat(response).contains("Your Shortlist");
     }
 }
