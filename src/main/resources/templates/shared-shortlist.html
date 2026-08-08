@@ -71,21 +71,8 @@
                 </div>
             </th:block>
 
-            <!-- Deletion link for the owner -->
-            <div class="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p class="text-sm text-gray-600 mb-3" th:text="#{delete.owner.link.title}">
-                    If you are the owner and want to delete this shortlist:
-                </p>
-                <a th:href="@{/delete(ownerToken=${ownerToken})}"
-                   class="inline-block px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm"
-                   th:if="${ownerToken}">
-                    <i class="fa-solid fa-trash-can mr-2"></i>
-                    <span th:text="#{delete.owner.link}">Delete my shortlist</span>
-                </a>
-                <p class="text-xs text-gray-500 mt-2" th:text="#{delete.owner.link.hint}">
-                    You will need your owner token to verify your ownership.
-                </p>
-            </div>
+            <!-- Deletion link for the owner - hidden on shared page -->
+            <!-- Owner token is never displayed on shared pages to prevent token leakage -->
         </div>
     </main>
 </body>

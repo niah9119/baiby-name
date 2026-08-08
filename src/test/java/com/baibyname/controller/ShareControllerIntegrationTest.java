@@ -134,6 +134,83 @@ class ShareControllerIntegrationTest {
     }
 
     /**
+     * Test that the owner token does NOT appear in the /s/{token} response.
+     * This is a critical security requirement: the owner token must never be
+     * exposed on the shared page, as that would allow anyone with the share link
+     * to delete the list.
+     */
+    @Test
+    void ownerTokenNotExposedInSharedShortlist() throws Exception {
+        // Create a shortlist first
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Test Shortlist");
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        // Create a share link for the shortlist with both tokens
+        String validToken = "test-token-" + System.nanoTime();
+        String ownerToken = "owner-token-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("test@example.com");
+        shareLink.setDisplayName("Test User");
+        shareLink.setShareToken(validToken);
+        shareLink.setOwnerToken(ownerToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // Visit the shared page with the valid token
+        String responseHtml = mockMvc.perform(get("/s/" + validToken))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // The owner token must NOT appear anywhere in the response
+        assertThat(responseHtml).doesNotContain(ownerToken);
+    }
+
+    /**
+     * Test that no rendered href or hx-post contains unresolved template placeholders.
+     * This verifies that all Thymeleaf expressions are properly evaluated.
+     */
+    @Test
+    void noUnresolvedPlaceholdersInRenderedHtml() throws Exception {
+        // Create a shortlist first
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Test Shortlist");
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        // Create a share link for the shortlist
+        String validToken = "test-token-" + System.nanoTime();
+        String ownerToken = "owner-token-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("test@example.com");
+        shareLink.setDisplayName("Test User");
+        shareLink.setShareToken(validToken);
+        shareLink.setOwnerToken(ownerToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // Visit the shared page with the valid token
+        String responseHtml = mockMvc.perform(get("/s/" + validToken))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Check that no href or hx-post contains an unresolved {placeholder}
+        // Unresolved Thymeleaf expressions like {ownerToken} would appear as literal {text}
+        // This catches cases where th:href is used incorrectly as href
+        assertThat(responseHtml).doesNotContain("href=\"/s/{");
+        assertThat(responseHtml).doesNotContain("hx-post=\"{");
+    }
+
+    /**
      * Test that deletion requires the owner token, not the share token.
      * This is the key security requirement: recipients who only have the share
      * token cannot delete the list.

@@ -68,7 +68,7 @@
                         <i class="fa-solid fa-arrow-left mr-2"></i>
                         <span th:text="#{claim.back.link}">Back to your shortlist</span>
                     </a>
-                    <a href="/s/{ownerToken}" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-center">
+                    <a th:href="@{/s/{token}(token=${shareToken})}" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-center">
                         <i class="fa-solid fa-share-nodes mr-2"></i>
                         <span th:text="#{claim.view.link}">View your shared shortlist</span>
                     </a>

@@ -155,14 +155,15 @@ public class ShortlistController {
     public String claimShortlist(@RequestParam String email,
                                  @RequestParam String displayName,
                                  Model model) {
-        Optional<String> ownerTokenOpt = shareLinkService.claimShortlist(email, displayName);
+        Optional<ShareLinkService.ShareLinkTokens> tokensOpt = shareLinkService.claimShortlist(email, displayName);
 
-        if (ownerTokenOpt.isEmpty()) {
+        if (tokensOpt.isEmpty()) {
             // No shortlist to claim - redirect back to shortlist page
             return "redirect:/shortlist";
         }
 
-        model.addAttribute("ownerToken", ownerTokenOpt.get());
+        model.addAttribute("ownerToken", tokensOpt.get().ownerToken());
+        model.addAttribute("shareToken", tokensOpt.get().shareToken());
         return "claim-success";
     }
 }

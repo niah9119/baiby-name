@@ -84,7 +84,6 @@ public class ShareController {
         model.addAttribute("givenNames", givenNames);
         model.addAttribute("hasEntries", !entries.isEmpty());
         model.addAttribute("displayName", shortlist.getName());
-        model.addAttribute("ownerToken", shareLink.getOwnerToken());
 
         // Use a special model attribute to indicate this is a shared view
         model.addAttribute("isShared", true);

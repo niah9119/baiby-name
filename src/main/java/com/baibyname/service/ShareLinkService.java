@@ -75,7 +75,7 @@ public class ShareLinkService {
 
     /**
      * Claim a shortlist by providing email and display name.
-     * Creates a share link with two tokens (share token and owner token) and returns the owner token.
+     * Creates a share link with two tokens (share token and owner token).
      *
      * <p>The share token is stored in the database and used for read-only access via the share link.
      * The owner token is returned to the claimer and is required for deletion.
@@ -83,12 +83,12 @@ public class ShareLinkService {
      *
      * @param email the claimer's email address (validated for format)
      * @param displayName the display name for the shortlist
-     * @return the owner token if successful (empty if no shortlist exists)
+     * @return a ShareLinkTokens object with both tokens if successful (empty if no shortlist exists)
      * @throws IllegalArgumentException if email format is invalid
      */
     @Transactional
-    public Optional<String> claimShortlist(@Email String email,
-                                           @NotBlank String displayName) {
+    public Optional<ShareLinkTokens> claimShortlist(@Email String email,
+                                                    @NotBlank String displayName) {
         // Validate email format using a simple pattern
         if (!isValidEmail(email)) {
             throw new IllegalArgumentException("Invalid email address format");
@@ -107,7 +107,8 @@ public class ShareLinkService {
         if (existingLinkOpt.isPresent()) {
             // For now, we don't allow re-claiming an already-claimed shortlist
             // The existing link remains valid and should be shown to the user
-            return Optional.of(existingLinkOpt.get().getOwnerToken());
+            ShareLink existingLink = existingLinkOpt.get();
+            return Optional.of(new ShareLinkTokens(existingLink.getShareToken(), existingLink.getOwnerToken()));
         }
 
         // Generate both tokens
@@ -126,8 +127,17 @@ public class ShareLinkService {
 
         shareLinkRepository.save(shareLink);
 
-        // Return the owner token (not the share token) - only the owner should know this
-        return Optional.of(ownerToken);
+        // Return both tokens - owner keeps ownerToken secret, shareToken is used for public link
+        return Optional.of(new ShareLinkTokens(shareToken, ownerToken));
+    }
+
+    /**
+     * Contains both tokens for a share link.
+     *
+     * @param shareToken the public share token for read-only access
+     * @param ownerToken the secret token for deletion operations
+     */
+    public record ShareLinkTokens(String shareToken, String ownerToken) {
     }
 
     /**
