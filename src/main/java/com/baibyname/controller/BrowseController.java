@@ -74,9 +74,14 @@ public class BrowseController {
                 com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
         ));
         model.addAttribute("filterState", filterStateService.getState());
+
+        // Get the current user's shortlisted name IDs for the browse page
+        java.util.Set<Long> shortlistedNameIds = shortlistService.getCurrentUserShortlistNameIds();
+
         // Use candidates (ranked if available and valid, plain otherwise)
         model.addAttribute("candidates", browseService.getCandidatesForPage(pageable));
         model.addAttribute("page", browseService.getCandidatesForPage(pageable));
+        model.addAttribute("shortlistedNameIds", shortlistedNameIds);
 
         return "browse";
     }

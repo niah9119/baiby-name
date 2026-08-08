@@ -281,7 +281,7 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist})}" />
+                                        <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist(shortlistedNameIds)})}" />
                                     </div>
                                 </div>
                             </div>
@@ -458,7 +458,7 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist})}" />
+                                        <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist(shortlistedNameIds)})}" />
                                     </div>
                                 </div>
                             </div>

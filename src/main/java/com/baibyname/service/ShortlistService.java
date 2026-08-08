@@ -331,6 +331,22 @@ public class ShortlistService {
     }
 
     /**
+     * Get the set of given name IDs in the current user's shortlist.
+     * Used by the browse page to determine which names have been added to the shortlist.
+     *
+     * @return set of name IDs, or empty set if no shortlist exists
+     */
+    public java.util.Set<Long> getCurrentUserShortlistNameIds() {
+        return getCurrentUserShortlist()
+                .map(this::getEntries)
+                .map(entries -> entries.stream()
+                        .map(ShortlistEntry::getGivenName)
+                        .map(GivenName::getId)
+                        .collect(java.util.stream.Collectors.toSet()))
+                .orElse(java.util.Set.of());
+    }
+
+    /**
      * Get the shortlist for a given account ID, but only if the current authenticated user
      * is a member of that shortlist. This is for cross-account access control testing.
      *

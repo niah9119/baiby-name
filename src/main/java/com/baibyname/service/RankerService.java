@@ -66,5 +66,17 @@ public interface RankerService {
         public List<CountryStat> countryStats() {
             return originalName != null ? originalName.getCountryStats() : List.of();
         }
+
+        /**
+         * Check if this name is in the given set of shortlisted name IDs.
+         * Used by the browse page to determine if the heart button should show
+         * the solid (added) or outline (not added) icon.
+         *
+         * @param shortlistedNameIds the set of name IDs in the current user's shortlist
+         * @return true if this name is in the shortlist, false otherwise
+         */
+        public boolean isInShortlist(Set<Long> shortlistedNameIds) {
+            return originalName != null && shortlistedNameIds.contains(originalName.getId());
+        }
     }
 }
