@@ -200,4 +200,69 @@ class ShareControllerIntegrationTest {
                         .with(csrf()))
                 .andExpect(status().isNotFound());
     }
+
+    private ShareLink seedShareLink(String suffix) {
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("Shortlist " + suffix);
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        ShareLink link = new ShareLink();
+        link.setShortlist(shortlist);
+        link.setEmail("owner-" + suffix + "@example.com");
+        link.setDisplayName("Owner " + suffix);
+        link.setShareToken("share-" + suffix);
+        link.setOwnerToken("owner-" + suffix);
+        link.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        link.setCreatedAt(OffsetDateTime.now());
+        return shareLinkRepository.save(link);
+    }
+
+    /**
+     * The owner token is the only credential that can destroy the list. Anyone holding the
+     * share link is a recipient, not the owner, so the token must never reach that page --
+     * it briefly did, rendered into a delete link, which made the two tokens equivalent.
+     */
+    @Test
+    void ownerTokenIsNotExposedOnTheSharedPage() throws Exception {
+        ShareLink link = seedShareLink("leak" + System.nanoTime());
+
+        String html = mockMvc.perform(get("/s/" + link.getShareToken()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).doesNotContain(link.getOwnerToken());
+        assertThat(html).doesNotContain("/delete?ownerToken");
+    }
+
+    @Test
+    void deleteFormIsReachableWithoutAnAccountAndCarriesNoTokenInTheUrl() throws Exception {
+        // ADR 0004: a claimer has no password, so this must work unauthenticated.
+        mockMvc.perform(get("/delete")).andExpect(status().isOk());
+    }
+
+    @Test
+    void deletingWithTheOwnerTokenRemovesTheLinkAndTheSharedPage() throws Exception {
+        ShareLink link = seedShareLink("del" + System.nanoTime());
+        String shareToken = link.getShareToken();
+
+        mockMvc.perform(get("/s/" + shareToken)).andExpect(status().isOk());
+
+        mockMvc.perform(post("/delete").param("ownerToken", link.getOwnerToken()).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(shareLinkRepository.findByShareToken(shareToken)).isEmpty();
+        mockMvc.perform(get("/s/" + shareToken)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deletingWithTheShareTokenIsRejected() throws Exception {
+        ShareLink link = seedShareLink("reject" + System.nanoTime());
+
+        // A recipient holds only the share token; it must not destroy the list.
+        mockMvc.perform(post("/delete").param("ownerToken", link.getShareToken()).with(csrf()))
+                .andExpect(status().isOk());
+
+        assertThat(shareLinkRepository.findByShareToken(link.getShareToken())).isPresent();
+    }
 }

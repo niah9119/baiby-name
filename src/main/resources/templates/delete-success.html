@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:insert="layout :: head">
+    <title th:text="#{delete.success.title}">Deletion Complete - BaibyName</title>
+</head>
+<body>
+    <main class="flex-grow">
+        <div class="max-w-3xl mx-auto px-4 sm-px-6 lg-px-8 py-8">
+            <div class="mb-8 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <i class="fa-solid fa-trash-can text-red-600 text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{delete.success.title}">
+                    Shortlist Deleted
+                </h1>
+                <p class="text-gray-600" th:text="#{delete.success.description}">
+                    Your claimed shortlist has been permanently deleted.
+                </p>
+            </div>
+
+            <div class="card">
+                <div class="mb-6">
+                    <p class="text-gray-600" th:text="#{delete.success.note}">
+                        All data associated with your claimed shortlist has been removed from our systems.
+                        This includes the names in your shortlist and any personal information you provided
+                        when claiming it.
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">
+                        <i class="fa-solid fa-file-circle-question text-blue-600 mr-2"></i>
+                        <span th:text="#{delete.privacy.note}">
+                            For more information about how we handle your data, see our
+                        </span>
+                        <a href="/privacy-policy" class="text-blue-600 hover:underline" th:text="#{delete.privacy.link}">
+                            Privacy Policy
+                        </a>
+                        <span th:text="#{delete.privacy.rights.note}">
+                            which includes your right to delete your personal data.
+                        </span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <a href="/" class="btn-primary" th:text="#{nav.home}">
+                    <i class="fa-solid fa-house mr-2"></i>
+                    Return to Home
+                </a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
