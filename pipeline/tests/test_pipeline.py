@@ -297,6 +297,7 @@ class TestLoad:
         - Bearers are inserted with correct data
         - Links are created between names and bearers
         - Idempotency: running twice doesn't duplicate rows
+        - Report statistics match actual database row counts (issue 137)
         """
         import sqlalchemy
         from sqlalchemy import text
@@ -336,15 +337,15 @@ class TestLoad:
             assert stats1["skipped_links"] == 0
             assert stats1["unresolved_names"] == []
 
-            # Verify data in database
+            # Verify data in database - reported counts must match actual row counts (issue 137)
             with engine.connect() as conn:
-                # Check famous_bearer count
+                # Check famous_bearer count matches inserted_bearers
                 result = conn.execute(text("SELECT COUNT(*) FROM famous_bearer"))
-                assert result.scalar() == 2
+                assert result.scalar() == stats1["inserted_bearers"]
 
-                # Check name_famous_bearer count
+                # Check name_famous_bearer count matches inserted_links
                 result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
-                assert result.scalar() == 3
+                assert result.scalar() == stats1["inserted_links"]
 
                 # Verify the bearers were created correctly
                 result = conn.execute(text("SELECT public_name, subcategory FROM famous_bearer ORDER BY id"))
@@ -422,7 +423,9 @@ class TestLoad:
 
             # Load should detect unresolved names
             assert stats["total_rows"] == 2
-            assert stats["inserted_bearers"] == 2  # Counted but not inserted
+            # Counters should be zeroed when rollback occurs (issue 137)
+            assert stats["inserted_bearers"] == 0
+            assert stats["inserted_links"] == 0
             # Unresolved names should be sorted alphabetically
             assert sorted(stats["unresolved_names"]) == ["Fake", "Unfound", "Unknown"]
 
@@ -603,6 +606,11 @@ class TestLoadCli:
             assert "Unresolved names: 2" in result.stdout
             assert "ERROR" in result.stdout
             assert "could not be resolved" in result.stdout
+            # Verify rolled back message is shown (issue 137)
+            assert "Rolled back — no rows written" in result.stdout
+            # Verify counters are zero (issue 137: zero insert counters when rolled back)
+            assert "Inserted bearers: 0" in result.stdout
+            assert "Inserted links: 0" in result.stdout
 
             # Verify NO bearers or links were inserted (transaction was rolled back)
             with engine.connect() as conn:
