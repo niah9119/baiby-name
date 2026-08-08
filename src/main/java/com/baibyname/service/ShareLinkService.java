@@ -141,6 +141,17 @@ public class ShareLinkService {
     }
 
     /**
+     * Get the share link by owner token (without fetching the shortlist association).
+     * Used after claiming to display the share information.
+     *
+     * @param ownerToken the owner token
+     * @return the share link if found, empty otherwise
+     */
+    public Optional<com.baibyname.domain.ShareLink> findByTokenForClaim(String ownerToken) {
+        return shareLinkRepository.findByOwnerTokenWithoutFetch(ownerToken);
+    }
+
+    /**
      * Get the shortlist for a given token (with entries fetched).
      *
      * @param token the share token
