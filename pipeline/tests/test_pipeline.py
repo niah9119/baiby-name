@@ -383,7 +383,11 @@ class TestLoad:
                 assert result.scalar() == 3
 
     def test_load_famous_bearers_unresolved_names(self, tmp_path):
-        """Test that names not in the given_name table are counted but not loaded."""
+        """Test that unresolved names cause the load to fail and no bearers are inserted.
+
+        This is a transactional load: if any name cannot be resolved, no bearers
+        or links are inserted, and the database remains unchanged.
+        """
         import sqlalchemy
         from sqlalchemy import text
 
@@ -416,17 +420,18 @@ class TestLoad:
             # Load the CSV
             stats = load_canonical_csv(csv_path=csv_path, db_url=db_url)
 
-            # The bearer should be inserted but links to non-existent names should be skipped
+            # Load should detect unresolved names
             assert stats["total_rows"] == 2
-            assert stats["inserted_bearers"] == 2
+            assert stats["inserted_bearers"] == 2  # Counted but not inserted
             # Unresolved names should be sorted alphabetically
             assert sorted(stats["unresolved_names"]) == ["Fake", "Unfound", "Unknown"]
 
-            # Verify only the valid links were created
+            # Verify NO bearers or links were inserted (transaction was rolled back)
             with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM famous_bearer"))
+                assert result.scalar() == 0
                 result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
-                # Only 2 valid links (Lionel and Leo for Messi)
-                assert result.scalar() == 2
+                assert result.scalar() == 0
 
     def test_load_famous_bearers_multi_name_bearer(self, tmp_path):
         """Test that bearers with multiple given names link to all of them.
@@ -546,9 +551,10 @@ class TestLoadCli:
             assert "Inserted links: 1" in result.stdout
 
     def test_load_cli_famous_bearers_unresolved_names_fail(self, tmp_path):
-        """Test CLI load fails when there are unresolved names."""
+        """Test CLI load fails when there are unresolved names and no bearers are inserted."""
         import subprocess
         import sys
+        from sqlalchemy import text
 
         from testcontainers.community.postgres import PostgresContainer
 
@@ -567,6 +573,13 @@ class TestLoadCli:
             # Load the Flyway schema
             engine = sqlalchemy.create_engine(db_url)
             _load_flyway_schema(engine)
+
+            # Verify database is empty before load
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM famous_bearer"))
+                assert result.scalar() == 0
+                result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
+                assert result.scalar() == 0
 
             # Run the CLI - should fail with exit code 1
             pipeline_dir = Path(__file__).resolve().parent.parent
@@ -590,6 +603,13 @@ class TestLoadCli:
             assert "Unresolved names: 2" in result.stdout
             assert "ERROR" in result.stdout
             assert "could not be resolved" in result.stdout
+
+            # Verify NO bearers or links were inserted (transaction was rolled back)
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM famous_bearer"))
+                assert result.scalar() == 0
+                result = conn.execute(text("SELECT COUNT(*) FROM name_famous_bearer"))
+                assert result.scalar() == 0
 
 
 @pytest.fixture
