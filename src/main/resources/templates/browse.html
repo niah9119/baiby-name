@@ -553,13 +553,13 @@
     <!-- Heart Button Fragment -->
     <!-- Accepts: givenNameId (required) and isInShortlist (optional, defaults to false) -->
     <th:block th:fragment="heart-button(givenNameId, isInShortlist)">
-        <button class="heart-toggle px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+        <button class="heart-toggle px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200"
                 th:data-given-name-id="${givenNameId}"
                 th:classappend="${isInShortlist ?: false} ? 'text-red-600' : 'text-gray-700'"
                 th:hx-post="${isInShortlist ?: false} ? @{/shortlist/remove/{id}(id=${givenNameId})} : @{/shortlist/add/{id}(id=${givenNameId})}"
                 hx-target="this"
-                hx-swap="innerHTML"
-                th:title="#{candidate.shortlist.add}">
+                hx-swap="outerHTML"
+                th:title="${isInShortlist ?: false} ? #{candidate.shortlist.remove} : #{candidate.shortlist.add}">
             <i class="fa-solid fa-heart" th:if="${not (isInShortlist ?: false)}"></i>
             <i class="fa-solid fa-heart fa-bounce" th:if="${isInShortlist ?: false}"></i>
         </button>
