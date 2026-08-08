@@ -394,7 +394,52 @@ for i in $(seq 1 "$MAX"); do
     # context limit, each with real work already committed to its branch.
     labels=$(gh issue view "$N" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
     if grep -qx "ready-for-human" <<<"$labels"; then
-      "$SCRIPT_DIR/set-status.sh" "$N" "In review"
+      # Verify a PR exists before marking as "In review"
+      pr_num=$(gh pr list --head "issue-$N" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+      if [[ -n "$pr_num" ]]; then
+        echo "-- PR #$pr_num exists for issue #$N, setting 'In review'"
+        "$SCRIPT_DIR/set-status.sh" "$N" "In review"
+      else
+        echo "!"
+        echo "! ==============================================="
+        echo "! WARNING: issue #$N has 'ready-for-human' label but no PR exists"
+        echo "! The branch 'issue-$N' may have commits on the remote, but no PR was opened."
+        echo "! This is a recoverable state - the work is not lost, just not in review."
+        echo "! ==============================================="
+        echo "!"
+
+        # Check if there are commits on the remote branch
+        # Use -n to test output, not exit code: git ls-remote exits 0 even for non-existent refs
+        if [[ -n "$(git ls-remote origin "issue-$N" 2>/dev/null)" ]]; then
+          echo "-- Branch 'issue-$N' exists on remote; creating PR now..."
+
+          # Get the issue title for the PR
+          issue_title=$(gh issue view "$N" --json title --jq '.title')
+
+          # Create the PR with "Closes #N" in the body and explicit branch reference
+          # Use a concise body: link the issue and state why the PR was opened
+          gh pr create --head "issue-$N" --base main \
+            --title "Implement #$N: $issue_title" \
+            --body "Closes #$N.
+
+Opened automatically by the agent loop because the agent completed work
+but did not open a pull request. The branch 'issue-$N' contains the completed work." \
+            2>/dev/null && echo "-- PR created successfully"
+
+          # Verify PR was created
+          pr_num=$(gh pr list --head "issue-$N" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$pr_num" ]]; then
+            echo "-- PR #$pr_num now exists, setting 'In review'"
+            "$SCRIPT_DIR/set-status.sh" "$N" "In review"
+          else
+            echo "-- WARNING: Could not create PR for issue #$N"
+            echo "-- Leaving issue in 'in-progress' for a human to fix"
+          fi
+        else
+          echo "-- No commits on remote branch 'issue-$N'; cannot create PR"
+          echo "-- Leaving issue in 'in-progress' for a human to fix"
+        fi
+      fi
     elif grep -qx "in-progress" <<<"$labels"; then
       # Still ours: the run ended without handing over. BLOCKED is a deliberate report and
       # is left alone for a human; anything else is an interrupted run and goes back to the
