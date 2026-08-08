@@ -265,4 +265,109 @@ class ShareControllerIntegrationTest {
 
         assertThat(shareLinkRepository.findByShareToken(link.getShareToken())).isPresent();
     }
+
+    /**
+     * Test that the share link's displayName is rendered in the h1, not the shortlist's name.
+     * This verifies the fix for issue #147.
+     */
+    @Test
+    void sharedShortlistRendersShareLinkDisplayName() throws Exception {
+        // Create a shortlist with default name
+        Shortlist shortlist = new Shortlist();
+        shortlist.setName("My Shortlist");  // This is the internal default
+        shortlist.setCreatedAt(OffsetDateTime.now());
+        shortlist = shortlistRepository.save(shortlist);
+
+        // Create a share link with a custom display name
+        String validToken = "test-token-" + System.nanoTime();
+        String ownerToken = "owner-token-" + System.nanoTime();
+        ShareLink shareLink = new ShareLink();
+        shareLink.setShortlist(shortlist);
+        shareLink.setEmail("parent@example.com");
+        shareLink.setDisplayName("Our Names");  // The claimer's chosen display name
+        shareLink.setShareToken(validToken);
+        shareLink.setOwnerToken(ownerToken);
+        shareLink.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink);
+
+        // Visit the shared page
+        String responseHtml = mockMvc.perform(get("/s/" + validToken))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // The h1 should contain the share link's displayName, not the shortlist's name
+        assertThat(responseHtml).contains("<h1");
+        assertThat(responseHtml).contains("Our Names");
+        assertThat(responseHtml).doesNotContain("My Shortlist");
+    }
+
+    /**
+     * Test that two shortlists claimed with different display names render different headings.
+     * This is the assertion that would have caught the original bug.
+     */
+    @Test
+    void differentShortlistsWithDifferentDisplayNamesRenderDifferentHeadings() throws Exception {
+        // Create first shortlist with first share link
+        Shortlist shortlist1 = new Shortlist();
+        shortlist1.setName("Shortlist 1 Internal Name");
+        shortlist1.setCreatedAt(OffsetDateTime.now());
+        shortlist1 = shortlistRepository.save(shortlist1);
+
+        String token1 = "token1-" + System.nanoTime();
+        String ownerToken1 = "owner1-" + System.nanoTime();
+        ShareLink shareLink1 = new ShareLink();
+        shareLink1.setShortlist(shortlist1);
+        shareLink1.setEmail("parent1@example.com");
+        shareLink1.setDisplayName("Family As List");
+        shareLink1.setShareToken(token1);
+        shareLink1.setOwnerToken(ownerToken1);
+        shareLink1.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink1.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink1);
+
+        // Create second shortlist with second share link
+        Shortlist shortlist2 = new Shortlist();
+        shortlist2.setName("Shortlist 2 Internal Name");
+        shortlist2.setCreatedAt(OffsetDateTime.now());
+        shortlist2 = shortlistRepository.save(shortlist2);
+
+        String token2 = "token2-" + System.nanoTime();
+        String ownerToken2 = "owner2-" + System.nanoTime();
+        ShareLink shareLink2 = new ShareLink();
+        shareLink2.setShortlist(shortlist2);
+        shareLink2.setEmail("parent2@example.com");
+        shareLink2.setDisplayName("Family Bs List");
+        shareLink2.setShareToken(token2);
+        shareLink2.setOwnerToken(ownerToken2);
+        shareLink2.setAccessLevel(ShareLink.AccessLevel.READ_ONLY);
+        shareLink2.setCreatedAt(OffsetDateTime.now());
+        shareLinkRepository.save(shareLink2);
+
+        // Fetch both pages
+        String html1 = mockMvc.perform(get("/s/" + token1))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String html2 = mockMvc.perform(get("/s/" + token2))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Each page should render its own share link's displayName
+        assertThat(html1).contains("Family As List");
+        assertThat(html1).doesNotContain("Family Bs List");
+
+        assertThat(html2).contains("Family Bs List");
+        assertThat(html2).doesNotContain("Family As List");
+
+        // The internal shortlist names should NOT appear
+        assertThat(html1).doesNotContain("Shortlist 1 Internal Name");
+        assertThat(html2).doesNotContain("Shortlist 2 Internal Name");
+    }
 }
