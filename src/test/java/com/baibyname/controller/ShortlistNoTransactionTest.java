@@ -25,6 +25,7 @@ import com.baibyname.repository.NameStatRepository;
 
 import java.time.OffsetDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -66,6 +67,9 @@ class ShortlistNoTransactionTest {
 
     @Autowired
     private NameStatRepository nameStatRepository;
+
+    @Autowired
+    private com.baibyname.repository.ShortlistEntryRepository shortlistEntryRepository;
 
     private Country sweden;
 
@@ -134,5 +138,86 @@ class ShortlistNoTransactionTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString(name1.getName())))
                 .andExpect(content().string(containsString(name2.getName())));
+    }
+
+    /**
+     * The shortlist page and the browse heart both remove a name, but they need different
+     * response shapes. Each endpoint has exactly one caller, and these tests pin the shape
+     * each caller depends on -- #126 and #127 broke each other by sharing one endpoint.
+     */
+    @Test
+    void entriesRemoveReturnsTheContentFragmentTheShortlistPageSwaps() throws Exception {
+        GivenName kept = createName("Kept");
+        GivenName removed = createName("Removed");
+        mockMvc.perform(post("/shortlist/add/{id}", kept.getId()).with(csrf()));
+        mockMvc.perform(post("/shortlist/add/{id}", removed.getId()).with(csrf()));
+
+        String body = mockMvc.perform(post("/shortlist/entries/remove/{id}", removed.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // The target is #shortlist-content, so the fragment must carry everything that
+        // element contains -- heading included, or a removal silently deletes the title.
+        assertThat(body).contains("Your Shortlist");
+        assertThat(body).contains(kept.getName());
+        assertThat(body).doesNotContain(removed.getName());
+        // A fragment, not a whole page: no document scaffolding, and the id appears once
+        // so the swap cannot nest a second element carrying it.
+        assertThat(body).doesNotContain("<html");
+        // Count the id itself, not every mention: each Remove button also carries
+        // hx-target="#shortlist-content".
+        assertThat(body.split("id=\"shortlist-content\"", -1).length - 1).isEqualTo(1);
+    }
+
+    @Test
+    void heartRemoveReturnsOnlyTheButtonTheBrowsePageSwaps() throws Exception {
+        GivenName name = createName("Hearted");
+        mockMvc.perform(post("/shortlist/add/{id}", name.getId()).with(csrf()));
+
+        String body = mockMvc.perform(post("/shortlist/remove/{id}", name.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // outerHTML swap on the button itself: exactly one button, and none of the
+        // shortlist page's chrome.
+        assertThat(body.split("<button", -1).length - 1).isEqualTo(1);
+        assertThat(body).doesNotContain("Your Shortlist");
+        assertThat(body).contains("/shortlist/add/" + name.getId());
+    }
+
+    @Test
+    void removingTheLastEntryRendersTheEmptyState() throws Exception {
+        // The Postgres container is shared across tests in this class, so entries left by
+        // an earlier test would make "the last entry" not actually the last.
+        shortlistEntryRepository.deleteAll();
+
+        GivenName only = createName("Solo");
+        mockMvc.perform(post("/shortlist/add/{id}", only.getId()).with(csrf()));
+
+        String body = mockMvc.perform(post("/shortlist/entries/remove/{id}", only.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains("Your shortlist is empty");
+        assertThat(body).doesNotContain(only.getName());
+    }
+
+    private GivenName createName(String prefix) {
+        GivenName name = new GivenName();
+        name.setName(prefix + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(name);
+        stat.setCountry(sweden);
+        stat.setSex("Girl");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        return name;
     }
 }

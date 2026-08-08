@@ -6,6 +6,10 @@
 <body>
     <main class="flex-grow">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- The fragment and the HTMX target are the same element, swapped with outerHTML.
+                 Anything the target contains must also be inside the fragment, or a partial
+                 update silently drops it -- see #127. -->
+            <div id="shortlist-content" th:fragment="content">
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{shortlist.title}">
                     Your Shortlist
@@ -83,11 +87,12 @@
                                 </div>
                                 <div class="flex gap-2">
                                     <button th:data-given-name-id="${entry.givenName.id}"
-                                            th:hx-post="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
-                                            hx-swap="none"
+                                            th:hx-post="@{/shortlist/entries/remove/{id}(id=${entry.givenName.id})}"
+                                            hx-target="#shortlist-content"
+                                            hx-swap="outerHTML"
                                             class="px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200"
                                             th:title="#{shortlist.remove}">
-                                        <i class="fa-solid fa-heart-crush"></i>
+                                        <i class="fa-solid fa-heart-crack"></i>
                                         <span th:text="#{shortlist.remove}">Remove</span>
                                     </button>
                                 </div>
@@ -96,6 +101,7 @@
                     </div>
                 </div>
             </th:block>
+            </div>
         </div>
     </main>
 
