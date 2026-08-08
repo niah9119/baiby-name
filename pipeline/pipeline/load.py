@@ -722,6 +722,25 @@ def _insert_famous_bearers_batch(
             conn.close()
 
 
+def _check_orphan_bearers(engine: sqlalchemy.Engine) -> list[tuple[int, str, str]]:
+    """Check for existing orphan bearers - bearers with zero links.
+
+    Returns:
+        List of (id, public_name, wikidata_id) tuples for bearers with no links.
+    """
+    orphans = []
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT fb.id, fb.public_name, fb.wikidata_id
+            FROM famous_bearer fb
+            LEFT JOIN name_famous_bearer nfb ON fb.id = nfb.famous_bearer_id
+            WHERE nfb.famous_bearer_id IS NULL
+        """))
+        for row in result:
+            orphans.append((row[0], row[1], row[2]))
+    return orphans
+
+
 def load_all(dry_run: bool = False) -> dict:
     """
     Load all data from the canonical CSV.
@@ -746,6 +765,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Create engine for orphan check
+    engine = create_engine(args.db_url or get_database_url())
+
     try:
         stats = load_canonical_csv(
             csv_path=Path(args.csv) if args.csv else None,
@@ -755,6 +777,21 @@ if __name__ == "__main__":
 
         # Check if this is a famous_bearers CSV (has different stats structure)
         is_famous_bearers = "inserted_bearers" in stats
+
+        # Check for existing orphan bearers (bearers with zero links)
+        # This can happen from previous failed loads
+        if is_famous_bearers:
+            orphans = _check_orphan_bearers(engine)
+            if orphans:
+                print(
+                    f"\nWARNING: {len(orphans)} orphan bearers found in the database. "
+                    "These bearers have no links to given names and may have been left "
+                    "behind by a previous failed load. Consider deleting them."
+                )
+                for oid, name, wid in orphans[:5]:
+                    print(f"    - ID {oid}: {name} ({wid})")
+                if len(orphans) > 5:
+                    print(f"    ... and {len(orphans) - 5} more")
 
         print("\nLoad Statistics:")
 
