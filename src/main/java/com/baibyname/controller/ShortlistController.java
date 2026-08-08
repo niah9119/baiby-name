@@ -4,6 +4,7 @@ import com.baibyname.domain.GivenName;
 import com.baibyname.domain.ShortlistEntry;
 import com.baibyname.service.GivenNameService;
 import com.baibyname.service.ShortlistService;
+import com.baibyname.service.ShareLinkService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -24,10 +25,14 @@ public class ShortlistController {
 
     private final ShortlistService shortlistService;
     private final GivenNameService givenNameService;
+    private final ShareLinkService shareLinkService;
 
-    public ShortlistController(ShortlistService shortlistService, GivenNameService givenNameService) {
+    public ShortlistController(ShortlistService shortlistService,
+                               GivenNameService givenNameService,
+                               ShareLinkService shareLinkService) {
         this.shortlistService = shortlistService;
         this.givenNameService = givenNameService;
+        this.shareLinkService = shareLinkService;
     }
 
     /**
@@ -120,5 +125,44 @@ public class ShortlistController {
     @ResponseBody
     public boolean isInShortlist(@PathVariable Long givenNameId) {
         return shortlistService.isNameInShortlist(givenNameId);
+    }
+
+    /**
+     * Display the claim form.
+     *
+     * @param model the Thymeleaf model
+     * @return view name for the claim form
+     */
+    @GetMapping("/claim")
+    public String showClaimForm(Model model) {
+        return "claim-form";
+    }
+
+    /**
+     * Claim a shortlist by providing email and display name.
+     * Creates a share link with two tokens (share token and owner token) and
+     * displays the owner token to the user.
+     *
+     * <p>The owner token is required to delete the shortlist later.
+     * It is shown once and cannot be recovered.</p>
+     *
+     * @param email the claimer's email address
+     * @param displayName the display name for the shortlist
+     * @param model the Thymeleaf model
+     * @return view name for the claim success page showing the owner token
+     */
+    @PostMapping("/claim")
+    public String claimShortlist(@RequestParam String email,
+                                 @RequestParam String displayName,
+                                 Model model) {
+        Optional<String> ownerTokenOpt = shareLinkService.claimShortlist(email, displayName);
+
+        if (ownerTokenOpt.isEmpty()) {
+            // No shortlist to claim - redirect back to shortlist page
+            return "redirect:/shortlist";
+        }
+
+        model.addAttribute("ownerToken", ownerTokenOpt.get());
+        return "claim-success";
     }
 }

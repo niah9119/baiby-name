@@ -205,6 +205,17 @@ public class ShareLinkService {
     }
 
     /**
+     * Check if the given token is a valid owner token.
+     *
+     * @param token the token to verify
+     * @return true if the token is a valid owner token, false otherwise
+     */
+    public boolean isOwnerToken(String token) {
+        // Try to find by owner token - if found, it's a valid owner token
+        return shareLinkRepository.findByOwnerToken(token).isPresent();
+    }
+
+    /**
      * Basic email format validation using a regex pattern.
      * This is a simple check - for production use, consider a more robust validator.
      *

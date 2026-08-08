@@ -25,7 +25,8 @@ public class SecurityConfig {
                 // (ADR 0002, and #11's own criteria). Without these the landing pages and
                 // sitemap 302 to login, which would silently delist the site.
                 // Shortlist access is also public for anonymous users to save names without logging in
-                .requestMatchers("/names/**", "/name/**", "/browse/**", "/interview/**", "/shortlist/**", "/s/**", "/sitemap.xml", "/sitemap-*.xml", "/robots.txt").permitAll()
+                // Delete routes are public so claimers can delete their shortlist with just the owner token
+                .requestMatchers("/names/**", "/name/**", "/browse/**", "/interview/**", "/shortlist/**", "/s/**", "/delete/**", "/sitemap.xml", "/sitemap-*.xml", "/robots.txt").permitAll()
                 .requestMatchers("/account/**", "/gdpr/**").authenticated()
                 .anyRequest().authenticated()
             )
