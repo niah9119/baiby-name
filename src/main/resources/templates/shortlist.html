@@ -4,7 +4,7 @@
     <title th:text="#{shortlist.title}">Shortlist - BaibyName</title>
 </head>
 <body>
-    <main class="flex-grow">
+    <main class="flex-grow" id="shortlist-container">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2" th:text="#{shortlist.title}">
@@ -84,7 +84,8 @@
                                 <div class="flex gap-2">
                                     <button th:data-given-name-id="${entry.givenName.id}"
                                             th:hx-post="@{/shortlist/remove/{id}(id=${entry.givenName.id})}"
-                                            hx-swap="none"
+                                            hx-target="#shortlist-container"
+                                            hx-swap="innerHTML"
                                             class="px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200"
                                             th:title="#{shortlist.remove}">
                                         <i class="fa-solid fa-heart-crack"></i>

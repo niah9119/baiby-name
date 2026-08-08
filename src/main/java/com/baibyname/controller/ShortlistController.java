@@ -66,15 +66,19 @@ public class ShortlistController {
 
     /**
      * Remove a given name from the current user's shortlist.
-     * Returns a fragment indicating success.
+     * Returns the updated shortlist page.
      *
      * @param givenNameId the ID of the given name to remove
-     * @return fragment name for HTMX response
+     * @param model the model to populate
+     * @return view name for the shortlist page
      */
     @PostMapping("/remove/{givenNameId}")
-    public String removeFromShortlist(@PathVariable Long givenNameId) {
+    public String removeFromShortlist(@PathVariable Long givenNameId, Model model) {
         shortlistService.removeFromShortlist(givenNameId);
-        return "shortlist :: remove-result-success";
+        List<ShortlistEntry> entries = shortlistService.getCurrentUserEntries();
+        model.addAttribute("entries", entries);
+        model.addAttribute("hasEntries", !entries.isEmpty());
+        return "shortlist";
     }
 
     /**
