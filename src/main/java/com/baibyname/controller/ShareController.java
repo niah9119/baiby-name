@@ -55,14 +55,11 @@ public class ShareController {
      */
     @GetMapping("/s/{token}")
     public String sharedShortlist(@PathVariable String token, Model model) {
-        Optional<Shortlist> shortlistOpt = shareLinkService.getShortlistByToken(token);
+        // Get the share link which contains the displayName set at claim time
+        com.baibyname.domain.ShareLink shareLink = shareLinkService.findByToken(token)
+                .orElseThrow(() -> new TokenNotFoundException(token));
 
-        if (shortlistOpt.isEmpty()) {
-            // Return 404 for unknown or malformed tokens
-            throw new TokenNotFoundException(token);
-        }
-
-        Shortlist shortlist = shortlistOpt.get();
+        Shortlist shortlist = shareLink.getShortlist();
         List<ShortlistEntry> entries = shareLinkService.getEntriesByToken(token);
 
         // Get the given names from entries
@@ -74,7 +71,7 @@ public class ShareController {
         model.addAttribute("entries", entries);
         model.addAttribute("givenNames", givenNames);
         model.addAttribute("hasEntries", !entries.isEmpty());
-        model.addAttribute("displayName", shortlist.getName());
+        model.addAttribute("displayName", shareLink.getDisplayName());
 
         // Use a special model attribute to indicate this is a shared view
         model.addAttribute("isShared", true);
@@ -92,8 +89,9 @@ public class ShareController {
     @GetMapping("/s/{token}/name")
     @ResponseBody
     public String getSharedShortlistName(@PathVariable String token) {
-        Optional<Shortlist> shortlistOpt = shareLinkService.getShortlistByToken(token);
-        return shortlistOpt.map(Shortlist::getName).orElse(null);
+        return shareLinkService.findByToken(token)
+                .map(com.baibyname.domain.ShareLink::getDisplayName)
+                .orElse(null);
     }
 
     /**
