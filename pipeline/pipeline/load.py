@@ -215,6 +215,9 @@ def load_famous_bearers_csv(
     # Track names that couldn't be resolved
     unresolved_names = set()
 
+    # Collect bearers to insert - don't commit until we know all names resolve
+    bearers_to_insert = []  # List of (public_name, subcategory, wikidata_id)
+
     for row in rows:
         public_name = row["public_name"].strip()
         subcategory = row["subcategory"].strip().upper()
@@ -236,19 +239,12 @@ def load_famous_bearers_csv(
         existing_bearer = existing_bearers.get(wikidata_id)
 
         if existing_bearer:
-            bearer_id = existing_bearer["id"]
             stats["skipped_bearers"] += 1
         else:
-            # Insert new bearer
-            if not dry_run:
-                bearer_id = _insert_famous_bearer(
-                    engine, public_name, subcategory, wikidata_id
-                )
-            else:
-                bearer_id = None
+            bearers_to_insert.append((public_name, subcategory, wikidata_id))
             stats["inserted_bearers"] += 1
 
-        # Parse and link given names
+        # Parse and link given names - validate all names first
         if given_names_str:
             given_names = [n.strip() for n in given_names_str.split(";") if n.strip()]
 
@@ -261,17 +257,60 @@ def load_famous_bearers_csv(
                     continue
 
                 # Check if link already exists
-                link_key = (name_id, bearer_id) if bearer_id else None
-                if link_key and _check_name_bearer_link_exists(engine, name_id, bearer_id):
-                    stats["skipped_links"] += 1
-                    continue
+                if existing_bearer:
+                    bearer_id = existing_bearer["id"]
+                else:
+                    # Will be inserted after validation passes
+                    bearer_id = None
 
-                # Insert link
-                if not dry_run and bearer_id:
-                    _insert_name_bearer_link(engine, name_id, bearer_id)
-                stats["inserted_links"] += 1
+                if bearer_id and _check_name_bearer_link_exists(engine, name_id, bearer_id):
+                    stats["skipped_links"] += 1
+                else:
+                    stats["inserted_links"] += 1
 
     stats["unresolved_names"] = list(unresolved_names)
+
+    # Only insert bearers and links if all names resolve (transactional load)
+    if unresolved_names:
+        return stats
+
+    if dry_run:
+        return stats
+
+    # Insert all bearers in a single transaction
+    _insert_famous_bearers_batch(engine, bearers_to_insert)
+
+    # Reload existing bearers to get IDs for newly inserted ones
+    existing_bearers = _load_existing_bearers(engine)
+
+    # Now link names to bearers
+    for row in rows:
+        given_names_str = row["given_names"].strip()
+        wikidata_id = row["wikidata_id"].strip()
+
+        if not given_names_str:
+            continue
+
+        # Get bearer_id for this row
+        existing_bearer = existing_bearers.get(wikidata_id)
+        if existing_bearer:
+            bearer_id = existing_bearer["id"]
+        else:
+            continue
+
+        given_names = [n.strip() for n in given_names_str.split(";") if n.strip()]
+
+        for given_name in given_names:
+            name_id = name_cache.get(given_name)
+
+            if name_id is None:
+                continue
+
+            if _check_name_bearer_link_exists(engine, name_id, bearer_id):
+                continue
+
+            _insert_name_bearer_link(engine, name_id, bearer_id)
+
     return stats
 
 
@@ -643,6 +682,65 @@ def _insert_name_bearer_link(
             conn.close()
 
 
+def _insert_famous_bearers_batch(
+    engine: sqlalchemy.Engine,
+    bearers: list[tuple[str, str, str]],
+) -> None:
+    """Insert multiple famous bearers in a single transaction using PostgreSQL's multi-row VALUES.
+
+    Args:
+        engine: Database engine
+        bearers: List of (public_name, subcategory, wikidata_id) tuples
+    """
+    if not bearers:
+        return
+
+    # Use raw psycopg2 connection for multi-row VALUES with explicit commit
+    with engine.raw_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            # Build multi-row VALUES clause for bearers
+            # Format: (public_name, subcategory, wikidata_id, created_at)
+            values_clause = ", ".join(["(%s, %s, %s, CURRENT_TIMESTAMP)"] * len(bearers))
+
+            # Flatten the list of tuples
+            flat_values = [item for triple in bearers for item in triple]
+
+            cursor.execute(
+                f"""
+                    INSERT INTO famous_bearer (public_name, subcategory, wikidata_id, created_at)
+                    VALUES {values_clause}
+                    ON CONFLICT (wikidata_id) DO NOTHING
+                    RETURNING id, wikidata_id
+                """,
+                flat_values,
+            )
+            # We don't need to return the IDs since we reload the cache afterward
+            cursor.fetchall()
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _check_orphan_bearers(engine: sqlalchemy.Engine) -> list[tuple[int, str, str]]:
+    """Check for existing orphan bearers - bearers with zero links.
+
+    Returns:
+        List of (id, public_name, wikidata_id) tuples for bearers with no links.
+    """
+    orphans = []
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT fb.id, fb.public_name, fb.wikidata_id
+            FROM famous_bearer fb
+            LEFT JOIN name_famous_bearer nfb ON fb.id = nfb.famous_bearer_id
+            WHERE nfb.famous_bearer_id IS NULL
+        """))
+        for row in result:
+            orphans.append((row[0], row[1], row[2]))
+    return orphans
+
+
 def load_all(dry_run: bool = False) -> dict:
     """
     Load all data from the canonical CSV.
@@ -667,6 +765,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Create engine for orphan check
+    engine = create_engine(args.db_url or get_database_url())
+
     try:
         stats = load_canonical_csv(
             csv_path=Path(args.csv) if args.csv else None,
@@ -676,6 +777,21 @@ if __name__ == "__main__":
 
         # Check if this is a famous_bearers CSV (has different stats structure)
         is_famous_bearers = "inserted_bearers" in stats
+
+        # Check for existing orphan bearers (bearers with zero links)
+        # This can happen from previous failed loads
+        if is_famous_bearers:
+            orphans = _check_orphan_bearers(engine)
+            if orphans:
+                print(
+                    f"\nWARNING: {len(orphans)} orphan bearers found in the database. "
+                    "These bearers have no links to given names and may have been left "
+                    "behind by a previous failed load. Consider deleting them."
+                )
+                for oid, name, wid in orphans[:5]:
+                    print(f"    - ID {oid}: {name} ({wid})")
+                if len(orphans) > 5:
+                    print(f"    ... and {len(orphans) - 5} more")
 
         print("\nLoad Statistics:")
 
