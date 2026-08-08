@@ -1291,4 +1291,129 @@ class BrowseControllerTest {
                 .isEmpty();
     }
 
+    /**
+     * Test that the browse toggle-shortlist endpoint adds a name to the shortlist.
+     */
+    @Test
+    @WithMockUser
+    void toggleShortlistAddsName() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("ToggleAddTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Verify name is not in shortlist initially by checking GET /shortlist
+        String initialHtml = mockMvc.perform(get("/shortlist"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(initialHtml).doesNotContain(testName.getName());
+
+        // Act: toggle the name to add it to shortlist
+        mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("data-given-name-id=\"" + testName.getId() + "\"")))
+                .andExpect(content().string(containsString("hx-post=\"/browse/toggle-shortlist/")));
+
+        // Verify the name is now in the shortlist
+        mockMvc.perform(get("/shortlist"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(testName.getName())));
+    }
+
+    /**
+     * Test that the browse toggle-shortlist endpoint removes a name from the shortlist.
+     */
+    @Test
+    @WithMockUser
+    void toggleShortlistRemovesName() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("ToggleRemoveTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // First add the name to shortlist using the existing endpoint
+        mockMvc.perform(post("/shortlist/add/" + testName.getId()).with(csrf()))
+                .andExpect(status().isOk());
+
+        // Verify it's in the shortlist
+        mockMvc.perform(get("/shortlist"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(testName.getName())));
+
+        // Act: toggle the name to remove it from shortlist
+        mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("data-given-name-id=\"" + testName.getId() + "\"")));
+
+        // Verify the name is now removed from the shortlist
+        String finalHtml = mockMvc.perform(get("/shortlist"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(finalHtml).doesNotContain(testName.getName());
+    }
+
+    /**
+     * Test that the toggle-shortlist endpoint returns a heart-button fragment
+     * containing the correct icon based on isInShortlist status.
+     */
+    @Test
+    @WithMockUser
+    void toggleShortlistReturnsCorrectIcon() throws Exception {
+        // Setup: create a name with stats
+        GivenName testName = new GivenName();
+        testName.setName("ToggleIconTest" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // When not in shortlist, should show outline heart (fa-regular)
+        mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("fa-regular fa-heart")));
+
+        // Add the name to shortlist using the existing endpoint
+        mockMvc.perform(post("/shortlist/add/" + testName.getId()).with(csrf()))
+                .andExpect(status().isOk());
+
+        // When in shortlist, should show solid heart (fa-solid)
+        mockMvc.perform(post("/browse/toggle-shortlist/{id}", testName.getId()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("fa-solid fa-heart")));
+    }
+
 }

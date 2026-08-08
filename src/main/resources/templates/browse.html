@@ -545,7 +545,7 @@
                 hx-target="this"
                 hx-swap="outerHTML"
                 th:classappend="${isInShortlist} ? 'text-red-600' : 'text-gray-700'"
-                th:title="${isInShortlist ? #{candidate.shortlist.remove} : #{candidate.shortlist.add}}">
+                th:title="${isInShortlist} ? #{candidate.shortlist.remove} : #{candidate.shortlist.add}">
             <i class="fa-solid fa-heart" th:if="${isInShortlist}"></i>
             <i class="fa-regular fa-heart" th:unless="${isInShortlist}"></i>
         </button>
