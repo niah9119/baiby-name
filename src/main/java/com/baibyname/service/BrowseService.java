@@ -118,27 +118,32 @@ public class BrowseService {
             // No countries selected: apply sex filter globally (all countries)
             if (state.getSexes().isEmpty()) {
                 // No sex filter: return all names
-                result = givenNameRepository.findAll(pageable);
+                if (!state.getSubcategories().isEmpty()) {
+                    // Subcategory filter needs to be applied
+                    result = getNamesWithSubcategoryGlobal(state.getSubcategories(), pageable);
+                } else {
+                    result = givenNameRepository.findAll(pageable);
+                }
             } else {
                 // Apply sex filter: for each selected sex, find names where that sex has >= 10% share
                 // Use UNION of results for multiple selected sexes
-                result = getNamesWithSexShareGlobal(state.getSexes(), pageable);
+                result = getNamesWithSexShareGlobal(state.getSexes(), pageable, state.getSubcategories());
             }
         } else {
             // Countries selected: apply sex filter per country (intersection semantics)
             if (state.getSexes().isEmpty()) {
                 // No sex filter: find names known in all selected countries
-                result = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+                if (!state.getSubcategories().isEmpty()) {
+                    // Subcategory filter needs to be applied
+                    result = getNamesWithSubcategoryInCountries(countries, state.getSubcategories(), pageable);
+                } else {
+                    result = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+                }
             } else {
                 // Apply sex filter: names must have the selected sex with >= 10% share in all countries
                 // Use UNION of results for multiple selected sexes
-                result = getNamesWithSexShareInCountries(countries, state.getSexes(), pageable);
+                result = getNamesWithSexShareInCountries(countries, state.getSexes(), pageable, state.getSubcategories());
             }
-        }
-
-        // Apply subcategory filter in memory
-        if (!state.getSubcategories().isEmpty()) {
-            result = applySubcategoryFilter(result, state.getSubcategories());
         }
 
         // Eagerly initialize nameStats for template rendering
@@ -152,59 +157,60 @@ public class BrowseService {
             content.forEach(gn -> gn.setNameStats(statsByGivenName.getOrDefault(gn.getId(), java.util.Set.of())));
         }
 
-        // Apply popularity filter in memory (for simplicity with pagination)
-        // IMPORTANT: We need to compute the true total before filtering, then use it for pagination
+        // Apply popularity filter - push into query for correctness
         String popularityFilter = state.getPopularityFilter();
         if ("common_lately".equals(popularityFilter)) {
-            int currentYear = Year.now().getValue();
-            long totalCount = givenNameService.countCommonLatelyInAllCountries(countries, currentYear);
-            List<GivenName> commonNames = givenNameService.findCommonLatelyInAllCountries(countries, currentYear);
-            Set<Long> commonIds = commonNames.stream().map(GivenName::getId).collect(java.util.stream.Collectors.toSet());
-            List<GivenName> filteredContent = result.getContent().stream()
-                    .filter(gn -> commonIds.contains(gn.getId()))
-                    .toList();
-            result = new PageImpl<>(filteredContent, pageable, totalCount);
+            result = applyPopularityFilter(result, countries, true);
         } else if ("uncommon_lately".equals(popularityFilter)) {
-            int currentYear = Year.now().getValue();
-            // Count uncommon lately names
-            long totalCount = givenNameService.countByNameKnownInAllCountries(countries) - givenNameService.countCommonLatelyInAllCountries(countries, currentYear);
-            List<GivenName> uncommonNames = givenNameService.findUncommonLatelyInCountries(countries, currentYear);
-            Set<Long> uncommonIds = uncommonNames.stream().map(GivenName::getId).collect(java.util.stream.Collectors.toSet());
-            List<GivenName> filteredContent = result.getContent().stream()
-                    .filter(gn -> uncommonIds.contains(gn.getId()))
-                    .toList();
-            result = new PageImpl<>(filteredContent, pageable, totalCount);
+            result = applyPopularityFilter(result, countries, false);
         }
 
         return result;
     }
 
     /**
-     * Apply subcategory filter to a page of names.
-     * Returns only names that have at least one famous bearer in the selected subcategories.
+     * Get names with famous bearers in the given subcategories globally (no sex/country filter).
+     * Used when subcategory filter is applied but no sex or country filter.
      *
-     * @param page the page of names to filter
-     * @param subcategories set of selected subcategories
-     * @return filtered page of names
+     * @param subcategories set of subcategories to match
+     * @param pageable pagination parameters
+     * @return page of names that have a famous bearer in one of the subcategories
      */
-    private Page<GivenName> applySubcategoryFilter(
-            Page<GivenName> page, Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories) {
-        if (page.isEmpty()) {
-            return page;
-        }
+    private Page<GivenName> getNamesWithSubcategoryGlobal(
+            Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable) {
+        // The database applies the predicate and the pagination together, so the page and
+        // the total describe the same set by construction. The previous version fetched
+        // every row in given_name (120,909) and filtered in memory, which also touched a
+        // lazy collection outside a session -- see #151.
+        return givenNameRepository.findByFamousBearerSubcategories(subcategories, pageable);
+    }
 
-        // Get the true total count before filtering
-        long totalCount = givenNameRepository.countByFamousBearerSubcategories(subcategories);
+    /**
+     * Get names with famous bearers in the given subcategories AND matching the sex share threshold
+     * in all given countries (no sex filter).
+     * Used when subcategory filter is applied but no sex filter.
+     *
+     * @param countries list of countries
+     * @param subcategories set of subcategories to match
+     * @param pageable pagination parameters
+     * @return page of names that have a famous bearer in one of the subcategories
+     *         and are known in all specified countries
+     */
+    private Page<GivenName> getNamesWithSubcategoryInCountries(
+            List<Country> countries,
+            Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable) {
+        // First get names known in all countries
+        Page<GivenName> baseNames = givenNameService.findByNameKnownInAllCountries(countries, pageable);
+        long totalCount = givenNameService.countByNameKnownInAllCountries(countries);
 
-        List<GivenName> content = page.getContent();
+        // Filter in memory for subcategory
+        List<GivenName> content = baseNames.getContent();
         List<Long> ids = content.stream().map(GivenName::getId).toList();
 
-        // Get all famous bearers for these names
         List<com.baibyname.domain.FamousBearer> bearers = givenNameRepository.findFamousBearersByGivenNameIds(ids);
 
-        // Group bearers by given name ID
-        // Note: each FamousBearer can be linked to multiple GivenNames (e.g., Leo links to both "Leo" and "Lionel")
-        // We need to create a mapping from each GivenName ID to the set of subcategories of its bearers
         java.util.Map<Long, Set<com.baibyname.domain.FamousBearer.Subcategory>> subcategoriesByGivenName = new java.util.HashMap<>();
         for (com.baibyname.domain.FamousBearer bearer : bearers) {
             com.baibyname.domain.FamousBearer.Subcategory subcategory = bearer.getSubcategory();
@@ -215,20 +221,15 @@ public class BrowseService {
             }
         }
 
-        // Filter content: keep names that have at least one bearer in selected subcategories
         List<GivenName> filteredContent = content.stream()
                 .filter(gn -> {
                     Set<com.baibyname.domain.FamousBearer.Subcategory> bearersSubcategories =
                             subcategoriesByGivenName.get(gn.getId());
-                    if (bearersSubcategories == null) {
-                        return false;
-                    }
-                    // Return true if there's any intersection between bearer subcategories and selected
-                    return bearersSubcategories.stream().anyMatch(subcategories::contains);
+                    return bearersSubcategories != null && bearersSubcategories.stream().anyMatch(subcategories::contains);
                 })
                 .toList();
 
-        return new PageImpl<>(filteredContent, page.getPageable(), totalCount);
+        return new PageImpl<>(filteredContent, pageable, totalCount);
     }
 
     /**
@@ -237,26 +238,33 @@ public class BrowseService {
      *
      * @param sexes    set of sexes to match
      * @param pageable pagination parameters
+     * @param subcategories optional set of subcategories to filter by (if non-empty, push into query)
      * @return page of names where at least one selected sex has >= 10% share
      */
-    private Page<GivenName> getNamesWithSexShareGlobal(Set<String> sexes, Pageable pageable) {
-        // Get the true total count using a single query with COUNT(DISTINCT gn)
-        // to avoid double-counting names that qualify for multiple sexes (unisex names)
-        long totalElements = givenNameService.countBySexShareGlobally(sexes);
+    private Page<GivenName> getNamesWithSexShareGlobal(Set<String> sexes, Pageable pageable, Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories) {
+        if (subcategories.isEmpty()) {
+            // No subcategory filter: use original logic
+            long totalElements = givenNameService.countBySexShareGlobally(sexes);
 
-        // For the content, we need to fetch all matching names and deduplicate them
-        // Collect results for each sex and merge them (union semantics)
-        java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
+            // For the content, we need to fetch all matching names and deduplicate them
+            // Collect results for each sex and merge them (union semantics)
+            java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
 
-        for (String sex : sexes) {
-            Page<GivenName> sexResult = givenNameService.findBySexShareGlobally(
-                    sex,
-                    pageable);
+            for (String sex : sexes) {
+                Page<GivenName> sexResult = givenNameService.findBySexShareGlobally(
+                        sex,
+                        pageable);
 
-            mergedResult.addAll(sexResult.getContent());
+                mergedResult.addAll(sexResult.getContent());
+            }
+
+            return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, totalElements);
+        } else {
+            // Subcategory filter: use new query that combines all filters
+            long totalElements = givenNameService.countByNameWithSubcategoryAndSexShareGlobally(sexes, subcategories);
+            Page<GivenName> result = givenNameService.findByNameWithSubcategoryAndSexShareGlobally(sexes, subcategories, pageable);
+            return result;
         }
-
-        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, totalElements);
     }
 
     /**
@@ -267,27 +275,70 @@ public class BrowseService {
      * @param countries list of countries
      * @param sexes     set of sexes to match
      * @param pageable  pagination parameters
+     * @param subcategories optional set of subcategories to filter by (if non-empty, push into query)
      * @return page of names where at least one selected sex has >= 10% share in all countries
      */
-    private Page<GivenName> getNamesWithSexShareInCountries(List<Country> countries, Set<String> sexes, Pageable pageable) {
-        // Get the true total count using a single query with COUNT(DISTINCT gn)
-        // to avoid double-counting names that qualify for multiple sexes (unisex names)
-        long totalElements = givenNameService.countBySexShareInAllCountries(countries, sexes);
+    private Page<GivenName> getNamesWithSexShareInCountries(List<Country> countries, Set<String> sexes, Pageable pageable, Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories) {
+        if (subcategories.isEmpty()) {
+            // No subcategory filter: use original logic
+            long totalElements = givenNameService.countBySexShareInAllCountries(countries, sexes);
 
-        // For the content, we need to fetch all matching names and deduplicate them
-        // Collect results for each sex and merge them (union semantics)
-        java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
+            // For the content, we need to fetch all matching names and deduplicate them
+            // Collect results for each sex and merge them (union semantics)
+            java.util.Set<GivenName> mergedResult = new java.util.HashSet<>();
 
-        for (String sex : sexes) {
-            Page<GivenName> sexResult = givenNameService.findBySexShareInAllCountries(
-                    countries,
-                    sex,
-                    pageable);
+            for (String sex : sexes) {
+                Page<GivenName> sexResult = givenNameService.findBySexShareInAllCountries(
+                        countries,
+                        sex,
+                        pageable);
 
-            mergedResult.addAll(sexResult.getContent());
+                mergedResult.addAll(sexResult.getContent());
+            }
+
+            return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, totalElements);
+        } else {
+            // Subcategory filter: use new query that combines all filters
+            long totalElements = givenNameService.countByNameWithSubcategoryAndSexShareInAllCountries(countries, sexes, subcategories);
+            Page<GivenName> result = givenNameService.findByNameWithSubcategoryAndSexShareInAllCountries(countries, sexes, subcategories, pageable);
+            return result;
         }
+    }
 
-        return new PageImpl<>(new java.util.ArrayList<>(mergedResult), pageable, totalElements);
+    /**
+     * Apply popularity filter by pushing it into the query.
+     *
+     * @param page current page of names
+     * @param countries list of countries (for intersection semantics)
+     * @param common true for "common_lately", false for "uncommon_lately"
+     * @return page with popularity filter applied
+     */
+    private Page<GivenName> applyPopularityFilter(Page<GivenName> page, List<Country> countries, boolean common) {
+        int currentYear = Year.now().getValue();
+        int minYear = currentYear - 4;  // last 5 years including current year
+        int countryCount = countries.size();
+
+        if (common) {
+            // For common lately, we need to get names that are both in our current result
+            // AND common lately in all countries
+            long totalCount = givenNameService.countCommonLatelyInAllCountries(countries, currentYear);
+            Set<Long> commonIds = givenNameService.findCommonLatelyInAllCountries(countries, currentYear)
+                    .stream().map(GivenName::getId).collect(java.util.stream.Collectors.toSet());
+            List<GivenName> filteredContent = page.getContent().stream()
+                    .filter(gn -> commonIds.contains(gn.getId()))
+                    .toList();
+            return new PageImpl<>(filteredContent, page.getPageable(), totalCount);
+        } else {
+            // For uncommon lately
+            long totalKnown = givenNameService.countByNameKnownInAllCountries(countries);
+            long totalCount = totalKnown - givenNameService.countCommonLatelyInAllCountries(countries, currentYear);
+            Set<Long> uncommonIds = givenNameService.findUncommonLatelyInCountries(countries, currentYear)
+                    .stream().map(GivenName::getId).collect(java.util.stream.Collectors.toSet());
+            List<GivenName> filteredContent = page.getContent().stream()
+                    .filter(gn -> uncommonIds.contains(gn.getId()))
+                    .toList();
+            return new PageImpl<>(filteredContent, page.getPageable(), totalCount);
+        }
     }
 
     /**
