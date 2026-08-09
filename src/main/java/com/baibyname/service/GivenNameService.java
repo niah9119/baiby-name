@@ -171,6 +171,40 @@ public class GivenNameService {
     }
 
     /**
+     * Count names with famous bearers in the given subcategories AND matching the sex share threshold
+     * globally (across all countries).
+     *
+     * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
+     * @param subcategories set of subcategories to match
+     * @return count of distinct names where at least one selected sex has >= 10% share
+     *         globally AND the name has a famous bearer in one of the subcategories
+     */
+    public long countByNameWithSubcategoryAndSexShareGlobally(
+            java.util.Set<String> sexes,
+            java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories) {
+        return givenNameRepository.countByFamousBearerSubcategoriesAndSexShareGlobally(
+                sexes, BrowseService.SHARE_THRESHOLD, subcategories);
+    }
+
+    /**
+     * Find names with famous bearers in the given subcategories AND matching the sex share threshold
+     * globally (across all countries), with pagination.
+     *
+     * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
+     * @param subcategories set of subcategories to match
+     * @param pageable pagination parameters
+     * @return page of names where at least one selected sex has >= 10% share
+     *         globally AND the name has a famous bearer in one of the subcategories
+     */
+    public Page<GivenName> findByNameWithSubcategoryAndSexShareGlobally(
+            java.util.Set<String> sexes,
+            java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable) {
+        return givenNameRepository.findByNameWithSubcategoryAndSexShareGlobally(
+                sexes, BrowseService.SHARE_THRESHOLD, subcategories, pageable);
+    }
+
+    /**
      * Count names by sex with share threshold filtering in all given countries.
      *
      * @param countries the list of countries to search across
@@ -195,6 +229,44 @@ public class GivenNameService {
     public long countBySexShareInAllCountries(List<Country> countries, java.util.Set<String> sexes) {
         int countryCount = countries.size();
         return givenNameRepository.countBySexShareInAllCountries(countries, sexes, countryCount, BrowseService.SHARE_THRESHOLD);
+    }
+
+    /**
+     * Count names with famous bearers in the given subcategories AND matching the sex share threshold
+     * in all given countries.
+     *
+     * @param countries the list of countries to search across
+     * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
+     * @param subcategories set of subcategories to match
+     * @return count of distinct names where at least one selected sex has >= 10% share
+     *         in all countries AND the name has a famous bearer in one of the subcategories
+     */
+    public long countByNameWithSubcategoryAndSexShareInAllCountries(
+            List<Country> countries, java.util.Set<String> sexes,
+            java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories) {
+        int countryCount = countries.size();
+        return givenNameRepository.countByFamousBearerSubcategoriesAndSexShareInAllCountries(
+                countries, sexes, countryCount, BrowseService.SHARE_THRESHOLD, subcategories);
+    }
+
+    /**
+     * Find names with famous bearers in the given subcategories AND matching the sex share threshold
+     * in all given countries, with pagination.
+     *
+     * @param countries the list of countries to search across
+     * @param sexes collection of sexes to match (e.g., "Boy", "Girl")
+     * @param subcategories set of subcategories to match
+     * @param pageable pagination parameters
+     * @return page of names where at least one selected sex has >= 10% share
+     *         in all countries AND the name has a famous bearer in one of the subcategories
+     */
+    public Page<GivenName> findByNameWithSubcategoryAndSexShareInAllCountries(
+            List<Country> countries, java.util.Set<String> sexes,
+            java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable) {
+        int countryCount = countries.size();
+        return givenNameRepository.findByNameWithSubcategoryAndSexShareInAllCountries(
+                countries, sexes, countryCount, BrowseService.SHARE_THRESHOLD, subcategories, pageable);
     }
 
     /**
