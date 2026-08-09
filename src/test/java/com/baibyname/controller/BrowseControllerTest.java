@@ -1433,4 +1433,220 @@ class BrowseControllerTest {
         assertThat(shortlistHtmlAfter).doesNotContain("DoubleClickTest");
     }
 
+    /**
+     * Test that the sex filter POST response contains both sex buttons with the
+     * selected button having the active (blue) class.
+     * This is a regression test for the bug where filter buttons disappeared
+     * after POST because sexes attribute was not populated in the model.
+     */
+    @Test
+    void sexFilterResponseContainsBothButtons() throws Exception {
+        // Setup: create a girl name with stats
+        GivenName girlName = new GivenName();
+        girlName.setName("SexButtonTest" + System.nanoTime());
+        girlName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(girlName);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(girlName);
+        stat.setCountry(sweden);
+        stat.setSex("Girl");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply sex filter for "Girl"
+        mockMvc.perform(post("/browse/filter/sex/Girl").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                // Both buttons should be present in the response
+                .andExpect(content().string(containsString("Boy")))
+                .andExpect(content().string(containsString("Girl")))
+                // Girl button should have the active blue class
+                .andExpect(content().string(containsString("bg-blue-600")))
+                // Boy button should have the inactive gray class
+                .andExpect(content().string(containsString("bg-gray-100")));
+    }
+
+    /**
+     * Test that the country filter POST response contains the country buttons.
+     * This is a regression test for the bug where filter buttons disappeared
+     * after POST because countries attribute was not populated in the model.
+     */
+    @Test
+    void countryFilterResponseContainsCountryButtons() throws Exception {
+        // Setup: create a name with stats in both countries
+        GivenName name = new GivenName();
+        name.setName("CountryButtonTest" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(name);
+        stat1.setCountry(sweden);
+        stat1.setSex("Boy");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        NameStat stat2 = new NameStat();
+        stat2.setGivenName(name);
+        stat2.setCountry(norway);
+        stat2.setSex("Boy");
+        stat2.setYear(2023);
+        stat2.setCount(50);
+        stat2.setRank(30);
+        stat2.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat2);
+
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply country filter for Sweden
+        mockMvc.perform(post("/browse/filter/country/SE").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                // Sweden button should be present in the response
+                .andExpect(content().string(containsString(sweden.getName())))
+                // Norway button should be present in the response
+                .andExpect(content().string(containsString(norway.getName())));
+    }
+
+    /**
+     * Test that the subcategory filter POST response contains the subcategory buttons.
+     * This is a regression test for the bug where filter buttons disappeared
+     * after POST because subcategories attribute was not populated in the model.
+     */
+    @Test
+    void subcategoryFilterResponseContainsSubcategoryButtons() throws Exception {
+        // Setup: create a name with stats
+        GivenName name = new GivenName();
+        name.setName("SubcategoryButtonTest" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(name);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply subcategory filter for ROYALTY
+        mockMvc.perform(post("/browse/filter/subcategory/ROYALTY").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                // All subcategory buttons should be present in the response
+                .andExpect(content().string(containsString("Royalty")))
+                .andExpect(content().string(containsString("Movie star")))
+                .andExpect(content().string(containsString("Sports star")));
+    }
+
+    /**
+     * Test that the filter response and a fresh GET /browse render the same set
+     * of filter buttons. This is the contract that ensures consistency.
+     */
+    @Test
+    void filterResponseAndFreshGetHaveSameButtons() throws Exception {
+        // Setup: create names with stats
+        GivenName name = new GivenName();
+        name.setName("ConsistencyTest" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(name);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply a filter
+        mockMvc.perform(post("/browse/filter/sex/Boy").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // Get the filter response
+        String filterResponse = mockMvc.perform(post("/browse/filter/country/SE").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Get a fresh page with same filter state
+        String freshGet = mockMvc.perform(get("/browse").session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Both should contain the same filter buttons
+        assertThat(filterResponse).contains("Boy");
+        assertThat(filterResponse).contains("Girl");
+        assertThat(filterResponse).contains(sweden.getName());
+        assertThat(filterResponse).contains(norway.getName());
+        assertThat(filterResponse).contains("Royalty");
+        assertThat(filterResponse).contains("Movie star");
+        assertThat(filterResponse).contains("Sports star");
+
+        assertThat(freshGet).contains("Boy");
+        assertThat(freshGet).contains("Girl");
+        assertThat(freshGet).contains(sweden.getName());
+        assertThat(freshGet).contains(norway.getName());
+        assertThat(freshGet).contains("Royalty");
+        assertThat(freshGet).contains("Movie star");
+        assertThat(freshGet).contains("Sports star");
+    }
+
+    /**
+     * Test that clearing filters still shows all filter buttons.
+     */
+    @Test
+    void clearFiltersShowsAllButtons() throws Exception {
+        // Setup
+        GivenName name = new GivenName();
+        name.setName("ClearButtonTest" + System.nanoTime());
+        name.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(name);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(name);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(100);
+        stat.setRank(50);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply a filter
+        mockMvc.perform(post("/browse/filter/sex/Girl").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // Clear filters
+        mockMvc.perform(post("/browse/filter/clear").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                // All buttons should be present after clearing
+                .andExpect(content().string(containsString("Boy")))
+                .andExpect(content().string(containsString("Girl")))
+                .andExpect(content().string(containsString(sweden.getName())))
+                .andExpect(content().string(containsString(norway.getName())))
+                .andExpect(content().string(containsString("Royalty")))
+                .andExpect(content().string(containsString("Movie star")))
+                .andExpect(content().string(containsString("Sports star")));
+    }
+
 }

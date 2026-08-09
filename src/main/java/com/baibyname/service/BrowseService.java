@@ -315,11 +315,16 @@ public class BrowseService {
     /**
      * Get the list of sex values used in the system.
      *
+     * <p>This returns the canonical vocabulary (Boy, Girl) rather than distinct
+     * sexes from the database. This ensures filter buttons render correctly
+     * even when the database only contains one sex value.</p>
+     *
      * @return list of sex values (e.g., "Boy", "Girl")
      */
     @Transactional(readOnly = true)
     public List<String> getSexes() {
-        return givenNameRepository.findDistinctSexes();
+        // Return the canonical vocabulary for sex filter buttons
+        return List.of("Boy", "Girl");
     }
 
     private List<Country> resolveCountries(Set<String> countryCodes) {
