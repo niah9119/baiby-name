@@ -101,6 +101,41 @@ public class BrowseService {
     }
 
     /**
+     * Compute which subcategories match for each name, given the current filter state.
+     * Used to show users why a name appeared in their filtered results.
+     *
+     * @param names the names to check
+     * @return map from name ID to set of matching subcategories
+     */
+    private java.util.Map<Long, Set<com.baibyname.domain.FamousBearer.Subcategory>> computeMatchingSubcategories(
+            List<GivenName> names) {
+        FilterState state = filterStateService.getState();
+
+        // If no subcategory filter is active, return empty map
+        if (state.getSubcategories().isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+
+        List<Long> ids = names.stream().map(GivenName::getId).toList();
+        List<com.baibyname.domain.FamousBearer> bearers = givenNameRepository.findFamousBearersByGivenNameIds(ids);
+
+        java.util.Map<Long, Set<com.baibyname.domain.FamousBearer.Subcategory>> subcategoriesByGivenName = new java.util.HashMap<>();
+        for (com.baibyname.domain.FamousBearer bearer : bearers) {
+            com.baibyname.domain.FamousBearer.Subcategory subcategory = bearer.getSubcategory();
+            // Only count this subcategory if it's in the active filter
+            if (state.getSubcategories().contains(subcategory)) {
+                for (com.baibyname.domain.GivenName givenName : bearer.getGivenNames()) {
+                    subcategoriesByGivenName
+                            .computeIfAbsent(givenName.getId(), k -> new java.util.HashSet<>())
+                            .add(subcategory);
+                }
+            }
+        }
+
+        return subcategoriesByGivenName;
+    }
+
+    /**
      * Get the candidate list based on current filter state.
      *
      * @param pageable pagination parameters
@@ -451,19 +486,42 @@ public class BrowseService {
             List<RankerService.RankedName> cached = rankedCandidatesService.getRankedCandidates();
             int fromIndex = (int) pageable.getOffset();
             int toIndex = Math.min(fromIndex + pageable.getPageSize(), cached.size());
-            List<CandidateWithMembership> paginated = cached.subList(fromIndex, toIndex).stream()
-                    .map(name -> CandidateWithMembership.from(name, shortlistNameIds.contains(name.id())))
+            List<RankerService.RankedName> paginatedCached = cached.subList(fromIndex, toIndex);
+
+            // Compute matching subcategories for names in this page
+            List<GivenName> pageNames = paginatedCached.stream()
+                    .map(RankerService.RankedName::originalName)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
+            java.util.Map<Long, Set<com.baibyname.domain.FamousBearer.Subcategory>> matchingSubcategories =
+                    computeMatchingSubcategories(pageNames);
+
+            List<CandidateWithMembership> paginated = paginatedCached.stream()
+                    .map(name -> {
+                        boolean inShortlist = shortlistNameIds.contains(name.id());
+                        Set<com.baibyname.domain.FamousBearer.Subcategory> subcats = matchingSubcategories.getOrDefault(
+                                name.originalName() != null ? name.originalName().getId() : -1L, Set.of());
+                        return CandidateWithMembership.from(name, inShortlist, subcats);
+                    })
                     .collect(Collectors.toList());
             return new PageImpl<>(paginated, pageable, cached.size());
         }
 
         // No valid cache - return plain candidates with membership status
         Page<GivenName> candidates = getCandidates(pageable);
-        List<CandidateWithMembership> withMembership = candidates.getContent().stream()
+
+        // Compute matching subcategories for all names in this page
+        List<GivenName> pageNames = candidates.getContent();
+        java.util.Map<Long, Set<com.baibyname.domain.FamousBearer.Subcategory>> matchingSubcategories =
+                computeMatchingSubcategories(pageNames);
+
+        List<CandidateWithMembership> withMembership = pageNames.stream()
                 .map(name -> {
                     RankerService.RankedName rankedName = new RankerService.RankedName(
                             name.getName(), "", name);
-                    return CandidateWithMembership.from(rankedName, shortlistNameIds.contains(name.getId()));
+                    Set<com.baibyname.domain.FamousBearer.Subcategory> subcats = matchingSubcategories.getOrDefault(name.getId(), Set.of());
+                    return CandidateWithMembership.from(rankedName, shortlistNameIds.contains(name.getId()), subcats);
                 })
                 .collect(Collectors.toList());
         return new PageImpl<>(withMembership, pageable, candidates.getTotalElements());

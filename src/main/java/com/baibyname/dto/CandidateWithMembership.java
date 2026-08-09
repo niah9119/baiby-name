@@ -1,5 +1,6 @@
 package com.baibyname.dto;
 
+import com.baibyname.domain.FamousBearer;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
 import com.baibyname.service.RankerService;
@@ -15,7 +16,8 @@ public record CandidateWithMembership(
         String name,
         String explanation,
         GivenName originalName,
-        boolean isInShortlist
+        boolean isInShortlist,
+        Set<FamousBearer.Subcategory> matchingSubcategories
 ) {
 
     /**
@@ -54,7 +56,26 @@ public record CandidateWithMembership(
                 rankedName.name(),
                 rankedName.explanation(),
                 rankedName.originalName(),
-                isInShortlist
+                isInShortlist,
+                Set.of()
+        );
+    }
+
+    /**
+     * Create a CandidateWithMembership from a RankedName with matching subcategories.
+     *
+     * @param rankedName the ranked name from the ranker service
+     * @param isInShortlist whether the name is in the current user's shortlist
+     * @param matchingSubcategories subcategories that caused this name to match the filter
+     * @return a CandidateWithMembership with the membership status and matching subcategories
+     */
+    public static CandidateWithMembership from(RankerService.RankedName rankedName, boolean isInShortlist, Set<FamousBearer.Subcategory> matchingSubcategories) {
+        return new CandidateWithMembership(
+                rankedName.name(),
+                rankedName.explanation(),
+                rankedName.originalName(),
+                isInShortlist,
+                matchingSubcategories
         );
     }
 }

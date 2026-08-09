@@ -1772,4 +1772,121 @@ class BrowseControllerTest {
         return Integer.parseInt(m.group(1).replace(",", ""));
     }
 
+    /**
+     * Tests that when a name has bearers in multiple subcategories, the browse card
+     * shows which subcategory(s) caused it to match the current filter.
+     * This addresses issue #155 where filtering by SPORTS_STAR showed "Robin" but
+     * didn't indicate which bearer matched (Robin Williams is MOVIE_STAR, but
+     * Robin Söderling and Robin Olsen are SPORTS_STAR).
+     */
+    @Test
+    void matchingSubcategoryBadgeShowsOnBrowseCard() throws Exception {
+        // Setup: Create a name "Robin" with bearers in both MOVIE_STAR and SPORTS_STAR
+        GivenName robinName = new GivenName();
+        robinName.setName("Robin" + System.nanoTime());
+        robinName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(robinName);
+
+        // Create a MOVIE_STAR bearer (Robin Williams)
+        FamousBearer movieBearer = new FamousBearer();
+        movieBearer.setPublicName("Robin Williams");
+        movieBearer.setSubcategory(FamousBearer.Subcategory.MOVIE_STAR);
+        movieBearer.setCreatedAt(OffsetDateTime.now());
+        bearerRepository.save(movieBearer);
+
+        // Link Robin to the movie bearer
+        NameFamousBearer robinMovieLink = new NameFamousBearer();
+        robinMovieLink.setGivenName(robinName);
+        robinMovieLink.setFamousBearer(movieBearer);
+        nameBearerRepository.save(robinMovieLink);
+
+        // Create a SPORTS_STAR bearer (Robin Söderling)
+        FamousBearer sportsBearer = new FamousBearer();
+        sportsBearer.setPublicName("Robin Söderling");
+        sportsBearer.setSubcategory(FamousBearer.Subcategory.SPORTS_STAR);
+        sportsBearer.setCreatedAt(OffsetDateTime.now());
+        bearerRepository.save(sportsBearer);
+
+        // Link Robin to the sports bearer
+        NameFamousBearer robinSportsLink = new NameFamousBearer();
+        robinSportsLink.setGivenName(robinName);
+        robinSportsLink.setFamousBearer(sportsBearer);
+        nameBearerRepository.save(robinSportsLink);
+
+        // Add stats for Robin in Sweden
+        NameStat stat = new NameStat();
+        stat.setGivenName(robinName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(50);
+        stat.setRank(100);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Use a shared session for filter state
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply SPORTS_STAR filter
+        String response = mockMvc.perform(post("/browse/filter/subcategory/SPORTS_STAR").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                // Robin should appear in results
+                .andExpect(content().string(containsString("Robin")))
+                // The matching subcategory badge should be visible
+                .andExpect(content().string(containsString("Sports star")))
+                .andReturn().getResponse().getContentAsString();
+
+        // Verify the badge with the matching subcategory is present
+        assertThat(response).contains("bg-indigo-100");
+        assertThat(response).contains("Sports star");
+    }
+
+    /**
+     * Tests that the matching subcategory badge is shown when no subcategory filter is active
+     * but the name has a bearer (just not filtered by subcategory).
+     * The badge only shows when a subcategory filter is active.
+     */
+    @Test
+    void noMatchingSubcategoryBadgeWithoutSubcategoryFilter() throws Exception {
+        // Setup: Create a name with a movie star bearer
+        GivenName testName = new GivenName();
+        testName.setName("TestName" + System.nanoTime());
+        testName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(testName);
+
+        FamousBearer bearer = new FamousBearer();
+        bearer.setPublicName("Test Actor");
+        bearer.setSubcategory(FamousBearer.Subcategory.MOVIE_STAR);
+        bearer.setCreatedAt(OffsetDateTime.now());
+        bearerRepository.save(bearer);
+
+        NameFamousBearer link = new NameFamousBearer();
+        link.setGivenName(testName);
+        link.setFamousBearer(bearer);
+        nameBearerRepository.save(link);
+
+        NameStat stat = new NameStat();
+        stat.setGivenName(testName);
+        stat.setCountry(sweden);
+        stat.setSex("Boy");
+        stat.setYear(2023);
+        stat.setCount(50);
+        stat.setRank(100);
+        stat.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat);
+
+        // Apply country filter (not subcategory)
+        MockHttpSession session = new MockHttpSession();
+        String response = mockMvc.perform(post("/browse/filter/country/SE").with(csrf()).session(session))
+                .andExpect(status().isOk())
+                // TestName should appear
+                .andExpect(content().string(containsString("TestName")))
+                // The movie star bearer text appears (from the name page, not here)
+                .andReturn().getResponse().getContentAsString();
+
+        // With no subcategory filter, matchingSubcategories should be empty
+        // So the badge should NOT be present
+        assertThat(response).doesNotContain("bg-indigo-100");
+    }
+
 }

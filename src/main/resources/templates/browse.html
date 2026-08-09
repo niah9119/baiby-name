@@ -278,6 +278,15 @@
                                         </span>
                                     </div>
                                 </div>
+                                <!-- Show which subcategory(s) caused this name to match -->
+                                <div class="mt-2" th:if="${not #sets.isEmpty(candidate.matchingSubcategories)}">
+                                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                                        <i class="fa-solid fa-check-circle mr-1"></i>
+                                        <span th:text="${#lists.size(candidate.matchingSubcategories) == 1 ? candidate.matchingSubcategories.iterator().next().name().replace('_', ' ') : 'Matching category'}">
+                                            Matching category
+                                        </span>
+                                    </span>
+                                </div>
                             </div>
                             <div class="flex gap-2">
                                 <th:block th:insert="~{:: heart-button(${candidate.id}, ${candidate.isInShortlist()})}" />
