@@ -1,10 +1,14 @@
 package com.baibyname.controller;
 
 import com.baibyname.domain.Country;
+import com.baibyname.domain.FamousBearer;
 import com.baibyname.domain.GivenName;
+import com.baibyname.domain.NameFamousBearer;
 import com.baibyname.domain.NameStat;
 import com.baibyname.repository.CountryRepository;
+import com.baibyname.repository.FamousBearerRepository;
 import com.baibyname.repository.GivenNameRepository;
+import com.baibyname.repository.NameFamousBearerRepository;
 import com.baibyname.repository.NameStatRepository;
 import com.baibyname.service.FilterStateService;
 import com.baibyname.service.RankerService;
@@ -89,6 +93,12 @@ class BrowseControllerTest {
 
     @Autowired
     private NameStatRepository nameStatRepository;
+
+    @Autowired
+    private FamousBearerRepository bearerRepository;
+
+    @Autowired
+    private NameFamousBearerRepository nameBearerRepository;
 
     @Autowired
     private FilterStateService filterStateService;
