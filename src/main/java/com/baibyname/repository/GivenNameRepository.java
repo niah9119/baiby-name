@@ -460,6 +460,175 @@ public interface GivenNameRepository extends JpaRepository<GivenName, Long> {
             @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories);
 
     /**
+     * Page of names with a famous bearer in the given subcategories.
+     *
+     * <p>The predicate here must stay identical to {@link #countByFamousBearerSubcategories},
+     * so the reported total and the returned page describe the same set. Filtering this in
+     * memory instead is what produced #151, where the page said "216 found" and listed none.
+     */
+    @Query("""
+        SELECT DISTINCT gn FROM GivenName gn
+        JOIN gn.famousBearers nfb
+        JOIN nfb.famousBearer fb
+        WHERE fb.subcategory IN :subcategories
+        ORDER BY gn.name ASC
+        """)
+    Page<GivenName> findByFamousBearerSubcategories(
+            @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable);
+
+    /**
+     * Count names with famous bearers in the given subcategories AND matching the sex share threshold
+     * in all given countries.
+     * Used for pagination to get the true total before filtering.
+     *
+     * @param countries list of countries to filter by (must not be empty)
+     * @param sexes set of sexes to match (e.g., "Boy", "Girl")
+     * @param countryCount number of countries (for HAVING clause)
+     * @param subcategories set of subcategories to match
+     * @return count of distinct names where at least one selected sex has >= threshold% share
+     *         in all countries AND the name has a famous bearer in one of the subcategories
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT gn) FROM GivenName gn
+        WHERE EXISTS (
+            SELECT 1 FROM NameStat ns
+            WHERE ns.givenName.id = gn.id
+            AND ns.country IN :countries
+            AND ns.sex IN :sexes
+            GROUP BY ns.givenName.id, ns.sex
+            HAVING SUM(ns.count) * 100.0 / (
+                SELECT SUM(ns2.count) FROM NameStat ns2
+                WHERE ns2.givenName.id = gn.id
+                AND ns2.country IN :countries
+            ) >= :threshold
+        )
+        AND EXISTS (
+            SELECT 1 FROM gn.famousBearers nfb
+            JOIN nfb.famousBearer fb
+            WHERE fb.subcategory IN :subcategories
+        )
+        """)
+    long countByFamousBearerSubcategoriesAndSexShareInAllCountries(
+            @Param("countries") List<Country> countries,
+            @Param("sexes") java.util.Set<String> sexes,
+            @Param("countryCount") int countryCount,
+            @Param("threshold") double threshold,
+            @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories);
+
+    /**
+     * Find names with famous bearers in the given subcategories AND matching the sex share threshold
+     * in all given countries, with pagination.
+     *
+     * @param countries list of countries to filter by (must not be empty)
+     * @param sexes set of sexes to match (e.g., "Boy", "Girl")
+     * @param countryCount number of countries (for HAVING clause)
+     * @param threshold share threshold (0.0 to 100.0)
+     * @param subcategories set of subcategories to match
+     * @param pageable pagination parameters
+     * @return page of names where at least one selected sex has >= threshold% share
+     *         in all countries AND the name has a famous bearer in one of the subcategories
+     */
+    @Query("""
+        SELECT gn FROM GivenName gn
+        WHERE EXISTS (
+            SELECT 1 FROM NameStat ns
+            WHERE ns.givenName.id = gn.id
+            AND ns.country IN :countries
+            AND ns.sex IN :sexes
+            GROUP BY ns.givenName.id, ns.sex
+            HAVING SUM(ns.count) * 100.0 / (
+                SELECT SUM(ns2.count) FROM NameStat ns2
+                WHERE ns2.givenName.id = gn.id
+                AND ns2.country IN :countries
+            ) >= :threshold
+        )
+        AND EXISTS (
+            SELECT 1 FROM gn.famousBearers nfb
+            JOIN nfb.famousBearer fb
+            WHERE fb.subcategory IN :subcategories
+        )
+        ORDER BY gn.name ASC
+        """)
+    Page<GivenName> findByNameWithSubcategoryAndSexShareInAllCountries(
+            @Param("countries") List<Country> countries,
+            @Param("sexes") java.util.Set<String> sexes,
+            @Param("countryCount") int countryCount,
+            @Param("threshold") double threshold,
+            @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable);
+
+    /**
+     * Count names with famous bearers in the given subcategories AND matching the sex share threshold
+     * globally (across all countries).
+     * Used for pagination to get the true total before filtering.
+     *
+     * @param sexes set of sexes to match (e.g., "Boy", "Girl")
+     * @param threshold share threshold (0.0 to 100.0)
+     * @param subcategories set of subcategories to match
+     * @return count of distinct names where at least one selected sex has >= threshold% share
+     *         globally AND the name has a famous bearer in one of the subcategories
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT gn) FROM GivenName gn
+        WHERE EXISTS (
+            SELECT 1 FROM NameStat ns
+            WHERE ns.givenName.id = gn.id
+            AND ns.sex IN :sexes
+            GROUP BY ns.givenName.id, ns.sex
+            HAVING SUM(ns.count) * 100.0 / (
+                SELECT SUM(ns2.count) FROM NameStat ns2
+                WHERE ns2.givenName.id = gn.id
+            ) >= :threshold
+        )
+        AND EXISTS (
+            SELECT 1 FROM gn.famousBearers nfb
+            JOIN nfb.famousBearer fb
+            WHERE fb.subcategory IN :subcategories
+        )
+        """)
+    long countByFamousBearerSubcategoriesAndSexShareGlobally(
+            @Param("sexes") java.util.Set<String> sexes,
+            @Param("threshold") double threshold,
+            @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories);
+
+    /**
+     * Find names with famous bearers in the given subcategories AND matching the sex share threshold
+     * globally (across all countries), with pagination.
+     *
+     * @param sexes set of sexes to match (e.g., "Boy", "Girl")
+     * @param threshold share threshold (0.0 to 100.0)
+     * @param subcategories set of subcategories to match
+     * @param pageable pagination parameters
+     * @return page of names where at least one selected sex has >= threshold% share
+     *         globally AND the name has a famous bearer in one of the subcategories
+     */
+    @Query("""
+        SELECT gn FROM GivenName gn
+        WHERE EXISTS (
+            SELECT 1 FROM NameStat ns
+            WHERE ns.givenName.id = gn.id
+            AND ns.sex IN :sexes
+            GROUP BY ns.givenName.id, ns.sex
+            HAVING SUM(ns.count) * 100.0 / (
+                SELECT SUM(ns2.count) FROM NameStat ns2
+                WHERE ns2.givenName.id = gn.id
+            ) >= :threshold
+        )
+        AND EXISTS (
+            SELECT 1 FROM gn.famousBearers nfb
+            JOIN nfb.famousBearer fb
+            WHERE fb.subcategory IN :subcategories
+        )
+        ORDER BY gn.name ASC
+        """)
+    Page<GivenName> findByNameWithSubcategoryAndSexShareGlobally(
+            @Param("sexes") java.util.Set<String> sexes,
+            @Param("threshold") double threshold,
+            @Param("subcategories") java.util.Set<com.baibyname.domain.FamousBearer.Subcategory> subcategories,
+            Pageable pageable);
+
+    /**
      * Find a chunk of all names for sitemap pagination.
      * Used to split sitemap into multiple files under the 50k URL limit.
      */

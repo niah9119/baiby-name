@@ -1,9 +1,13 @@
 package com.baibyname.controller;
 
 import com.baibyname.domain.Country;
+import com.baibyname.domain.FamousBearer;
+import com.baibyname.domain.NameFamousBearer;
 import com.baibyname.domain.GivenName;
 import com.baibyname.domain.NameStat;
 import com.baibyname.repository.CountryRepository;
+import com.baibyname.repository.FamousBearerRepository;
+import com.baibyname.repository.NameFamousBearerRepository;
 import com.baibyname.repository.GivenNameRepository;
 import com.baibyname.repository.NameStatRepository;
 import com.baibyname.service.FilterStateService;
@@ -95,6 +99,12 @@ class BrowseControllerTest {
 
     @MockBean
     private RankerService rankerService;
+
+    @Autowired
+    private FamousBearerRepository bearerRepository;
+
+    @Autowired
+    private NameFamousBearerRepository nameBearerRepository;
 
     private Country sweden;
     private Country norway;
@@ -1647,6 +1657,119 @@ class BrowseControllerTest {
                 .andExpect(content().string(containsString("Royalty")))
                 .andExpect(content().string(containsString("Movie star")))
                 .andExpect(content().string(containsString("Sports star")));
+    }
+
+    /**
+     * Seeds {@code count} names that all carry a bearer in {@code subcategory}, each with a
+     * Boy stat in Sweden. More than one page worth, so a filter applied to the current page
+     * only -- rather than to the query -- leaves page 1 empty.
+     */
+    private String seedNamesWithBearer(FamousBearer.Subcategory subcategory, int count) {
+        String prefix = "Seeded" + subcategory + System.nanoTime();
+
+        FamousBearer bearer = new FamousBearer();
+        bearer.setPublicName(prefix + "Bearer");
+        bearer.setSubcategory(subcategory);
+        bearer.setCreatedAt(OffsetDateTime.now());
+        bearerRepository.save(bearer);
+
+        for (int i = 0; i < count; i++) {
+            GivenName name = new GivenName();
+            name.setName(prefix + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            NameFamousBearer link = new NameFamousBearer();
+            link.setGivenName(name);
+            link.setFamousBearer(bearer);
+            nameBearerRepository.save(link);
+
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+        return prefix;
+    }
+
+    /**
+     * The reported user case: country + sex + subcategory said "216 name(s) found" and listed
+     * nothing, because the count queried one set and the content filtered another.
+     */
+    @Test
+    void countryAndSexAndSubcategoryListsNamesAndCountsTheSameSet() throws Exception {
+        String prefix = seedNamesWithBearer(FamousBearer.Subcategory.MOVIE_STAR, 15);
+        MockHttpSession session = new MockHttpSession();
+
+        mockMvc.perform(post("/browse/filter/country/SE").with(csrf()).session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/browse/filter/sex/Boy").with(csrf()).session(session))
+                .andExpect(status().isOk());
+        String body = mockMvc.perform(post("/browse/filter/subcategory/MOVIE_STAR")
+                        .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains(prefix);
+        assertThat(body).doesNotContain("No names found matching your filters");
+        assertThat(reportedCount(body)).isEqualTo(15);
+    }
+
+    /**
+     * Subcategory with no country or sex. This path previously loaded every row in
+     * given_name and filtered in memory, touching a lazy collection outside a session.
+     */
+    @Test
+    void subcategoryOnlyListsNamesAndCountsTheSameSet() throws Exception {
+        String prefix = seedNamesWithBearer(FamousBearer.Subcategory.ROYALTY, 15);
+        MockHttpSession session = new MockHttpSession();
+
+        String body = mockMvc.perform(post("/browse/filter/subcategory/ROYALTY")
+                        .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains(prefix);
+        assertThat(body).doesNotContain("No names found matching your filters");
+        assertThat(reportedCount(body)).isGreaterThanOrEqualTo(15);
+    }
+
+    /**
+     * The invariant behind #151, asserted directly: a non-zero count must mean page 1 has
+     * something on it. Cheaper than a test per filter and catches the whole class.
+     */
+    @Test
+    void aNonZeroCountAlwaysMeansPageOneHasNames() throws Exception {
+        seedNamesWithBearer(FamousBearer.Subcategory.SPORTS_STAR, 15);
+
+        for (String filter : new String[]{
+                "/browse/filter/subcategory/SPORTS_STAR",
+                "/browse/filter/country/SE",
+                "/browse/filter/sex/Boy"}) {
+            MockHttpSession session = new MockHttpSession();
+            String body = mockMvc.perform(post(filter).with(csrf()).session(session))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+
+            if (reportedCount(body) > 0) {
+                assertThat(body)
+                        .as("%s reported a non-zero count but rendered the empty state", filter)
+                        .doesNotContain("No names found matching your filters");
+            }
+        }
+    }
+
+    /** Reads the "N name(s) found" figure the page shows the user. */
+    private int reportedCount(String html) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("([\\d,]+) name\\(s\\) found").matcher(html);
+        assertThat(m.find()).as("response should report a match count").isTrue();
+        return Integer.parseInt(m.group(1).replace(",", ""));
     }
 
 }
