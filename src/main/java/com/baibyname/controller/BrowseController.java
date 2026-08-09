@@ -67,22 +67,7 @@ public class BrowseController {
     public String browsePage(Model model,
                              @RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "10") int pageSize) {
-        Pageable pageable = PageRequest.of(page, pageSize);
-
-        model.addAttribute("countries", browseService.getAllCountries());
-        model.addAttribute("sexes", browseService.getSexes());
-        // Add subcategories for the filter chips
-        model.addAttribute("subcategories", java.util.Arrays.asList(
-                com.baibyname.domain.FamousBearer.Subcategory.ROYALTY,
-                com.baibyname.domain.FamousBearer.Subcategory.MOVIE_STAR,
-                com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
-        ));
-        model.addAttribute("filterState", filterStateService.getState());
-        // Use candidates with membership status
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("page", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
-
+        populateBrowseModel(model, page, pageSize);
         return "browse";
     }
 
@@ -109,11 +94,7 @@ public class BrowseController {
         filterStateService.toggleSex(sex);
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates with membership status - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -136,11 +117,7 @@ public class BrowseController {
         filterStateService.toggleCountry(countryCode);
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates with membership status - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -165,11 +142,7 @@ public class BrowseController {
         filterStateService.setCelebrityFilter(withCelebrity);
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates with membership status - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -192,11 +165,7 @@ public class BrowseController {
         filterStateService.setPopularityFilter(filterType);
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates with membership status - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -223,11 +192,7 @@ public class BrowseController {
         } catch (IllegalArgumentException e) {
             // Invalid subcategory - ignore
         }
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates with membership status - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -248,11 +213,7 @@ public class BrowseController {
         filterStateService.reset();
         // Clear ranked candidates when filters change
         rankedCandidatesService.clear();
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use plain candidates with membership status - re-ranking only happens on explicit user request
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -268,12 +229,7 @@ public class BrowseController {
     public String changePage(@RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "10") int pageSize,
                              Model model) {
-        Pageable pageable = PageRequest.of(page, pageSize);
-        // Use candidates with membership status (ranked if available and valid, plain otherwise)
-        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("page", browseService.getCandidatesForPageWithMembership(pageable));
-        model.addAttribute("filterState", filterStateService.getState());
-        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        populateBrowseModel(model, page, pageSize);
         return "browse :: browse-content";
     }
 
@@ -327,6 +283,15 @@ public class BrowseController {
         model.addAttribute("filterState", currentState);
         model.addAttribute("hasExplanations", true);
         model.addAttribute("shortlistNameIds", shortlistNameIds);
+        // Also populate filter-related attributes for button rendering
+        model.addAttribute("sexes", browseService.getSexes());
+        model.addAttribute("countries", browseService.getAllCountries());
+        model.addAttribute("subcategories", java.util.Arrays.asList(
+                com.baibyname.domain.FamousBearer.Subcategory.ROYALTY,
+                com.baibyname.domain.FamousBearer.Subcategory.MOVIE_STAR,
+                com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
+        ));
+        model.addAttribute("page", browseService.getCandidatesForPageWithMembership(pageable));
         return "browse :: browse-content";
     }
 
@@ -351,5 +316,30 @@ public class BrowseController {
                 "total", ranked.getTotalElements(),
                 "threshold", threshold
         );
+    }
+
+    /**
+     * Populates the model with common attributes needed for rendering the browse page.
+     * This method ensures that filter buttons render correctly after HTMX partial updates
+     * by providing the same attributes as the initial GET request.
+     *
+     * @param model the model to populate
+     * @param page the page number
+     * @param pageSize the page size
+     */
+    private void populateBrowseModel(Model model, int page, int pageSize) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+        model.addAttribute("candidates", browseService.getCandidatesForPageWithMembership(pageable));
+        model.addAttribute("filterState", filterStateService.getState());
+        model.addAttribute("shortlistNameIds", shortlistService.getShortlistNameIds());
+        // These attributes are needed for filter button rendering
+        model.addAttribute("sexes", browseService.getSexes());
+        model.addAttribute("countries", browseService.getAllCountries());
+        model.addAttribute("subcategories", java.util.Arrays.asList(
+                com.baibyname.domain.FamousBearer.Subcategory.ROYALTY,
+                com.baibyname.domain.FamousBearer.Subcategory.MOVIE_STAR,
+                com.baibyname.domain.FamousBearer.Subcategory.SPORTS_STAR
+        ));
+        model.addAttribute("page", browseService.getCandidatesForPageWithMembership(pageable));
     }
 }
