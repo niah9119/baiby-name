@@ -1433,4 +1433,141 @@ class BrowseControllerTest {
         assertThat(shortlistHtmlAfter).doesNotContain("DoubleClickTest");
     }
 
+    // --- Tests for subcategory filter with all filters (issue #151) ---
+
+    @Test
+    void subcategoryFilterWithCountryAndSex_pushesQueryForCountAndContent() throws Exception {
+        // Setup: Create a movie star bearer with names where one is common and one is not
+        FamousBearer movieBearer = new FamousBearer();
+        movieBearer.setPublicName("MovieStar" + System.nanoTime());
+        movieBearer.setSubcategory(FamousBearer.Subcategory.MOVIE_STAR);
+        movieBearer.setCreatedAt(OffsetDateTime.now());
+        bearerRepository.save(movieBearer);
+
+        // Create a name with subcategory bearer and Boy stats in both countries
+        GivenName movieStarName = new GivenName();
+        movieStarName.setName("MovieStarName" + System.nanoTime());
+        movieStarName.setCreatedAt(OffsetDateTime.now());
+        givenNameRepository.save(movieStarName);
+
+        // Link the movie star to the name
+        NameFamousBearer nameBearer = new NameFamousBearer();
+        nameBearer.setGivenName(movieStarName);
+        nameBearer.setFamousBearer(movieBearer);
+        nameBearerRepository.save(nameBearer);
+
+        // Add stats for Boy in both countries
+        NameStat stat1 = new NameStat();
+        stat1.setGivenName(movieStarName);
+        stat1.setCountry(sweden);
+        stat1.setSex("Boy");
+        stat1.setYear(2023);
+        stat1.setCount(100);
+        stat1.setRank(50);
+        stat1.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat1);
+
+        NameStat stat2 = new NameStat();
+        stat2.setGivenName(movieStarName);
+        stat2.setCountry(norway);
+        stat2.setSex("Boy");
+        stat2.setYear(2023);
+        stat2.setCount(50);
+        stat2.setRank(30);
+        stat2.setCreatedAt(OffsetDateTime.now());
+        nameStatRepository.save(stat2);
+
+        // Use a shared session across requests to persist filter state
+        MockHttpSession session = new MockHttpSession();
+
+        // First apply country filter for Sweden
+        mockMvc.perform(post("/browse/filter/country/SE").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // Then apply sex filter for "Boy"
+        mockMvc.perform(post("/browse/filter/sex/Boy").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // Apply subcategory filter for MOVIE_STAR
+        String response = mockMvc.perform(post("/browse/filter/subcategory/MOVIE_STAR")
+                        .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("MovieStarName")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Verify the response contains the candidate list fragment with the name
+        assertThat(response).contains("MovieStarName");
+        assertThat(response).contains("SE");
+        assertThat(response).contains("Boy");
+        assertThat(response).contains("MOVIE_STAR");
+    }
+
+    @Test
+    void subcategoryFilterCountMatchesContent() throws Exception {
+        // Setup: Create names with movie star bearers where not all are on page 1
+        // This tests the bug where count was non-zero but page content was empty
+
+        // Create a movie star bearer
+        FamousBearer movieBearer = new FamousBearer();
+        movieBearer.setPublicName("MovieStar" + System.nanoTime());
+        movieBearer.setSubcategory(FamousBearer.Subcategory.MOVIE_STAR);
+        movieBearer.setCreatedAt(OffsetDateTime.now());
+        bearerRepository.save(movieBearer);
+
+        // Create 15 names with movie star bearers and Boy stats in Sweden
+        // With 10 per page, page 1 should have some, page 2 should have more
+        for (int i = 0; i < 15; i++) {
+            GivenName name = new GivenName();
+            name.setName("MovieStarName" + i);
+            name.setCreatedAt(OffsetDateTime.now());
+            givenNameRepository.save(name);
+
+            // Link the movie star to the name
+            NameFamousBearer nameBearer = new NameFamousBearer();
+            nameBearer.setGivenName(name);
+            nameBearer.setFamousBearer(movieBearer);
+            nameBearerRepository.save(nameBearer);
+
+            // Add stats for Boy in Sweden
+            NameStat stat = new NameStat();
+            stat.setGivenName(name);
+            stat.setCountry(sweden);
+            stat.setSex("Boy");
+            stat.setYear(2023);
+            stat.setCount(100);
+            stat.setRank(50);
+            stat.setCreatedAt(OffsetDateTime.now());
+            nameStatRepository.save(stat);
+        }
+
+        // Use a shared session across requests
+        MockHttpSession session = new MockHttpSession();
+
+        // Apply country filter for Sweden
+        mockMvc.perform(post("/browse/filter/country/SE").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // Apply sex filter for "Boy"
+        mockMvc.perform(post("/browse/filter/sex/Boy").with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // Apply subcategory filter for MOVIE_STAR
+        String response = mockMvc.perform(post("/browse/filter/subcategory/MOVIE_STAR")
+                        .with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Verify the response contains names (not empty)
+        assertThat(response).contains("MovieStarName");
+        // Verify count shows 15 names
+        assertThat(response).contains("15 name(s) found");
+
+        // Verify that page 1 is NOT empty when count > 0
+        assertThat(response).doesNotContain("No names found matching your filters");
+    }
+
 }
